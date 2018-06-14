@@ -14,7 +14,7 @@ class Quaternion():
   
    Normalised unit quaternion: >> q_u = q.unit()
    Conjugate of q:             >> q_c = q.conjugate()
-   Reciprocal of q:            >> q_r = q.recirpocal() 
+   Reciprocal of q:            >> q_r = q.reciprocal() 
 
    Tolerance can be applied to the unit quaternion function to determine the
    unit quaternion to a desired accuracy.
