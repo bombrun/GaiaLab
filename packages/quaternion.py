@@ -1,27 +1,27 @@
 class Quaternion():
-"""
-   Quaternion class implemented to allow manipulation of quaternions with
-   each other, matrices (including, where appropriate, vectors) and scalars.
-   
-   Declare a quaternion of the form q = w + xi + yj +zk by 
+    """
+    Quaternion class implemented to allow manipulation of quaternions with
+    each other, matrices (including, where appropriate, vectors) and scalars.
 
-   >> q = Quaternion(w,x,y,z)
-   
-   Addition, subtraction, multiplication and division are all supported natively
-   between quaternions and where appropriate with other data types.
-   
-   Transformation of quaternions is also supported:
-  
-   Normalised unit quaternion: >> q_u = q.unit()
-   Conjugate of q:             >> q_c = q.conjugate()
-   Reciprocal of q:            >> q_r = q.reciprocal() 
+    Declare a quaternion of the form q = w + xi + yj +zk by 
 
-   Tolerance can be applied to the unit quaternion function to determine the
-   unit quaternion to a desired accuracy.
+    >> q = Quaternion(w,x,y,z)
 
-   >> q_u = q.unit(tolerance=0.0001)
+    Addition, subtraction, multiplication and division are all supported natively
+    between quaternions and where appropriate with other data types.
 
-"""
+    Transformation of quaternions is also supported:
+
+    Normalised unit quaternion: >> q_u = q.unit()
+    Conjugate of q:             >> q_c = q.conjugate()
+    Reciprocal of q:            >> q_r = q.reciprocal() 
+
+    Tolerance can be applied to the unit quaternion function to determine the
+    unit quaternion to a desired accuracy.
+
+    >> q_u = q.unit(tolerance=0.0001)
+
+    """
 
     def __init__(self, w, x, y, z):
         self.w = w
