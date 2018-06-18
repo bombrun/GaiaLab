@@ -87,7 +87,7 @@ class Quaternion():
                               self.y*other,
                               self.z*other)
         else:
-            raise TypeError("Multiplication of quaternion with given types is not supported.")
+            raise TypeError("Multiplication of quaternion with %r is not supported." %type(other))
 
     def __rmul__(self,other):       #Allow for left multiplication by matrices and scalars (quaternion right multiplication handled above)
         if isinstance(other, np.ndarray):
@@ -101,7 +101,7 @@ class Quaternion():
                               self.y*other,
                               self.z*other)
         else:
-            raise TypeError("Multiplication of quaternion with given types is not supported.")
+            raise TypeError("Multiplication of quaternion with %r is not supported." %type(other))
 
     def __truediv__(self, other):   #Allow for division by scalars and quaternions: division by other types is undefined
         if isinstance(other, Quaternion):   
