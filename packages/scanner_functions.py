@@ -14,10 +14,11 @@ def vector_to_point(vector):
     return Point3D(vector[0], vector[1], vector[2])
     
 def point_to_vector(point):
-    return np.array(point[0], point[1], point[2])           
+    #return np.array([point[0], point[1], point[2]])           
+    return np.array([point.x, point.y, point.z])           
 
 def vector_to_quaternion(vector):
-    return Quaternion(0, vector[0], vector[1], vector[2])
+    return Quaternion(0, float(vector[0]), float(vector[1]), float(vector[2]))  #AL- added float arguments to prevent Point3D fractions from being passed to the quaternion class.
        
 def rotation_quaternion(vector, angle):     
     #Calculates Quaternion equivalent to a rotation given by a vector and a angle in radians.
@@ -37,6 +38,11 @@ def Psi(satellite, sky):
     diff = np.subtract(bcrs_stars_vector, list_true_star_vector)
     
     return bcrs_stars_vector, list_true_star_vector, diff
+    
+def SRS(satellite, star_vector):
+    q_star_vector_bcrs= vector_to_quaternion(star_vector)
+    q_star_vector_srs = satellite.attitude.conjugate() * q_star_vector_bcrs * satellite.attitude
+    return np.array([q_star_vector_srs.x, q_star_vector_srs.y, q_star_vector_srs.z])    
     
 def bcrs(satellite, star):
     starvector_srs = star.vector
