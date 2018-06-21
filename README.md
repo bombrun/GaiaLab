@@ -12,3 +12,5 @@ The first version will be based on a very simple model :
 * one ccd
 * circular satellite orbit 
 * Newtonian physic (no relativity)
+
+The project will make used of the technical notes written by Lennart Lindegren http://www.astro.lu.se/~lennart/Astrometry/TN/
