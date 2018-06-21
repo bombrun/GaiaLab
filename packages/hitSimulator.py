@@ -7,6 +7,8 @@
 # Importable hit simulation functions
 #
 # Updated version uses numba's @jit decorators to speed up iterative processes.
+#
+# Toby James 2018
 
 
 import numpy as np

@@ -1,3 +1,10 @@
+# # Quaternion class implementation for python.
+#
+# Offers native integration of operators between quaternions generated and
+# numpy data structures.
+#
+# Toby James 2018
+
 import numpy as np
 class Quaternion():
     """
@@ -15,7 +22,7 @@ class Quaternion():
 
     Normalised unit quaternion: >> q_u = q.unit()
     Conjugate of q:             >> q_c = q.conjugate()
-    Reciprocal of q:            >> q_r = q.reciprocal() 
+    Reciprocal or inverse of q:            >> q_r = q.reciprocal() or >> q_i = q.inverse(). They are equivalent.
 
     Tolerance can be applied to the unit quaternion function to determine the
     unit quaternion to a desired accuracy.
@@ -56,6 +63,9 @@ class Quaternion():
 
     def reciprocal(self):           #Create the reciprocal
         return (self.conjugate()/(self.magnitude**2))
+
+    def inverse(self):              #The same
+        return self.reciprocal()
     
     def __add__(self,other):        #Addition of quaternions
         if isinstance(other, Quaternion):
@@ -117,6 +127,6 @@ class Quaternion():
                               self.y/other,
                               self.z/other)
         else:
-            raise TypeError("Division of quaternion by given types is not supported.")
+            raise TypeError("Division of quaternion by %r is not supported." %type(other))
     
     __array_priority__ = 10000 #big number so numpy respects left matrix multiplication with quaternions
