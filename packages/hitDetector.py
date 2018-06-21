@@ -105,12 +105,15 @@ def plotAnomaly(df, highlight=False, clanks=False):
             time = row['obmt']
             plt.axvspan(time, time+0.1, color=colors['color'][index], alpha=0.5)
         plt.scatter(df.obmt, df.rate-df.w1_rate, s=0.1)
-        plt.show()
+        plt.xlabel("obmt")
+        plt.ylabel("rate - w1_rate")
     else:
     #basic plot
         plt.scatter(df.obmt,df.rate-df.w1_rate,s=1)
-        plt.show()
-    
+        plt.xlabel("obmt")
+        plt.ylabel("rate - w1_rate")
+    plt.show()
+
 def identifyClanks(df): #It was found that jit compilation offered negligible performance benefits for this function.
                         #The aesthetic benefits of pythonic unpacking and listcomps mean jit compilation is not used.
                         #Re-design of the function to a compilable function may be worth doing.
