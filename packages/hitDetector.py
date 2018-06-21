@@ -97,7 +97,7 @@ def plotAnomaly(df, highlight=False, clanks=False):
     else:
     #Call identifyAnomaly() to locate hits
         data,t = identifyAnomaly(df, times=True)
-        colors = pd.DataFrame(index=t.index.values, data=dict(color = ['green' for time in t.index]))
+        colors = pd.DataFrame(index=t.index.values, data=dict(color = ['red' for time in t.index]))
     
     if highlight:
     #get times of anomalies and corresponding colours
@@ -105,14 +105,15 @@ def plotAnomaly(df, highlight=False, clanks=False):
             time = row['obmt']
             plt.axvspan(time, time+0.1, color=colors['color'][index], alpha=0.5)
         plt.scatter(df.obmt, df.rate-df.w1_rate, s=0.1)
-        plt.xlabel("obmt")
-        plt.ylabel("rate - w1_rate")
     else:
     #basic plot
         plt.scatter(df.obmt,df.rate-df.w1_rate,s=1)
-        plt.xlabel("obmt")
-        plt.ylabel("rate - w1_rate")
+
+    plt.xlabel("obmt")
+    plt.ylabel("rate - w1_rate")
     plt.show()
+   
+    return t 
 
 def identifyClanks(df): #It was found that jit compilation offered negligible performance benefits for this function.
                         #The aesthetic benefits of pythonic unpacking and listcomps mean jit compilation is not used.
@@ -181,7 +182,7 @@ if __name__ == '__main__':
     for datafile in sys.argv[1:]:
         df = pd.read_csv(datafile)
         times = plotAnomaly(df, highlight=True)
-        print(len(times))
+        print(str(len(times)) + " anomalies detected.")
 
 
 #[1] From Lennart Lindegren's [SAG--LL-030 technical note](http://www.astro.lu.se/~lennart/Astrometry/TN/Gaia-LL-031-20000713-Effects-of-micrometeoroids-on-GAIA-attitude.pdf),
