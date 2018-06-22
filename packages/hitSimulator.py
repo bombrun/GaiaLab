@@ -56,7 +56,7 @@ def freq(masses):
 #Two master functions for generating data sets
 
 def generateEvent(masses, frequencies):#create impacts according to flux for a given mass spectrum and frequency distribution
-
+                                       #redesign to allow jit compilation offerred negligible improvement
     """
     Generates events at each second based on the probabilities of impact relative to the flux of particles.
     Returns magnitude of the associated displacement in angular velocity and theoretical resolution
@@ -71,7 +71,7 @@ def generateEvent(masses, frequencies):#create impacts according to flux for a g
         
     sigma_omega = np.sqrt(sum([(sigma_o(frequency**(-1)))**2 for frequency in np.array(frequencies)[hits]])) * 1e-3  #convert from micro arcseconds to milli arcseconds
     d_omega = sum([mass * hitDist(1)[0][1] * v / I * ( 180/np.pi * 3600e3 ) for mass in masses[hits]]) #converts from radians to milli arcseconds 
-    
+
     if d_omega:
         return (d_omega,sigma_omega)
     else:
@@ -103,10 +103,10 @@ def generateData(masses, length, plot=False):   #return a pandas dataframe for g
         omega.append(_omega[0])
         sigmas.append(_omega[1])
 
-    df = pd.DataFrame({"OBMT" : obmt,
-                       "Omega" : omega,
-                       "Error" : sigmas})
-    df = df[['OBMT','Omega','Error']]
+    df = pd.DataFrame({"obmt" : obmt/21600,  #convert to fractions of revolutions
+                       "rate" : omega,
+                       "error" : sigmas})
+    df = df[['obmt','rate','error']]
 
     if plot: #plot argument for ipython interaction. only returns non-zero elements of the dataframe, and plots an errorbar graph of hits
         plt.errorbar(obmt, omega, sigmas, fmt='k.', markersize=0.001, capsize=2)
