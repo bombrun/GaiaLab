@@ -32,37 +32,36 @@ def rotation_quaternion(vector, angle):
     qvector = Quaternion(t,x,y,z)
     return qvector
     
-def Psi(satellite, sky):
-
-    bcrs_stars_vector = [BCRS(satellite, obs) for obs in satellite.observations]     #matrix and quaternion give same result, good. 
-    list_true_star_vector = [sky.elements[idx].vector for idx in satellite.indexes]
-    diff = np.subtract(bcrs_stars_vector, list_true_star_vector)
-    
-    return diff
 
     
 def SRS(satellite, vector):
+    '''
+    Changes coordinates of a vector in BCRS to SRS frame.
+    '''
     q_vector_bcrs= vector_to_quaternion(vector)
     q_vector_srs = satellite.attitude.conjugate() * q_vector_bcrs * satellite.attitude
     return np.array([q_vector_srs.x, q_vector_srs.y, q_vector_srs.z])    
+   
+def BCRS(satellite, vector):
+    '''
+    Changes coordinates of a vector in SRS to BCRS frame.
+    '''
+    q_vector_srs= vector_to_quaternion(vector)
+    q_vector_bcrs = satellite.attitude * q_vector_srs * satellite.attitude.conjugate()
     
+    return np.array([q_vector_bcrs.x, q_vector_bcrs.y, q_vector_bcrs.z])
+
+def Psi(satellite, sky):
+    '''
+    Calculates the difference between the coordinates of a star versus its correspondient coordinates (bcrs-framed) from Gaia.
+    '''
+    bcrs_stars_vector = [BCRS(satellite, obs.vector) for obs in satellite.observations]
+    list_true_star_vector = [sky.elements[idx].vector for idx in satellite.indexes]
+    diff = np.subtract(bcrs_stars_vector, list_true_star_vector)
+    return diff   
 
     
-def BCRS(satellite, star):
-    starvector_srs = star.vector
-    q_star_vector_srs= vector_to_quaternion(starvector_srs)
-    q_star_vector_bcrs = satellite.attitude * q_star_vector_srs * satellite.attitude.conjugate()
-    return np.array([q_star_vector_bcrs.x, q_star_vector_bcrs.y, q_star_vector_bcrs.z])
-    
-def CreateStars(satellite): #there is differences for signs, bad.
-    satellite.measurements = [] #this is in bcrs frame
-    for obs in satellite.observations: 
-        star_vector = BCRS(satellite, obs)
-        star = Star(star_vector[0], star_vector[1], star_vector[2])
-        satellite.measurements.append(star) 
-        
 def Plot(satellite, sky):   
-    CreateStars(satellite) 
     azimuth_obs = [star.coor[0] for star in satellite.measurements]
     altitude_obs = [star.coor[1] for star in satellite.measurements]
     

@@ -65,8 +65,8 @@ class Satellite:
         
     def ViewLine(self, phi, zeta):
         self.phi = phi
-        self.zeta = zeta             
-        
+        self.zeta = zeta    
+
     def Scan(self, sky, zeta = np.radians(10.), stepphi = math.radians(1.), phi= math.radians(360.)):    
         
         self.indexes = []
@@ -95,11 +95,13 @@ class Satellite:
                 proy_star_vector_srs = SRS(self, proy_star_vector)                #the proyection is in the bcrs frame so need to change to srs
                 phi_angle_obs =  np.arctan2(float(proy_star_vector_srs[1]), float(proy_star_vector_srs[0]))
                 
+                #zeta_angle = np.arctan2(float(proy_star_vector_srs[2]), float(np.sqrt((proy_star_vector_srs[0])**2+(proy_star_vector_srs[0])**2)))
+                
                 if phi_angle_obs < 0.:
                     phi_angle_obs = phi_angle_obs + 2*np.pi
                 observation = Observation(phi_angle_obs, zeta_angle_star_plane)
                 self.observations.append(observation)
-                
+        self.Measurements(self)
         for i in np.arange(0, phi, stepphi):
             self.ViewLine(i, 0)
             axis1phi = self.phi                 #maybe change this to +- stepphi/2 at some point? but careful that phi > 0
@@ -108,8 +110,17 @@ class Satellite:
             for observation in self.observations:
                 if axis1phi < observation.azimuth and observation.azimuth < axis2phi:
                     self.times.append(i)
-    
-
+                    
+    def Measurements(self): 
+        '''
+        Takes all observation objects of the satellite and converts them into the BCRS frame, making them star-objects.
+        self.measurements are objects with bcrs coordinates.
+        '''
+        self.measurements =[] 
+        for obs in self.observations: 
+            star_vector = BCRS(self, obs.vector)
+            star = Star(star_vector[0], star_vector[1], star_vector[2])
+            self.measurements.append(star) 
       
     
                                                                                                                                                                                                                                      
