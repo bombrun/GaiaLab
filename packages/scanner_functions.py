@@ -21,8 +21,10 @@ def point_to_vector(point):
 def vector_to_quaternion(vector):
     return Quaternion(0, float(vector[0]), float(vector[1]), float(vector[2]))  #added float arguments to prevent Point3D fractions from being passed to the quaternion class.
        
-def rotation_quaternion(vector, angle):     
-    #Calculates Quaternion equivalent to a rotation given by a vector and a angle in radians.
+def rotation_quaternion(vector, angle): 
+    '''    
+    Calculates Quaternion equivalent to a rotation given by a vector and a angle in radians.
+    '''
     vector = unit_vector(vector)   
     t = np.cos(angle/2.)
     x = np.sin(angle/2.)*vector[0]
@@ -50,7 +52,22 @@ def BCRS(satellite, vector):
     q_vector_bcrs = satellite.attitude * q_vector_srs * satellite.attitude.conjugate()
     
     return np.array([q_vector_bcrs.x, q_vector_bcrs.y, q_vector_bcrs.z])
-
+    
+def Measurements(satellite): 
+    '''
+    Takes all observation objects of the satellite (which are in the SRS frame) and converts them into the BCRS frame, making them observation-objects.
+    self.measurements are objects with bcrs coordinates.
+    '''
+    satellite.measurements =[] 
+    for obs in satellite.observations: 
+        star_vector = BCRS(satellite, obs.vector)
+        alpha = np.arctan2(star_vector[1], star_vector[0])
+        delta = np.arctan2(star_vector[2], np.sqrt(star_vector[0]**2 + star_vector[1]**2))
+        if alpha < 0 :
+            alpha = alpha + 2*np.pi
+        star = Observation(alpha, delta)
+        satellite.measurements.append(star) 
+      
 def Psi(satellite, sky):
     '''
     Calculates the difference between the coordinates of a star versus its correspondient coordinates (bcrs-framed) from Gaia.
@@ -62,13 +79,15 @@ def Psi(satellite, sky):
 
     
 def Plot(satellite, sky):   
+    '''
+    Plot: measurements (coordinates of stars measured by gaia and transformed into BCRS frame) vs true coordinates of the detected stars. 
+    '''
     azimuth_obs = [star.coor[0] for star in satellite.measurements]
     altitude_obs = [star.coor[1] for star in satellite.measurements]
     
     azimuth_star = [sky.elements[idx].coor[0] for idx in satellite.indexes]
     altitude_star = [sky.elements[idx].coor[1] for idx in satellite.indexes]
     
-    plt.close()
     plt.figure()   
     plt.grid()
     plt.ylabel('Altitude (rad)')
