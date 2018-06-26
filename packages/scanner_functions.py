@@ -5,6 +5,8 @@ from sympy import Line3D, Point3D
 from quaternion import*
 from scanner_classes import*
 
+
+
 def vector(x,y,z): 
     return np.array([x,y,z])
 
@@ -62,7 +64,9 @@ def Measurements(satellite):
     for obs in satellite.observations: 
         star_vector = BCRS(satellite, obs.vector)
         alpha = np.arctan2(star_vector[1], star_vector[0])
-        delta = np.arctan2(star_vector[2], np.sqrt(star_vector[0]**2 + star_vector[1]**2))
+        #delta = np.arctan2(star_vector[2], np.sqrt(star_vector[0]**2 + star_vector[1]**2))
+        delta = np.arctan(star_vector[2]/np.sqrt(star_vector[0]**2 + star_vector[1]**2))
+        print(delta)
         if alpha < 0 :
             alpha = alpha + 2*np.pi
         star = Observation(alpha, delta)
@@ -75,13 +79,14 @@ def Psi(satellite, sky):
     bcrs_stars_vector = [BCRS(satellite, obs.vector) for obs in satellite.observations]
     list_true_star_vector = [sky.elements[idx].vector for idx in satellite.indexes]
     diff = np.subtract(bcrs_stars_vector, list_true_star_vector)
-    return diff   
+    return    bcrs_stars_vector, list_true_star_vector
 
     
 def Plot(satellite, sky):   
     '''
     Plot: measurements (coordinates of stars measured by gaia and transformed into BCRS frame) vs true coordinates of the detected stars. 
     '''
+    Measurements(satellite)
     azimuth_obs = [star.coor[0] for star in satellite.measurements]
     altitude_obs = [star.coor[1] for star in satellite.measurements]
     
@@ -101,4 +106,6 @@ def Plot(satellite, sky):
     plt.show()
 
     
+    
+
     
