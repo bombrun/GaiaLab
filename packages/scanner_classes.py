@@ -15,6 +15,13 @@ import math
 import matplotlib.pyplot as plt
              
 class Observation:    
+    '''
+    Creates and object equivalent to an observation. 
+
+    Horizontal Celestial Coordinates: self.coor = (azimuth, altitude)
+    
+    Calculates equivalence to Cartesian Coordinates: self.vector = (x, y, z)
+    '''
     def __init__(self, azimuth, altitude):
          self.azimuth = azimuth
          self.altitude = altitude
@@ -25,21 +32,12 @@ class Observation:
          self.z = np.sin(self.altitude)
          
          self.vector = unit_vector(np.array([self.x,self.y,self.z]))   
-               
-class Star: 
-    def __init__(self, x, y , z):
-        
-        unit = unit_vector(np.array([x,y,z]))
-        azimuth = np.arctan2(unit[1], unit[0])
-        altitute = np.arctan2(unit[2], np.sqrt(unit[0]**2 + unit[1]**2))
-        
-        self.vector = unit
-        if azimuth < 0:
-            azimuth = azimuth + 2*np.pi
-        self.coor = np.array([azimuth, altitute])
-           
+                          
 class Sky:  
-
+    '''
+    Creates a sky in the unit sphere. 
+    List of elements: sky.elements
+    '''
     def __init__(self, n):
         self.elements = []
         
@@ -50,7 +48,16 @@ class Sky:
             self.elements.append(obs)  
     
 class Satellite: 
+    '''
+    Satellite object is resumed to be a plane.
+    A plane is determined completely by a Point and a Vector.
     
+    __init__: define the satellite by given a point and a vector - default: point at (0,0,0)
+    
+    satellite.Rotate(_): introduce in _ a quaternion (from Quaternion class) to rotate the plane (aka satellite)
+    
+    satellite.Scan(_): introduce in _ sky to be scanned. 
+    '''
     def __init__(self,z1,z2,z3, origin = Point3D(0.,0.,0.)): 
         self.zaxis = unit_vector(np.array([z1,z2,z3]))               #wrt bcrs frame
         self.xyplane = Plane(origin, vector_to_point(self.zaxis))
@@ -101,7 +108,7 @@ class Satellite:
                     phi_angle_obs = phi_angle_obs + 2*np.pi
                 observation = Observation(phi_angle_obs, zeta_angle_star_plane)
                 self.observations.append(observation)
-        self.Measurements(self)
+        
         for i in np.arange(0, phi, stepphi):
             self.ViewLine(i, 0)
             axis1phi = self.phi                 #maybe change this to +- stepphi/2 at some point? but careful that phi > 0
@@ -109,19 +116,10 @@ class Satellite:
             
             for observation in self.observations:
                 if axis1phi < observation.azimuth and observation.azimuth < axis2phi:
-                    self.times.append(i)
-                    
-    def Measurements(self): 
-        '''
-        Takes all observation objects of the satellite and converts them into the BCRS frame, making them star-objects.
-        self.measurements are objects with bcrs coordinates.
-        '''
-        self.measurements =[] 
-        for obs in self.observations: 
-            star_vector = BCRS(self, obs.vector)
-            star = Star(star_vector[0], star_vector[1], star_vector[2])
-            self.measurements.append(star) 
-      
+                    self.times.append(i) 
+                
+               
+
     
                                                                                                                                                                                                                                      
 
