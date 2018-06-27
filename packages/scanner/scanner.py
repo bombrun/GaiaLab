@@ -118,11 +118,11 @@ class Satellite:
                 proy_star_vector_srs = SRS(self, proy_star_vector) 
                                
                 phi_angle_obs =  np.arctan2(float(proy_star_vector_srs[1]), float(proy_star_vector_srs[0]))
-                zeta_angle = np.arctan2(float(proy_star_vector_srs[2]), float(np.sqrt((proy_star_vector_srs[0])**2+(proy_star_vector_srs[0])**2)))
+                #zeta_angle = np.arctan2(float(proy_star_vector_srs[2]), float(np.sqrt((proy_star_vector_srs[0])**2+(proy_star_vector_srs[0])**2)))
                 
                 if phi_angle_obs < 0.:
                     phi_angle_obs = phi_angle_obs + 2*np.pi
-                observation = Observation(phi_angle_obs, zeta_angle)
+                observation = Observation(phi_angle_obs, zeta)
                 self.observations.append(observation)
         
         '''
