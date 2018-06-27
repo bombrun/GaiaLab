@@ -5,7 +5,7 @@ Created on Mon Jun 18 14:59:19 2018
 
 @author: vallevaro
 """
-from basics import*
+
 from quaternion import*
 from sympy import*
 from sympy import Line3D, Point3D
@@ -30,11 +30,16 @@ class Observation:
          self.y = np.sin(self.azimuth)*np.cos(self.altitude)
          self.z = np.sin(self.altitude)
          
+         self.observations = []  
+         self.measurements = []  
+         self.times = [] 
+         self.indexes = []
+            
          self.vector = unit_vector(np.array([self.x,self.y,self.z]))   
                           
 class Sky:  
     '''
-    Creates a sky in the unit sphere. 
+    Creates a sky in the unit sphere, in the BCRS frame.
     List of elements: sky.elements
     '''
     def __init__(self, n):
@@ -53,14 +58,25 @@ class Satellite:
     
     __init__: define the satellite by given a point and a vector - default: point at (0,0,0)
     
-    satellite.Rotate(_): introduce in _ a quaternion (from Quaternion class) to rotate the plane (aka satellite)
+            satellite.Rotate(_): introduce in _ a quaternion (from Quaternion class) to rotate the plane (aka satellite)
     
-    satellite.Scan(_): introduce in _ sky to be scanned. 
+            satellite.Scan(_): introduce in _ sky to be scanned. 
+            satellite.observations = objects with coordinates in the SRS frame.
+            satellite.measurements = objects with coordinates in the BCRS frame.
+            satellite.times = angle at which a star interception occurs.
+            satellite.indexes = the index of the observations made wrt the sky catalogue. 
+    Scan():
+        
+        Azimuth angle (Phi):indicates the radians swept by the scanner in the satellite plane. 
+        This scanner checks stars by increasing a 'step' radians in the satellite plane.
+        Altitude angle (zeta):the altitude width angle of the scanner (width of vertical field of view wrt satellite plane)
+
     '''
     def __init__(self,z1,z2,z3, origin = Point3D(0.,0.,0.)): 
-        self.zaxis = unit_vector(np.array([z1,z2,z3]))               #wrt bcrs frame
+        self.zaxis = unit_vector(np.array([z1,z2,z3]))               
         self.xyplane = Plane(origin, vector_to_point(self.zaxis))
         self.attitude = Quaternion(1.,0.,0.,0.).unit()
+
    
     def Rotate(self, newrotation):        
         self.attitude = newrotation.unit() * self.attitude 
@@ -73,33 +89,35 @@ class Satellite:
         self.phi = phi
         self.zeta = zeta    
 
-    def Scan(self, sky, zeta = np.radians(10.), stepphi = math.radians(1.), phi= math.radians(360.)):    
-        
-        self.indexes = []
-        self.observations = []  #observations are in the srs frame
-        #self.stars_zeta_angles = [] 
+    def Scan(self, sky, zeta = np.radians(5.), step = math.radians(1.), phi= math.radians(360.)):    
+
+        '''
+        Calculates in the BCRS the angle between the plane of the satellite and the line from the centre of the satellite to the star.
+        This angle is - zeta_angle_star_plane.
+        '''
+        self.observations = []  
+        self.measurements = []  
         self.times = [] 
-        self.measurements = []  #measurements are in the bcrs frame
+        self.indexes = []
         
         for idx, star in enumerate(sky.elements):    
             star_point = vector_to_point(star.vector)             
-            star_line =  Line3D(self.xyplane.args[0], star_point)      #both points in BCRS frame, so good.
-            arc_angle_star_xyplane = self.xyplane.angle_between(star_line)     #normal vector to plane and star position vector both in BCRS frame, so should be good.
+            star_line =  Line3D(self.xyplane.args[0], star_point)      
+            arc_angle_star_xyplane = self.xyplane.angle_between(star_line)    
             if len(arc_angle_star_xyplane.args) == 2:
                 zeta_angle_star_plane = -float(arc_angle_star_xyplane.args[1])
             if len(arc_angle_star_xyplane.args) == 1:
                 zeta_angle_star_plane = float(arc_angle_star_xyplane.args[0])
                  
-            
-            #If star within zeta of plane, then continue.
+
             if  -zeta/2. < (zeta_angle_star_plane) < zeta/2.:       
                 self.indexes.append(idx)
                 
-                proy_star_point = self.xyplane.projection(star_point)             #both plane and star position vector in BCRS frame, so proy_star_point in BCRS frame as well.
+                proy_star_point = self.xyplane.projection(star_point)             
                 proy_star_vector = point_to_vector(proy_star_point)               
-                proy_star_vector_srs = SRS(self, proy_star_vector)                #the proyection is in the bcrs frame so need to change to srs
+                proy_star_vector_srs = SRS(self, proy_star_vector) 
+                               
                 phi_angle_obs =  np.arctan2(float(proy_star_vector_srs[1]), float(proy_star_vector_srs[0]))
-                
                 zeta_angle = np.arctan2(float(proy_star_vector_srs[2]), float(np.sqrt((proy_star_vector_srs[0])**2+(proy_star_vector_srs[0])**2)))
                 
                 if phi_angle_obs < 0.:
@@ -107,21 +125,23 @@ class Satellite:
                 observation = Observation(phi_angle_obs, zeta_angle)
                 self.observations.append(observation)
         
-        for i in np.arange(0, phi, stepphi):
+        '''
+        Once observations are made, now we pass the scan to see at what times if the star in the detector's range
+        '''
+        #maybe change this to +- stepphi/2 at some point? but careful that phi > 0
+        for i in np.arange(0, phi, step):
             self.ViewLine(i, 0)
-            axis1phi = self.phi                 #maybe change this to +- stepphi/2 at some point? but careful that phi > 0
-            axis2phi = self.phi + stepphi
+            axis1phi = self.phi%(2*np.pi)            
+            axis2phi = (self.phi + step)%(2*np.pi)
             
             for observation in self.observations:
                 if axis1phi < observation.azimuth and observation.azimuth < axis2phi:
-                    self.times.append(i) 
-                
-               
-
-    
-                                                                                                                                                                                                                                    
+                    time = i%(np.pi*2)
+                    self.times.append(time) 
+                                                                                                                                                                                                                                  
         
 ################################## FUNCTIONS ##################################
+
 def vector(x,y,z): 
     return np.array([x,y,z])
 
