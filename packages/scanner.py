@@ -5,9 +5,8 @@ Created on Mon Jun 18 14:59:19 2018
 
 @author: vallevaro
 """
-
+from basics import*
 from quaternion import*
-#from scanner_functions import * #AL- Commented out, as copied functions to bbottom of this file
 from sympy import*
 from sympy import Line3D, Point3D
 import numpy as np
@@ -90,11 +89,10 @@ class Satellite:
                 zeta_angle_star_plane = -float(arc_angle_star_xyplane.args[1])
             if len(arc_angle_star_xyplane.args) == 1:
                 zeta_angle_star_plane = float(arc_angle_star_xyplane.args[0])
-                
-            #self.stars_zeta_angles.append(zeta_angle_star_plane)  
+                 
             
             #If star within zeta of plane, then continue.
-            if  -zeta/2. < (zeta_angle_star_plane) < zeta/2.:       #this value is absolute regadless of frame.
+            if  -zeta/2. < (zeta_angle_star_plane) < zeta/2.:       
                 self.indexes.append(idx)
                 
                 proy_star_point = self.xyplane.projection(star_point)             #both plane and star position vector in BCRS frame, so proy_star_point in BCRS frame as well.
@@ -102,11 +100,11 @@ class Satellite:
                 proy_star_vector_srs = SRS(self, proy_star_vector)                #the proyection is in the bcrs frame so need to change to srs
                 phi_angle_obs =  np.arctan2(float(proy_star_vector_srs[1]), float(proy_star_vector_srs[0]))
                 
-                #zeta_angle = np.arctan2(float(proy_star_vector_srs[2]), float(np.sqrt((proy_star_vector_srs[0])**2+(proy_star_vector_srs[0])**2)))
+                zeta_angle = np.arctan2(float(proy_star_vector_srs[2]), float(np.sqrt((proy_star_vector_srs[0])**2+(proy_star_vector_srs[0])**2)))
                 
                 if phi_angle_obs < 0.:
                     phi_angle_obs = phi_angle_obs + 2*np.pi
-                observation = Observation(phi_angle_obs, zeta_angle_star_plane)
+                observation = Observation(phi_angle_obs, zeta_angle)
                 self.observations.append(observation)
         
         for i in np.arange(0, phi, stepphi):
@@ -124,7 +122,6 @@ class Satellite:
                                                                                                                                                                                                                                     
         
 ################################## FUNCTIONS ##################################
-
 def vector(x,y,z): 
     return np.array([x,y,z])
 
@@ -153,7 +150,6 @@ def rotation_quaternion(vector, angle):
     
     qvector = Quaternion(t,x,y,z)
     return qvector
-    
 
     
 def SRS(satellite, vector):
