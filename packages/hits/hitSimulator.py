@@ -1,12 +1,8 @@
-# coding: utf-8
-
 # # Hit simulation of micrometeorites on Gaia
 # 
 # Based on Lennart Lindegren's [SAG--LL-030 technical note](http://www.astro.lu.se/~lennart/Astrometry/TN/Gaia-LL-031-20000713-Effects-of-micrometeoroids-on-GAIA-attitude.pdf).
 #
 # Importable hit simulation functions
-#
-# Updated version uses numba's @jit decorators to speed up iterative processes.
 
 
 import numpy as np
@@ -22,7 +18,7 @@ I = 7e3 #kg m^2     spacecraft moment of inertia about z axis
 R = 4.25 #m         spacecraft radius
 
 #Define the mass spectrum to be used. More masses => greater accuracy but doesn't affect hit rate. 10000 is the default but different sized arrays can be used.
-masses = np.linspace(1e-13,1e-9,10000) #kg - only masses between e-13 and e-9 need be considered - lower than e-13 have undetectable impacts, higher than e-9 have vanishingly small hit probabilities
+masses = np.linspace(1e-13,1e-7,10000) #kg - only masses between e-13 and e-7 need be considered - lower than e-13 have undetectable impacts, higher than e-7 have vanishingly small hit probabilities
 
 #Function definitions
 #First functions use @jit decorators for speed.
@@ -54,11 +50,22 @@ def freq(masses):
 #Two master functions for generating data sets
 
 def generateEvent(masses, frequencies):#create impacts according to flux for a given mass spectrum and frequency distribution
-
+                                       #redesign to allow jit compilation offerred negligible improvement
     """
     Generates events at each second based on the probabilities of impact relative to the flux of particles.
     Returns magnitude of the associated displacement in angular velocity and theoretical resolution
     of the event based on the frequency of occurrance. Thus, higher mass particles return lower error.
+
+    Accepts an array of masses and corresponding impact frequencies. Since this is called multiple times
+    by generateData(), it is more efficient to pass frequencies to this function than to calculate
+    them from the masses each time the function is called.
+
+    A default mass range is packaged with these functions (masses).
+    It is a linear range of 10,000 masses between 1e-13 and 1e-7 kg.
+   
+    The size of the array does not affect the hit rate, but rather the accuracy to which the hits 
+    can be simulated. Recommended formats are np.linspace or np.logspace. 
+    Recommended mass scales are between 1e-13 and 1e-7 kg.
 
     Will return (0,0) most of the time since hits only occur ~1% of the time.
     """
@@ -69,25 +76,28 @@ def generateEvent(masses, frequencies):#create impacts according to flux for a g
         
     sigma_omega = np.sqrt(sum([(sigma_o(frequency**(-1)))**2 for frequency in np.array(frequencies)[hits]])) * 1e-3  #convert from micro arcseconds to milli arcseconds
     d_omega = sum([mass * hitDist(1)[0][1] * v / I * ( 180/np.pi * 3600e3 ) for mass in masses[hits]]) #converts from radians to milli arcseconds 
-    
+
     if d_omega:
         return (d_omega,sigma_omega)
     else:
         return (0,0)
 
-def generateData(masses, length, plot=False):   #return a pandas dataframe for given masses of a given length of time
+def generateData(masses, length, plot=False, write_to_csv=None):   #return a pandas dataframe for given masses of a given length of time
     
     """
     Accepts input of an array of masses. The size of the array does not affect the hit rate, but rather 
     the accuracy to which the hits can be simulated. Recommended formats are np.linspace or np.logspace. 
-    Recommended mass scales are between e-13 and e-9 kg.
+    Recommended mass scales are between 1e-13 and 1e-7 kg.
 
     Logarithmic mass data leads to more precision for lower mass particles, which can be beneficial 
     since they make up the majority of hits.
 
     'length' is simply the length in seconds for which the simulation should run.
 
-    'plot' returns an errorbar plot of the hits and their associated uncertainty.
+    If plot=True is set, function returns an errorbar plot of the hits and their associated uncertainty.
+
+    If a file is given to write_to_csv="output_file.csv", the corresponding dataframe is written to
+    outputfile.csv.
     """
 
     frequencies = freq(masses)
@@ -101,16 +111,20 @@ def generateData(masses, length, plot=False):   #return a pandas dataframe for g
         omega.append(_omega[0])
         sigmas.append(_omega[1])
 
-    df = pd.DataFrame({"OBMT" : obmt,
-                       "Omega" : omega,
-                       "Error" : sigmas})
-    df = df[['OBMT','Omega','Error']]
+    df = pd.DataFrame({"obmt" : obmt/21600,  #convert to fractions of revolutions
+                       "rate" : omega,
+                       "error" : sigmas})
+    df = df[['obmt','rate','error']]
+    df['w1_rate'] = df['rate'].copy().rolling(window=3600, min_periods=0).mean()
 
     if plot: #plot argument for ipython interaction. only returns non-zero elements of the dataframe, and plots an errorbar graph of hits
         plt.errorbar(obmt, omega, sigmas, fmt='k.', markersize=0.001, capsize=2)
         plt.xlabel("OBMT/seconds")
         plt.ylabel("Angular velocity/mas/s")
         plt.show()
-        return  df[df.Omega!=0]
+        return  df[df.rate!=0]
+    if write_to_csv:
+        df.to_csv(write_to_csv, sep=',', index=False)
+        return df
     else:
         return df
