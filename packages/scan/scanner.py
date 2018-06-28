@@ -12,7 +12,7 @@ from sympy import Line3D, Point3D
 import numpy as np
 import math
 import matplotlib.pyplot as plt
-             
+
 class Observation:    
     '''
     Creates and object equivalent to an observation. 
@@ -68,11 +68,11 @@ class Satellite:
     Scan():
         
         Azimuth angle (Phi):indicates the radians swept by the scanner in the satellite plane. 
-        This scanner checks stars by increasing a 'step' radians in the satellite plane.
+        This scanner checks stars by increasing a 'deltaphi' radians in the satellite plane.
         Altitude angle (zeta):the altitude width angle of the scanner (width of vertical field of view wrt satellite plane)
 
     '''
-    def __init__(self,z1,z2,z3, origin = Point3D(0.,0.,0.)): 
+    def __init__(self,z1,z2,z3, origin = Point3D(0,0,0)):  
         self.zaxis = unit_vector(np.array([z1,z2,z3]))               
         self.xyplane = Plane(origin, vector_to_point(self.zaxis))
         self.attitude = Quaternion(1.,0.,0.,0.).unit()
@@ -89,7 +89,7 @@ class Satellite:
         self.phi = phi
         self.zeta = zeta    
 
-    def Scan(self, sky, zeta = np.radians(5.), step = math.radians(1.), phi= math.radians(360.)):    
+    def Scan(self, sky, zeta = np.radians(5.), phi= math.radians(360.), deltaphi = math.radians(1.)):    
 
         '''
         Calculates in the BCRS the angle between the plane of the satellite and the line from the centre of the satellite to the star.
@@ -114,25 +114,25 @@ class Satellite:
                 self.indexes.append(idx)
                 
                 proy_star_point = self.xyplane.projection(star_point)             
-                proy_star_vector = point_to_vector(proy_star_point)               
+                proy_star_vector = point_to_vector(proy_star_point)                
                 proy_star_vector_srs = SRS(self, proy_star_vector) 
                                
                 phi_angle_obs =  np.arctan2(float(proy_star_vector_srs[1]), float(proy_star_vector_srs[0]))
-                #zeta_angle = np.arctan2(float(proy_star_vector_srs[2]), float(np.sqrt((proy_star_vector_srs[0])**2+(proy_star_vector_srs[0])**2)))
+                zeta_angle = np.arctan2(float(proy_star_vector_srs[2]), float(np.sqrt((proy_star_vector_srs[0])**2+(proy_star_vector_srs[0])**2)))
                 
                 if phi_angle_obs < 0.:
                     phi_angle_obs = phi_angle_obs + 2*np.pi
-                observation = Observation(phi_angle_obs, zeta)
+                observation = Observation(phi_angle_obs, zeta_angle)
                 self.observations.append(observation)
         
         '''
         Once observations are made, now we pass the scan to see at what times if the star in the detector's range
         '''
-        #maybe change this to +- stepphi/2 at some point? but careful that phi > 0
-        for i in np.arange(0, phi, step):
+        #maybe change this to +- deltaphiphi/2 at some point? but careful that phi > 0
+        for i in np.arange(0, phi, deltaphi):
             self.ViewLine(i, 0)
             axis1phi = self.phi%(2*np.pi)            
-            axis2phi = (self.phi + step)%(2*np.pi)
+            axis2phi = (self.phi + deltaphi)%(2*np.pi)
             
             for observation in self.observations:
                 if axis1phi < observation.azimuth and observation.azimuth < axis2phi:
@@ -237,6 +237,7 @@ def Plot(satellite, sky):
 
     plt.legend([red_dot, (red_dot, blue_dot)], ["Obs", "True Star"])
     plt.show()
+    
 
     
     
