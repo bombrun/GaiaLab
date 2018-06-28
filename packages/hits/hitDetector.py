@@ -70,18 +70,15 @@ def identifyAnomaly(df, anomaly_threshold=2):
 
     working_df['anomaly'] = (abs(working_df['rate']- working_df['w1_rate']) >= anomaly_threshold) #adds a column to the dataframe with truth values for anomalies.
 
-    if times:
-        #== True is not needed but makes clearer the selection occuring here
-        times   = np.array(working_df['obmt'][working_df['anomaly'] == True]) #array of times of anomalies
-        indices = np.array(working_df.index[working_df['anomaly'] == True]) #array of indices of anomalies 
+    #== True is not needed but makes clearer the selection occuring here
+    times   = np.array(working_df['obmt'][working_df['anomaly'] == True]) #array of times of anomalies
+    indices = np.array(working_df.index[working_df['anomaly'] == True]) #array of indices of anomalies 
 
-        #floor the times*10 and then divide by 10. then drop duplicates to isolate points to within 1/10 of a revolution, a reasonable accuracy
-        #for hit individuality.
-        anomaly_df = pd.DataFrame(index=indices, data=dict(obmt = np.floor(times*10)/10))
-        return (working_df,anomaly_df.drop_duplicates(subset='obmt'))
+    #floor the times*10 and then divide by 10. then drop duplicates to isolate points to within 1/10 of a revolution, a reasonable accuracy
+    #for hit individuality.
+    anomaly_df = pd.DataFrame(index=indices, data=dict(obmt = np.floor(times*10)/10))
 
-    else:
-        return working_df
+    return (working_df,anomaly_df.drop_duplicates(subset='obmt'))
 
 def identifyClanks(df): #It was found that jit compilation offered negligible performance benefits for this function.
                         #The aesthetic benefits of pythonic unpacking and listcomps mean jit compilation is not used.
