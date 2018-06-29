@@ -18,8 +18,8 @@ def identifyAnomaly(df, anomaly_threshold=2):
     
         a Pandas dataframe of shape:
 
-            obmt    rate    w1_rate
-        1.  float   float   float
+                obmt    rate    w1_rate
+            1.  float   float   float
 
         or equivalent.
 
@@ -60,7 +60,6 @@ def identifyAnomaly(df, anomaly_threshold=2):
 
             containing the times of detected anomalies.
     
-            a point is considered an anomaly.
     Deprecation warning:
         times removed as kwarg and implemented as standard behaviour.
         No use case for identifyAnomaly(times=False).
@@ -88,8 +87,8 @@ def identifyClanks(df): #It was found that jit compilation offered negligible pe
         
         a Pandas dataframe of shape:
 
-            obmt    rate    w1_rate
-        1.  float   float   float
+                obmt    rate    w1_rate
+           1.  float   float   float
 
         or equivalent.
 
