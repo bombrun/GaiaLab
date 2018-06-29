@@ -25,12 +25,30 @@ masses = np.linspace(1e-13,1e-7,10000) #kg - only masses between e-13 and e-7 ne
 
 @jit
 def hitDist(hits): #distribution of micrometeorite hits across Gaia - assumed to be uniform across a disk
+    """
+    Accepts:
+    
+        the number of hits to simulate on the satellite.
+
+    Returns:
+        
+        a tuple of the angle and the radius of the hit's location.
+    """
     theta = np.random.uniform(0,2*np.pi,hits)
     radius = np.sqrt(np.random.uniform(0,R**2,hits))
     return [(t,r) for t, r in zip(theta,radius)]
 
 @jit
 def flux(mass):    #typical flux of micrometeorites greater than mass = mass
+    """
+    Accepts:
+        
+        a mass
+
+    Returns:
+        
+        the flux of that mass as predicted by Yamakoshi (Extraterrestrial dust, ASSL 181,1994).
+    """
     if mass < 2.8e-11:
         return 2.8e-11 * mass ** (-0.5)
     else:
@@ -38,6 +56,23 @@ def flux(mass):    #typical flux of micrometeorites greater than mass = mass
 
 @jit
 def p_distribution(frequencies):
+    """
+    Accepts:
+        
+        an array of frequencies of particle impacts.
+
+    Applies a random sampler from the poisson distribution with each frequency as
+    the rate parameter to generate hits.
+
+    Returns:
+        
+        a tuple of:
+            
+            an array of the number of hits per frequency.
+
+            an array of the total hits.
+    """
+
     hit_distribution = [np.random.poisson(lam=max(frequency,0)) for frequency in frequencies] #max filters out negative frequencies at the flux discontinuity
     hits = [i for i, e in enumerate(hit_distribution) if e != 0]
     return (hit_distribution, hits)
@@ -45,6 +80,19 @@ def p_distribution(frequencies):
 
 @jit
 def freq(masses):
+    """
+    Accepts:
+            
+        an increasing array of masses.
+
+    Applies flux() to each mass and subtracts the flux of the mass immediately after.
+    This effectively bins the fluxes.
+
+    Returns:
+        
+        an array of frequencies corresponding to the masses given.
+    """
+    
     return [100*(flux(m) - flux(m + dm)) for m, dm in zip(masses[:-1], np.diff(masses))] #per second - subtraction of the higher flux effectively bins particles
 
 #Two master functions for generating data sets
@@ -52,22 +100,28 @@ def freq(masses):
 def generateEvent(masses, frequencies):#create impacts according to flux for a given mass spectrum and frequency distribution
                                        #redesign to allow jit compilation offerred negligible improvement
     """
+    Accepts:
+        
+        an array of masses, an array of frequencies.
+
     Generates events at each second based on the probabilities of impact relative to the flux of particles.
     Returns magnitude of the associated displacement in angular velocity and theoretical resolution
     of the event based on the frequency of occurrance. Thus, higher mass particles return lower error.
 
-    Accepts an array of masses and corresponding impact frequencies. Since this is called multiple times
-    by generateData(), it is more efficient to pass frequencies to this function than to calculate
-    them from the masses each time the function is called.
+    Since this is called multiple times by generateData(), it is more efficient to pass frequencies to 
+    this function than to calculate them from the masses each time the function is called.
 
     A default mass range is packaged with these functions (masses).
     It is a linear range of 10,000 masses between 1e-13 and 1e-7 kg.
    
-    The size of the array does not affect the hit rate, but rather the accuracy to which the hits 
+    The size of the mass array does not affect the hit rate, but rather the accuracy to which the hits 
     can be simulated. Recommended formats are np.linspace or np.logspace. 
     Recommended mass scales are between 1e-13 and 1e-7 kg.
 
-    Will return (0,0) most of the time since hits only occur ~1% of the time.
+    Returns:
+        
+        a tuple of the change in angular velocity created and the error on this change.
+        Will return (0,0) most of the time since hits only occur ~1% of the time.
     """
     
     distribution,hits = p_distribution(frequencies)
@@ -82,22 +136,38 @@ def generateEvent(masses, frequencies):#create impacts according to flux for a g
     else:
         return (0,0)
 
-def generateData(masses, length, plot=False, write_to_csv=None):   #return a pandas dataframe for given masses of a given length of time
+def generateData(masses, length, plot=False, write_to_csv=None, **kwargs):   #return a pandas dataframe for given masses of a given length of time
     
     """
-    Accepts input of an array of masses. The size of the array does not affect the hit rate, but rather 
-    the accuracy to which the hits can be simulated. Recommended formats are np.linspace or np.logspace. 
+    Accepts:
+        
+        an array of masses, the length of time (in s) to be simulated. 
+    
+    The size of the mass array does not affect the hit rate, but rather the accuracy to which the hits 
+    can be simulated. Recommended formats are np.linspace or np.logspace. 
     Recommended mass scales are between 1e-13 and 1e-7 kg.
 
     Logarithmic mass data leads to more precision for lower mass particles, which can be beneficial 
     since they make up the majority of hits.
+    
+    Kwargs:
+        
+        plot (bool):
+            if True, produces an errorbar plot of the hits and their associated uncertainty,
+            and returns a dataframe only showing the anomalies.
+    
+        write_to_csv (str):
+            writes the generated dataframe to the file specified.
 
-    'length' is simply the length in seconds for which the simulation should run.
+        **kwargs:
+            passes these to plt.errorbar() when this is called.
 
-    If plot=True is set, function returns an errorbar plot of the hits and their associated uncertainty.
-
-    If a file is given to write_to_csv="output_file.csv", the corresponding dataframe is written to
-    outputfile.csv.
+    Returns:
+        
+        a Pandas dataframe of shape:
+                
+                obmt    rate    error   w1_rate
+            1.  float   float   float   float
     """
 
     frequencies = freq(masses)
@@ -118,7 +188,7 @@ def generateData(masses, length, plot=False, write_to_csv=None):   #return a pan
     df['w1_rate'] = df['rate'].copy().rolling(window=3600, min_periods=0).mean()
 
     if plot: #plot argument for ipython interaction. only returns non-zero elements of the dataframe, and plots an errorbar graph of hits
-        plt.errorbar(obmt, omega, sigmas, fmt='k.', markersize=0.001, capsize=2)
+        plt.errorbar(obmt, omega, sigmas, fmt='k.', markersize=0.001, capsize=2, **kwargs)
         plt.xlabel("OBMT/seconds")
         plt.ylabel("Angular velocity/mas/s")
         plt.show()

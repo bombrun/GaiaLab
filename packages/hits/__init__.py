@@ -18,7 +18,9 @@ For further information on imported functions,
 run help(function). For more importable functions 
 packaged in each module, run help(hits.module).
 """
-
+import hits.hitDetector
+import hits.response
+import hits.hitSimulator
 from hits.hitDetector import plotAnomaly
 from hits.hitSimulator import generateData, masses
 
