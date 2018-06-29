@@ -18,11 +18,12 @@ For further information on imported functions,
 run help(function). For more importable functions 
 packaged in each module, run help(hits.module).
 """
-import hits.hitDetector
-import hits.response
-import hits.hitSimulator
-from hits.hitDetector import plotAnomaly
-from hits.hitSimulator import generateData, masses
 
 __author__ = "Toby James and Alex Bombrun"
 __version__ = "0.1"
+
+import hits.hitdetector
+import hits.response
+import hits.hitsimulator
+from hits.hitdetector import plotAnomaly
+from hits.hitsimulator import generateData, masses
