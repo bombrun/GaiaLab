@@ -12,6 +12,8 @@ from sympy import Line3D, Point3D
 import numpy as np
 import math
 import matplotlib.pyplot as plt
+import time
+import datetime
 
 class Observation:    
     '''
@@ -21,23 +23,55 @@ class Observation:
     
     Calculates equivalence to Cartesian Coordinates: self.vector = (x, y, z)
     '''
-    def __init__(self, azimuth, altitude):
-         self.azimuth = azimuth
-         self.altitude = altitude
-         #self.mualpha = mualpha
-         #self.mudelta = mudelta
-         self.coor = np.array([self.azimuth, self.altitude])
+    def __init__(self, azimuth, altitude, mualpha, mudelta, time_end):
+         self.azimuth_0 = azimuth
+         self.altitude_0 = altitude
+         
+         self.azimuth = self.azimuth_0
+         self.altitude = self.altitude_0 
+         
+         self.mualpha = mualpha
+         self.mudelta = mudelta
+         
+         self.coor = np.array([self.azimuth_0, self.altitude_0, self.mualpha, self.mudelta])
+         
+         self.x = np.cos(self.azimuth_0)*np.cos(self.altitude_0)
+         self.y = np.sin(self.azimuth_0)*np.cos(self.altitude_0)
+         self.z = np.sin(self.altitude_0)
+            
+         self.vector = unit_vector(np.array([self.x, self.y, self.z]))  
+         self.get_path(time_end)
+         
+    def update(self, t):
+        #not accumulative time, need to imput the total time from start.
+         self.azimuth = t * self.mualpha + self.azimuth_0 
+         self.altitude = t * self.mudelta + self.altitude_0
+         
+         self.coor = np.array([self.azimuth, self.altitude, self.mualpha, self.mudelta])
          
          self.x = np.cos(self.azimuth)*np.cos(self.altitude)
          self.y = np.sin(self.azimuth)*np.cos(self.altitude)
          self.z = np.sin(self.altitude)
-         
-         self.observations = []  
-         self.measurements = []  
-         self.times = [] 
-         self.indexes = []
             
-         self.vector = unit_vector(np.array([self.x,self.y,self.z]))   
+         self.vector = unit_vector(np.array([self.x, self.y, self.z])) 
+         
+    def get_path(self, time_end):
+        #time_end in hours and the step is 5 min. 
+        
+        self.path = []
+        for t in np.arange(0, time_end, 5/60.):  
+            azimuth = t * self.mualpha + self.azimuth_0
+            altitude = t * self.mudelta + self.altitude_0
+            self.path.append([azimuth, altitude])
+            
+    def draw_path(self):
+        #plt.figure()
+        alphas = [time[0] for time in self.path]
+        deltas = [time[1] for time in self.path]
+        plt.plot(alphas, deltas, '*')
+        plt.grid()
+        plt.show()
+        
                           
 class Sky:  
     '''
@@ -50,7 +84,9 @@ class Sky:
         for n in range(n):
             azimuth = np.random.uniform(0, (2*np.pi))
             altitude = np.random.uniform(-np.pi/2., np.pi/2)
-            obs = Observation(azimuth, altitude)
+            mualpha = np.random.uniform(0, 0.0005)
+            mudelta = np.random.uniform(0, 0.0005)
+            obs = Observation(azimuth, altitude, mualpha, mudelta)
             self.elements.append(obs)  
     
 class Satellite: 
@@ -100,15 +136,74 @@ class Satellite:
         
         
 ################################## FUNCTIONS ##################################
+                                                                                                                                       
+def vector(x,y,z): 
+    return np.array([x,y,z])
 
-def Scan(satellite, sky, zeta = np.radians(5.), time = 6, deltatime = 1/60., omega = np.pi/5):    #rad/hours
+def unit_vector(vector): 
+    return vector / np.linalg.norm(vector) 
+            
+def vector_to_point(vector):
+    return Point3D(vector[0], vector[1], vector[2])
+    
+def point_to_vector(point):          
+    return np.array([point.x, point.y, point.z])           
+
+def vector_to_quaternion(vector):
+    return Quaternion(0, float(vector[0]), float(vector[1]), float(vector[2]))  
+       
+def rotation_quaternion(vector, angle): 
+    '''    
+    Calculates Quaternion equivalent to a rotation given by a vector and a angle in radians.
     '''
-    Calculates in the BCRS the angle between the plane of the satellite and the line from the centre of the satellite to the star.
+    vector = unit_vector(vector)   
+    t = np.cos(angle/2.)
+    x = np.sin(angle/2.)*vector[0]
+    y = np.sin(angle/2.)*vector[1]
+    z = np.sin(angle/2.)*vector[2]
+    
+    qvector = Quaternion(t,x,y,z)
+    return qvector
+
+################################## FRAME CHANGE ##################################    
+def SRS(satellite, vector):
+    '''
+    Changes coordinates of a vector in BCRS to SRS frame.
+    '''
+    q_vector_bcrs= vector_to_quaternion(vector)
+    q_vector_srs = satellite.attitude * q_vector_bcrs * satellite.attitude.conjugate()  
+    return np.array([q_vector_srs.x, q_vector_srs.y, q_vector_srs.z])    
+   
+def BCRS(satellite, vector):
+    '''
+    Changes coordinates of a vector in SRS to BCRS frame.
+    '''
+    q_vector_srs= vector_to_quaternion(vector)
+    q_vector_bcrs = satellite.attitude.conjugate() * q_vector_srs * satellite.attitude  
+    
+    return np.array([q_vector_bcrs.x, q_vector_bcrs.y, q_vector_bcrs.z])
+         
+def Psi(satellite, sky):
+    '''
+    Calculates the difference between the coordinates of a star versus its correspondient coordinates (bcrs-framed) from Gaia.
+    '''
+    bcrs_stars_vector = [BCRS(satellite, obs.vector) for obs in satellite.observations]
+    list_true_star_vector = [sky.elements[idx].vector for idx in satellite.indexes]
+    diff = np.subtract(bcrs_stars_vector, list_true_star_vector)
+    return    diff
+    
+################################## scanner ##################################
+def Scan(satellite, sky, zeta = np.radians(5.), time = 6., deltatime = 1., omega = np.pi/5):    #rad/hours
+    '''
+    Calculates in the BCRS the angle between the plane f the satellite and the line from the centre of the satellite to the star.
     This angle is - zeta_angle_star_plane.
+    time is in hours.
+    omega: radians/hour
+    deltatime: radians
     ''' 
+    deltatime = deltatime/60.
     satellite.Reset()  
     total_angle = omega*time
-    
     
     for idx, star in enumerate(sky.elements):    
         star_point = vector_to_point(star.vector)             
@@ -146,64 +241,8 @@ def Scan(satellite, sky, zeta = np.radians(5.), time = 6, deltatime = 1/60., ome
         for observation in satellite.observations:
             if axis1phi < observation.azimuth and observation.azimuth < axis2phi:
                 satellite.times.append(t) 
-    satellite.phi = total_angle
-                                                                                                                                                                                        
-
-def vector(x,y,z): 
-    return np.array([x,y,z])
-
-def unit_vector(vector): 
-    return vector / np.linalg.norm(vector) 
-            
-def vector_to_point(vector):
-    return Point3D(vector[0], vector[1], vector[2])
     
-def point_to_vector(point):          
-    return np.array([point.x, point.y, point.z])           
-
-def vector_to_quaternion(vector):
-    return Quaternion(0, float(vector[0]), float(vector[1]), float(vector[2]))  
-       
-def rotation_quaternion(vector, angle): 
-    '''    
-    Calculates Quaternion equivalent to a rotation given by a vector and a angle in radians.
-    '''
-    vector = unit_vector(vector)   
-    t = np.cos(angle/2.)
-    x = np.sin(angle/2.)*vector[0]
-    y = np.sin(angle/2.)*vector[1]
-    z = np.sin(angle/2.)*vector[2]
-    
-    qvector = Quaternion(t,x,y,z)
-    return qvector
-
-    
-def SRS(satellite, vector):
-    '''
-    Changes coordinates of a vector in BCRS to SRS frame.
-    '''
-    q_vector_bcrs= vector_to_quaternion(vector)
-    q_vector_srs = satellite.attitude * q_vector_bcrs * satellite.attitude.conjugate()  
-    return np.array([q_vector_srs.x, q_vector_srs.y, q_vector_srs.z])    
-   
-def BCRS(satellite, vector):
-    '''
-    Changes coordinates of a vector in SRS to BCRS frame.
-    '''
-    q_vector_srs= vector_to_quaternion(vector)
-    q_vector_bcrs = satellite.attitude.conjugate() * q_vector_srs * satellite.attitude  
-    
-    return np.array([q_vector_bcrs.x, q_vector_bcrs.y, q_vector_bcrs.z])
-         
-def Psi(satellite, sky):
-    '''
-    Calculates the difference between the coordinates of a star versus its correspondient coordinates (bcrs-framed) from Gaia.
-    '''
-    bcrs_stars_vector = [BCRS(satellite, obs.vector) for obs in satellite.observations]
-    list_true_star_vector = [sky.elements[idx].vector for idx in satellite.indexes]
-    diff = np.subtract(bcrs_stars_vector, list_true_star_vector)
-    return    diff
-
+################################## PLOTTING ##################################   
 def Measurements(satellite): 
     '''
     Takes all observation objects of the satellite (which are in the SRS frame) and converts them into the BCRS frame, making them observation-objects.
@@ -243,15 +282,13 @@ def Plot(satellite, sky):
     
     red_dot, = plt.plot(azimuth_obs, altitude_obs, 'r*')
     blue_dot, = plt.plot(azimuth_star, altitude_star, 'b*')
-    red_line, = plt.plot(x, t, 'r--')
+    #red_line, = plt.plot(x, t, 'r--')
 
-    plt.legend((red_dot, blue_dot, red_line), ('Obs', 'Star', 'Scan EndPoint'))
+    plt.legend((red_dot, blue_dot), ('Obs', 'Star'))
     plt.grid()
     plt.show()
     
 
-    
-    
 
     
         
