@@ -89,7 +89,7 @@ class Satellite:
         self.phi = phi
         self.zeta = zeta    
 
-    def Scan(self, sky, zeta = np.radians(5.), phi= math.radians(360.), deltaphi = math.radians(1.)):    
+    def Scan(self, sky, zeta = np.radians(5.), deltaphi = np.radians(1.), time = 6, deltatime = 1/60., omega = np.pi/3):   
 
         '''
         Calculates in the BCRS the angle between the plane of the satellite and the line from the centre of the satellite to the star.
@@ -129,15 +129,16 @@ class Satellite:
         Once observations are made, now we pass the scan to see at what times if the star in the detector's range
         '''
         #maybe change this to +- deltaphiphi/2 at some point? but careful that phi > 0
-        for i in np.arange(0, phi, deltaphi):
-            self.ViewLine(i, 0)
+        for t in np.arange(0, time, deltatime):
+            angle = omega * t
+            deltaangle = omega * deltatime
+            self.ViewLine(angle, 0)
             axis1phi = self.phi%(2*np.pi)            
-            axis2phi = (self.phi + deltaphi)%(2*np.pi)
+            axis2phi = (self.phi + deltaangle)%(2*np.pi)
             
             for observation in self.observations:
                 if axis1phi < observation.azimuth and observation.azimuth < axis2phi:
-                    time = i%(np.pi*2)
-                    self.times.append(time) 
+                    self.times.append(t)  
                                                                                                                                                                                                                                   
         
 ################################## FUNCTIONS ##################################
