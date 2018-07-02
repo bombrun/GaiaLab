@@ -11,7 +11,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-from hits.hitdetector import identifyClanks
+try:
+    from hits.hitdetector import identifyClanks
+except(ImportError):
+    from hitdetector import identifyClanks
 from scipy.interpolate import UnivariateSpline, BSpline
 
 

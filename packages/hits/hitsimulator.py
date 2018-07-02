@@ -74,7 +74,7 @@ def p_distribution(frequencies):
     """
 
     hit_distribution = [np.random.poisson(lam=max(frequency,0)) for frequency in frequencies] #max filters out negative frequencies at the flux discontinuity
-    hits = [i for i, e in enumerate(hit_distribution) if e != 0]
+    hits = [i for i, e in enumerate(hit_distribution) if e != 0]    #indices of non-zero elements of the hit distribution
     return (hit_distribution, hits)
 
 
@@ -193,7 +193,7 @@ def generateData(masses, length, plot=False, write_to_csv=None, **kwargs):   #re
         plt.ylabel("Angular velocity/mas/s")
         plt.show()
         return  df[df.rate!=0]
-    if write_to_csv:
+    if write_to_csv is not None:
         df.to_csv(write_to_csv, sep=',', index=False)
         return df
     else:
