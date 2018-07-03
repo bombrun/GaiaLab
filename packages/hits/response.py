@@ -166,10 +166,14 @@ def getTurningPoints(df):
     #Therefore, create two arrays and test where the sign differences are.
     #Return the indices where this is the case.
 
-    differences_lower = np.sign([*np.diff(sorted_df['rate']-sorted_df['w1_rate']), 1]) #np.sign() returns 1 or -1
-    differences_upper = np.sign([1, *np.diff(sorted_df['rate']-sorted_df['w1_rate'])])
+    differences_lower = np.sign([*np.diff(sorted_df['rate']-sorted_df['w1_rate']), 0]) #np.sign() returns 1 or -1
+    differences_upper = np.sign([1, *np.diff(sorted_df['rate']-sorted_df['w1_rate'])]) #or 0 for 0
 
-    turning_points = [d1 != d2 for d1, d2 in zip(differences_lower, differences_upper)]#therefore testing for equality is sufficient
+    turning_points = [d1 == -d2 if d1 != 0 else True for d1, d2 in zip(differences_lower, differences_upper)] #if the first value is 0 then it is a turning point. else check for inverse.
+
+    turning_points[-1] = False #setting the last value of differences_lower==0 ensures it will always return a false positive. rectify that here.
+                               #in reality cannot really ever consider the last datapoint to be a turning point so this is also okay from that
+                               #perspective
 
     sorted_df['turning'] = turning_points
     return sorted_df[sorted_df['turning']]
