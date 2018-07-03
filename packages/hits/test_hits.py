@@ -10,7 +10,6 @@ import pandas as pd
 import warnings
 from numba import NumbaWarning
 import math
-import matplotlib.pyplot as plt
 
 #functions to run tests on
 #equivalent to from . import * but more verbose
@@ -88,6 +87,28 @@ class TestHitSimulatorGeneratorFuncs(unittest.TestCase):
 
             raise RuntimeError("\n\n***\nUnexpectedly high hitrate produced by generateData. Consider re-running tests.\n1000 attempts yielded %r hits. The probability of this occurring is less than %.2e.\nIf this happens multiple times, use your statistical discretion to consider this a failure.\n***\n\n" % (count, probability))
             
+
+#------------response.py tests---------------
+class TestResponseTurningPointFuncs(unittest.TestCase):
+
+    def setUp(self): #set up dummy polynomial data with a known number of turning points.
+        obmt = np.linspace(0,100,1000)
+        self.points = np.random.randint(1,20) #random number of turning points between 0 and 20
+
+        rate = np.sin(self.points*np.pi*obmt/100) #set up rate as a sin function over obmt with the expected amount of turning points
+        w1_rate = np.zeros(1000)
+        self.df = pd.DataFrame(data=dict(obmt = obmt,
+                                         rate = rate,
+                                         w1_rate = w1_rate))
+
+    def test_getTurningPoints(self):
+        self.assertEqual(len(getTurningPoints(self.df)),self.points)
+
+
+    def test_filterTurningPoints(self):
+        self.assertTrue(len(filterTurningPoints(self.df)) <= len(getTurningPoints(self.df)))
+
+#-------------------------------------------
 
 if __name__ == "__main__":
     unittest.main()
