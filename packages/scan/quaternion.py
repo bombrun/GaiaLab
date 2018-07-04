@@ -20,9 +20,9 @@ class Quaternion():
 
     Transformation of quaternions is also supported:
 
-    Normalised unit quaternion: >> q_u = q.unit()
-    Conjugate of q:             >> q_c = q.conjugate()
-    Reciprocal or inverse of q:            >> q_r = q.reciprocal() or >> q_i = q.inverse(). They are equivalent.
+    Normalised unit quaternion:     >> q_u = q.unit()
+    Conjugate of q:                 >> q_c = q.conjugate()
+    Reciprocal or inverse of q:     >> q_r = q.reciprocal() or >> q_i = q.inverse(). They are equivalent.
 
     Tolerance can be applied to the unit quaternion function to determine the
     unit quaternion to a desired accuracy.
@@ -78,6 +78,16 @@ class Quaternion():
             return Quaternion(self.w-other.w,self.x-other.x, self.y-other.y, self.z-other.z)
         else:
             raise TypeError("Unable to broadcast together types Quaternion and %r." %type(other))
+
+    # For multiplication, python 3.5+ supports @ as the matrix multiplication operator.
+    # Improvements in readability may be gained by replacing .dot functions with @.
+
+    # It is not (currently) in __future__, so from __future__ import does not allow for 
+    # use with python versions < 3.5.
+
+    # No non-stylistic improvements, it breaks backwards compatibility and more than 2 
+    # matrices are never multiplied here therefore it is probably not currently worth 
+    # implementing.
 
     def __mul__(self, other):       #Allow for right multiplication by scalars, matrices and quaternions
         if isinstance(other, Quaternion):
