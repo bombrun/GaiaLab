@@ -143,7 +143,7 @@ class Satellite:
         self.l = self.l + dL
         
         #Updates Nu
-        nudot = (self.ldot + (np.sqrt(self.S**2- np.cos(self.nu)**2) + np.cos(self.xi)*np.sin(self.nu))/np.sin(self.xi)) * self.ldot  # = dNu/dL * dL/dt
+        nudot = (self.ldot*(np.sqrt(self.S**2- np.cos(self.nu)**2) + np.cos(self.xi)*np.sin(self.nu))/np.sin(self.xi)) * self.ldot  # = dNu/dL * dL/dt
         dNu = nudot*dt
         self.nu = self.nu + dNu
         
@@ -195,7 +195,7 @@ def Plot3D(satellite, dt, n):
     fig = plt.figure()
     ax = fig.gca(projection='3d')
 
-    ax.plot(w_listx, w_listy, w_listz,'bo--', label='W: inertial rotation vector')
+    ax.plot(w_listx, w_listy, w_listz,'--', label='W: inertial rotation vector')
     ax.legend()
     ax.set_xlabel('l')
     ax.set_ylabel('m')

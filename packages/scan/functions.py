@@ -28,15 +28,15 @@ def vector_to_quaternion(vector):
 def rotation_quaternion(vector, angle): 
     '''    
     Calculates Quaternion equivalent to a rotation given by a vector and a angle in radians.
-    '''
-    vector = unit_vector(vector)   
+    '''   
     t = np.cos(angle/2.)
     x = np.sin(angle/2.)*vector[0]
     y = np.sin(angle/2.)*vector[1]
     z = np.sin(angle/2.)*vector[2]
     
     qvector = Quaternion(t,x,y,z)
-    return qvector
+    return qvector   
+    
     
 def xyz(azimuth, altitude):
     x = np.cos(azimuth)*np.cos(altitude)
