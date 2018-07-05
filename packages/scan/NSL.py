@@ -17,10 +17,12 @@ from sympy import Symbol
 
 import numpy as np
 import math
-import matplotlib.pyplot as plt
 import time
 import datetime
 
+import matplotlib as mpl
+from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.pyplot as plt
     
     
 class Star: 
@@ -59,6 +61,7 @@ def Observation(satellite, t):
 class Satellite: 
 
     def __init__(self, *args):  
+        self.t = 0
         self.Parameters(*args)
         
     def Parameters(self, S = 4.035, epsilon = np.radians(23.26) , xi =  np.radians(55) , wz = 0.0005817764173):
@@ -160,16 +163,48 @@ class Satellite:
         
         self.w_ = k_*self.ldot + self.s_*nudot + self.z_*omegadot
         
-        wMatrix = WMatrix(self, self.w_)
+        #wMatrix = WMatrix(self, self.w_)
                 
-        qdot = 0.5*wMatrix * self.attitude
-        dq = qdot * dt
+        #qdot = 0.5*wMatrix * self.attitude
+        #dq = qdot * dt
         #check this and see what matrix * quaternion gives and what dq and qdot give
         #self.attitude = dq*self.attidute 
 
         
         
+def Plot3D(satellite, dt, n):
+    satellite = Satellite()
+    w_list = []
+    for i in range(n):
+        satellite.Update(dt)
+        w_list.append(satellite.w_)
+    
+    w_listx = [i[0] for i in w_list]
+    w_listy = [i[1] for i in w_list]
+    w_listz = [i[2] for i in w_list]
+    
+    
+    mpl.rcParams['legend.fontsize'] = 10
+    
+    fig = plt.figure()
+    ax = fig.gca(projection='3d')
 
+    ax.plot(w_listx, w_listy, w_listz,'bo--', label='W: inertial rotation vector')
+    ax.legend()
+    ax.set_xlabel('l')
+    ax.set_ylabel('m')
+    ax.set_zlabel('n')
+    
+    plt.show()
+    
+
+        
+        
+    
+    
+    
+    
+    
     
         
         
