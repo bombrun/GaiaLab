@@ -87,8 +87,8 @@ class Satellite:
         #initial-value conditions for functions.
         self.ldot = (2*np.pi/365)
         
-        self.nu0 = 0.5
-        self.omega0 = 0.4
+        self.nu0 = 0.
+        self.omega0 = 0.
         self.l0 = 0.12
         
         #initialization of satellite.attitude.
@@ -99,8 +99,7 @@ class Satellite:
         self.omega = self.omega0
         self.l = self.l0
         
-        
-        
+        #Initialization of z-axis and inertial rotation vector.
         z_quat = self.attitude * Quaternion(0,0,0,1) * self.attitude.conjugate()
         self.z_ = [z_quat.x, z_quat.y, z_quat.z]
         self.w_ = np.cross([0,0,1],self.z_)
@@ -122,6 +121,7 @@ class Satellite:
     def Attitude(self):
 
         #calculate w vector
+        
         #calculate z from w vector
         #calculate attitude from w. 
         return None
@@ -132,7 +132,7 @@ class Satellite:
         w_[2] = wn
         
         
-        wMatrix = np.array([0, -wn, +wm, wl,+wn, 0, -wl, +wm, -wm, +wl, 0, wn, -wl, -wm, -wn, 0])   #need to change this to have proper structure of quaternion (x,y,z,t) rather than (t,x,y,z)
+        wMatrix = np.array([0, -wl,-wm,-wn,wl,0,wn,-wm,wm,-wn,0,wl,wn,wm,-wl,0])   #need to change this to have proper structure of quaternion (x,y,z,t) rather than (t,x,y,z)
         wMatrix = wMatrix.reshape(4,4)
        
         return wMatrix
@@ -161,10 +161,16 @@ class Satellite:
         dz_ = zdot_*dt
         self.z_ = self.z_ + dz_
         
+        #updates inertial rotation vector
         self.w_ = k_*self.ldot + self.s_*nudot + self.z_*omegadot
+        wquat = vector_to_quaternion(self.w_)
+        dzheta = wquat.magnitude * dt
+        deltarot = rotation_quaternion(self.w_, dzheta)
+        self.attitude = deltarot*self.attitude
         
+        #calculates matrix equivalent to rotation of w-axis
         #wMatrix = WMatrix(self, self.w_)
-                
+        
         #qdot = 0.5*wMatrix * self.attitude
         #dq = qdot * dt
         #check this and see what matrix * quaternion gives and what dq and qdot give
@@ -196,12 +202,47 @@ def Plot3D(satellite, dt, n):
     ax.set_zlabel('n')
     
     plt.show()
+
+def PlotAttitude(satellite, dt, n):
+    
+    satellite = Satellite()
+    qt_list = []
+    qx_list = []
+    qy_list = []
+    qz_list = []
+    t = np.arange(0, dt*n, dt)
+    for i in range(n):
+        satellite.Update(dt)
+        qt_list.append(satellite.attitude.w)
+        qx_list.append(satellite.attitude.x)
+        qy_list.append(satellite.attitude.y)
+        qz_list.append(satellite.attitude.z)
+    
+    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2)
+    fig.subplots_adjust(left=0.2, wspace=0.6)
+    
+    ax1.plot(t, qt_list,'r')
+    ax1.set(title='Attitude components wrt time', ylabel='qw')
+
+    ax2.plot(t, qx_list, 'b')
+    ax2.set_ylabel('qx')
+
+    ax3.plot(t, qy_list, 'g')
+    ax3.set_ylabel('qy')
+    
+    ax4.plot(t, qz_list, 'k')
+    ax4.set_ylabel('qz')
+    
+    plt.show()
     
 
-        
-        
     
     
+        
+    
+        
+        
+
     
     
     
