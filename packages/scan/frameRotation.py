@@ -9,7 +9,7 @@ import time
 import matplotlib as mp
 import matplotlib.pyplot as plt
 import pandas as pd
-import healpy as hp
+#import healpy as hp
 import glob as glob
 
 from astropy.table import Table
