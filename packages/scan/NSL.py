@@ -60,11 +60,11 @@ def Observation(satellite, t):
         
 class Satellite: 
 
-    def __init__(self, *args):  
+    def __init__(self,*args):  
         self.t = 0
         self.Parameters(*args)
-        
-    def Parameters(self, S = 4.035, epsilon = np.radians(23.26) , xi =  np.radians(55) , wz = 0.0005817764173):
+        self.Reset()       
+    def Parameters(self, S = 4.035, epsilon = np.radians(23.26) , xi =  np.radians(55) , wz = 120):
         '''
         Args
         _______
@@ -75,35 +75,19 @@ class Satellite:
         
         xi: [float][constant] revolving angle
         
-        omegaz: [float][constant] z component of spin phase, gives constant inertial rotation rate about zaxis in XYZ- frame (satellite frame). 
+        omegaz: [float][constant] z component of spin phase, gives constant inertial rotation rate about zaxis in XYZ- frame (satellite frame).Provided in rad/s and transformed to rad/yr.
         
         '''
+        #change of units
+        wz = wz/206264.8062470946 #to radians/s
+        wz = wz*60*60*24. #to radians/days
+        
         #constant parameters
         self.S = S
         self.epsilon = epsilon
         self.xi = xi
         self.wz = wz
-        
-        #initial-value conditions for functions.
-        self.ldot = (2*np.pi/365)
-        
-        self.nu0 = 0.
-        self.omega0 = 0.
-        self.l0 = 0.12
-        
-        #initialization of satellite.attitude.
-        self.attitude = self.InitAttitude()
-        
-        #Initial orientation values set equal to initial-value conditions.
-        self.nu = self.nu0
-        self.omega = self.omega0
-        self.l = self.l0
-        
-        #Initialization of z-axis and inertial rotation vector.
-        z_quat = self.attitude * Quaternion(0,0,0,1) * self.attitude.conjugate()
-        self.z_ = [z_quat.x, z_quat.y, z_quat.z]
-        self.w_ = np.cross([0,0,1],self.z_)
-        
+
     def InitAttitude(self):
         '''
         Called in __init__ method. 
@@ -118,24 +102,32 @@ class Satellite:
         q_total = q1*q2*q3*q4*q5
         return q_total
         
-    def Attitude(self):
-
-        #calculate w vector
+    def Reset(self):
+        '''
+        Resets satellite to t = 0 and initialization status.
+        '''
+        #initial-value conditions for functions.
+        self.ldot = (2*np.pi/365)
+        self.t = 0.
         
-        #calculate z from w vector
-        #calculate attitude from w. 
-        return None
-            
-    def WMatrix(self, w_):
-        w_[0] = wl
-        w_[1] = wm
-        w_[2] = wn
+        self.nu0 = 0.
+        self.omega0 = 0.
+        self.l0 = 0.
+        self.beta0 = 0.
         
+        #initialization of satellite.attitude.
+        self.attitude = self.InitAttitude()
         
-        wMatrix = np.array([0, -wl,-wm,-wn,wl,0,wn,-wm,wm,-wn,0,wl,wn,wm,-wl,0])   #need to change this to have proper structure of quaternion (x,y,z,t) rather than (t,x,y,z)
-        wMatrix = wMatrix.reshape(4,4)
-       
-        return wMatrix
+        #Initial orientation values set equal to initial-value conditions.
+        self.nu = self.nu0
+        self.omega = self.omega0
+        self.l = self.l0
+        self.beta = self.beta0
+        
+        #Initialization of z-axis and inertial rotation vector.
+        z_quat = self.attitude * Quaternion(0,0,0,1) * self.attitude.conjugate()
+        self.z_ = [z_quat.x, z_quat.y, z_quat.z]
+        self.w_ = np.cross([0,0,1],self.z_)
 
     def Update(self, dt):
         self.t = self.t + dt
@@ -146,6 +138,10 @@ class Satellite:
         nudot = (self.ldot*(np.sqrt(self.S**2- np.cos(self.nu)**2) + np.cos(self.xi)*np.sin(self.nu))/np.sin(self.xi)) * self.ldot  # = dNu/dL * dL/dt
         dNu = nudot*dt
         self.nu = self.nu + dNu
+        
+        #LatitudeAngles
+        self.lamb = self.l + np.arctan(np.tan(self.xi)*np.cos(self.nu))
+        self.beta = np.arcsin(np.sin(self.xi)*np.sin(self.nu))
         
         #Updates Omega
         omegadot = self.wz - nudot*np.cos(self.xi) - self.ldot*np.sin(self.xi)*np.sin(self.nu)
@@ -160,26 +156,70 @@ class Satellite:
         zdot_ = np.cross(k_, self.z_)*self.ldot + np.cross(self.s_,self.z_)*nudot
         dz_ = zdot_*dt
         self.z_ = self.z_ + dz_
-        
+        #AT THE MOMENT Z AND W ARE THE SAME. 
         #updates inertial rotation vector
         self.w_ = k_*self.ldot + self.s_*nudot + self.z_*omegadot
+        
+        #calculates new attitude by deltaquat
         wquat = vector_to_quaternion(self.w_)
         dzheta = wquat.magnitude * dt
-        deltarot = rotation_quaternion(self.w_, dzheta)
-        self.attitude = deltarot*self.attitude
+        deltaquat = rotation_quaternion(self.w_, dzheta)
+        self.attitude = deltaquat*self.attitude
         
-        #calculates matrix equivalent to rotation of w-axis
-        #wMatrix = WMatrix(self, self.w_)
+    def GenerateLists(self, dt, n):
+        self.w_list = []
+        self.qt_list = []
+        self.qx_list = []
+        self.qy_list = []
+        self.qz_list = []
+        self.lamb_list = []
+        self.beta_list = []
+        self.nu_list = [] 
+        self.omega_list = []
+        self.z_list = []
         
-        #qdot = 0.5*wMatrix * self.attitude
-        #dq = qdot * dt
-        #check this and see what matrix * quaternion gives and what dq and qdot give
-        #self.attitude = dq*self.attidute 
+        for i in range(n):
+            self.Update(dt)
+            self.w_list.append(self.w_)
+            self.qt_list.append(self.attitude.w)
+            self.qx_list.append(self.attitude.x)
+            self.qy_list.append(self.attitude.y)
+            self.qz_list.append(self.attitude.z)
+            self.lamb_list.append(self.lamb)
+            self.beta_list.append(self.beta)
+            self.nu_list.append(self.nu)
+            self.omega_list.append(self.omega)
+            self.z_list.append(self.z_)
 
-        
-        
-def Plot3D(satellite, dt, n):
-    satellite = Satellite()
+########################## PLOTS ################################
+            
+def Plot3DZ(satellite, dt, n):
+    satellite.Reset()
+    z_list = []
+    for i in range(n):
+        satellite.Update(dt)
+        z_list.append(satellite.z_)
+    
+    z_listx = [i[0] for i in z_list]
+    z_listy = [i[1] for i in z_list]
+    z_listz = [i[2] for i in z_list]
+    
+    
+    mpl.rcParams['legend.fontsize'] = 10
+    
+    fig = plt.figure()
+    ax = fig.gca(projection='3d')
+
+    ax.plot(z_listx, z_listy, z_listz,'--', label='Z vector rotation')
+    ax.legend()
+    ax.set_xlabel('l')
+    ax.set_ylabel('m')
+    ax.set_zlabel('n')
+    
+    plt.show()      
+     
+def Plot3DW(satellite, dt, n):
+    satellite.Reset()
     w_list = []
     for i in range(n):
         satellite.Update(dt)
@@ -204,35 +244,49 @@ def Plot3D(satellite, dt, n):
     plt.show()
 
 def PlotAttitude(satellite, dt, n):
-    
-    satellite = Satellite()
+    satellite.Reset()
+    t = np.arange(0, dt*n, dt)
     qt_list = []
     qx_list = []
     qy_list = []
     qz_list = []
-    t = np.arange(0, dt*n, dt)
     for i in range(n):
         satellite.Update(dt)
         qt_list.append(satellite.attitude.w)
         qx_list.append(satellite.attitude.x)
         qy_list.append(satellite.attitude.y)
         qz_list.append(satellite.attitude.z)
-    
+
     fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2)
     fig.subplots_adjust(left=0.2, wspace=0.6)
     
-    ax1.plot(t, qt_list,'r')
+    ax1.plot(t, qt_list,'ro--')
     ax1.set(title='Attitude components wrt time', ylabel='qw')
 
-    ax2.plot(t, qx_list, 'b')
+    ax2.plot(t, qx_list, 'bo--')
     ax2.set_ylabel('qx')
 
-    ax3.plot(t, qy_list, 'g')
+    ax3.plot(t, qy_list, 'go--')
     ax3.set_ylabel('qy')
     
-    ax4.plot(t, qz_list, 'k')
+    ax4.plot(t, qz_list, 'ko--')
     ax4.set_ylabel('qz')
     
+    plt.show()
+    
+    
+def PlotLatLong(satellite, dt, n):
+    lat_list = [] #beta
+    long_list = [] #lambda
+    for i in range(n):
+        satellite.Update(dt)
+        long_list.append(satellite.l)
+        lat_list.append(satellite.beta)
+    plt.figure()
+    plt.plot(long_list, lat_list, 'bo--')
+    plt.ylabel('Ecliptic Lattitude (rad)')
+    plt.xlabel('Ecliptic Longitude (rad)')
+    plt.title('Revolving scanning')
     plt.show()
     
 
