@@ -93,11 +93,18 @@ class Satellite:
         Called in __init__ method. 
         Initialises satellite.attitude according to initial values of all parameters. 
         '''
-        q1 = Quaternion(np.sin(self.epsilon/2), 0, 0, np.cos(self.epsilon/2))                            #epsilon about l-axis
-        q2 = Quaternion(0,0,np.sin(self.l0/2),np.cos(self.l0/2))                                         #lanbda about n-axis
-        q3 = Quaternion(np.sin((self.nu0-np.pi/2.)/2), 0, 0, np.cos((self.nu0-np.pi/2.)/2))              #nu - 90 abbout l-axis
-        q4 = Quaternion(0,np.sin((np.pi/2. - self.xi)/2), 0, np.cos((np.pi/2. - self.xi)/2))             #90-xi about m-axis
-        q5 = Quaternion(0,0, np.sin(self.omega0/2.), np.cos(self.omega0/2.))                             #omega abbout n-axis (z-axis).
+        #q1 = Quaternion(np.sin(self.epsilon/2), 0, 0, np.cos(self.epsilon/2))                            #epsilon about l-axis
+        #q2 = Quaternion(0,0,np.sin(self.l0/2),np.cos(self.l0/2))                                         #lambda about n-axis
+        #q3 = Quaternion(np.sin((self.nu0-np.pi/2.)/2), 0, 0, np.cos((self.nu0-np.pi/2.)/2))              #nu - 90 abbout l-axis
+        #q4 = Quaternion(0,np.sin((np.pi/2. - self.xi)/2), 0, np.cos((np.pi/2. - self.xi)/2))             #90-xi about m-axis
+        #q5 = Quaternion(0,0, np.sin(self.omega0/2.), np.cos(self.omega0/2.))                             #omega abbout n-axis (z-axis).
+        
+        #I think the above were given in SAG-LL-30 in the [x,y,z,w] convention, so trying here in the [w,x,y,z]
+        q1 = Quaternion(np.cos(self.epsilon/2), np.sin(self.epsilon/2), 0, 0)                            #epsilon about l-axis
+        q2 = Quaternion(np.cos(self.l0/2), 0,0,np.sin(self.l0/2))                                        #lambda about n-axis
+        q3 = Quaternion(np.cos((self.nu0-np.pi/2.)/2), np.sin((self.nu0-np.pi/2.)/2), 0, 0)              #nu - 90 abbout l-axis
+        q4 = Quaternion(np.cos((np.pi/2. - self.xi)/2), 0,np.sin((np.pi/2. - self.xi)/2), 0)             #90-xi about m-axis
+        q5 = Quaternion(np.cos(self.omega0/2.), 0,0, np.sin(self.omega0/2.))                             #omega abbout n-axis (z-axis).
         
         q_total = q1*q2*q3*q4*q5
         return q_total
@@ -135,7 +142,8 @@ class Satellite:
         self.l = self.l + dL
         
         #Updates Nu
-        nudot = (self.ldot*(np.sqrt(self.S**2- np.cos(self.nu)**2) + np.cos(self.xi)*np.sin(self.nu))/np.sin(self.xi)) * self.ldot  # = dNu/dL * dL/dt
+        #commenting out as pg 2 of SAG-LL-35 has nudot given by the line below, not this: #nudot = (self.ldot*(np.sqrt(self.S**2 - np.cos(self.nu)**2) + np.cos(self.xi)*np.sin(self.nu))/np.sin(self.xi)) * self.ldot  # = dNu/dL * dL/dt
+        nudot = self.ldot*(np.sqrt(self.S**2 - np.cos(self.nu)**2) + np.cos(self.xi)*np.sin(self.nu))/np.sin(self.xi)
         dNu = nudot*dt
         self.nu = self.nu + dNu
         
@@ -156,6 +164,8 @@ class Satellite:
         zdot_ = np.cross(k_, self.z_)*self.ldot + np.cross(self.s_,self.z_)*nudot
         dz_ = zdot_*dt
         self.z_ = self.z_ + dz_
+        self.z_ = self.z_ / np.linalg.linalg.norm(self.z_)        #Renormalise unit vector to prevent expansion over time.
+        
         #AT THE MOMENT Z AND W ARE THE SAME. 
         #updates inertial rotation vector
         self.w_ = k_*self.ldot + self.s_*nudot + self.z_*omegadot
@@ -177,6 +187,7 @@ class Satellite:
         self.nu_list = [] 
         self.omega_list = []
         self.z_list = []
+        self.x_list = []    #AL- added to see how the satellite telescope itself tracks across the sky.
         
         for i in range(n):
             self.Update(dt)
@@ -190,15 +201,21 @@ class Satellite:
             self.nu_list.append(self.nu)
             self.omega_list.append(self.omega)
             self.z_list.append(self.z_)
+            x_quat = self.attitude * Quaternion(0,1,0,0) * self.attitude.conjugate()
+            x_ = quaternion_to_vector(x_quat)
+            self.x_list.append(x_)    #AL- added to see how the satellite telescope itself tracks across the sky.
 
 ########################## PLOTS ################################
             
-def Plot3DZ(satellite, dt, n):
+def Plot3DZ(satellite, dt, n, frame = None):
+    if frame == None:   #frame allows a quaternion rotation to be applied to the z_ vector before being plotted, e.g. rotation_quaternion(np.array([1,0,0]),-gaia.epsilon) will move from the lmn frame to the ecliptic plane.
+        frame = Quaternion(1,0,0,0)
+        
     satellite.Reset()
     z_list = []
     for i in range(n):
         satellite.Update(dt)
-        z_list.append(satellite.z_)
+        z_list.append(quaternion_to_vector(frame*vector_to_quaternion(satellite.z_)*frame.conjugate()))
     
     z_listx = [i[0] for i in z_list]
     z_listy = [i[1] for i in z_list]
@@ -215,6 +232,41 @@ def Plot3DZ(satellite, dt, n):
     ax.set_xlabel('l')
     ax.set_ylabel('m')
     ax.set_zlabel('n')
+    
+    ax.set_xlim(-1,1)
+    ax.set_ylim(-1,1)
+    ax.set_zlim(-1,1)
+    
+    plt.show()      
+    
+def Plot3DX(satellite, dt, n):
+    satellite.Reset()
+    x_list = []
+    for i in range(n):
+        satellite.Update(dt)
+        x_quat = satellite.attitude * Quaternion(0,1,0,0) * satellite.attitude.conjugate()
+        x_ = quaternion_to_vector(x_quat)
+        x_list.append(x_)
+    
+    x_listx = [i[0] for i in x_list]
+    x_listy = [i[1] for i in x_list]
+    x_listz = [i[2] for i in x_list]
+    
+    
+    mpl.rcParams['legend.fontsize'] = 10
+    
+    fig = plt.figure()
+    ax = fig.gca(projection='3d')
+
+    ax.plot(x_listx, x_listy, x_listz,'--', label='X vector rotation')
+    ax.legend()
+    ax.set_xlabel('l')
+    ax.set_ylabel('m')
+    ax.set_zlabel('n')
+    
+    ax.set_xlim(-1,1)
+    ax.set_ylim(-1,1)
+    ax.set_zlim(-1,1)
     
     plt.show()      
      
@@ -273,26 +325,49 @@ def PlotAttitude(satellite, dt, n):
     ax4.set_ylabel('qz')
     
     plt.show()
-    
-    
+
 def PlotLatLong(satellite, dt, n):
-    lat_list = [] #beta
-    long_list = [] #lambda
+    # Rotates z_ into ecliptic plane, then applies transformation from cartesian to spherical polar coordinates to extract lat. long. data.
+    satellite.Reset()
+    lat_list = [] #theta
+    long_list = [] #phi
     for i in range(n):
         satellite.Update(dt)
-        long_list.append(satellite.l)
-        lat_list.append(satellite.beta)
+        ecliptic_quat = rotation_quaternion(np.array([1,0,0]),-satellite.epsilon)
+        z_ecliptic = quaternion_to_vector(ecliptic_quat*vector_to_quaternion(satellite.z_)*ecliptic_quat.conjugate())
+        long_list.append(np.arctan2(z_ecliptic[1],z_ecliptic[0])) #phi
+        lat_list.append(np.arccos(z_ecliptic[2]) - np.pi/2) #theta 
     plt.figure()
-    plt.plot(long_list, lat_list, 'bo--')
+    plt.plot(long_list, lat_list, 'b.')
     plt.ylabel('Ecliptic Lattitude (rad)')
     plt.xlabel('Ecliptic Longitude (rad)')
+    plt.ylim(-np.pi/2, np.pi/2)
     plt.title('Revolving scanning')
     plt.show()
     
 
-    
-    
+def PlotAngleBetweenSunAndZ(satellite, dt, n):
+    #from the PlotLatLong2 function, it looks like this angle is increasing over time... 
+    satellite.Reset()
+    angle_list = []
+    t = np.arange(0, dt*n, dt)
+    for i in range(n):
+        satellite.Update(dt)
+        ecliptic_quat = rotation_quaternion(np.array([1,0,0]),-satellite.epsilon)
+        z_ecliptic = quaternion_to_vector(ecliptic_quat*vector_to_quaternion(satellite.z_)*ecliptic_quat.conjugate())
+        s_rot_quat = rotation_quaternion(np.array([0,0,1]), satellite.l)
+        s_ecliptic = quaternion_to_vector(s_rot_quat*Quaternion(0,1,0,0)*s_rot_quat.conjugate())
+        angle = np.arccos(np.dot(z_ecliptic,s_ecliptic))
         
+        angle_list.append(angle*180/np.pi)
+        
+    plt.figure()
+    plt.plot(t, angle_list, 'b.')
+    plt.ylabel('Angle (rad)')
+    plt.xlabel('Time (days)')
+    #plt.ylim(-np.pi/2, np.pi/2)
+    plt.title('Angle Between Sun and Z')
+    plt.show()    
     
         
         
