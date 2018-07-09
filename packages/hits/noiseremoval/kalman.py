@@ -68,6 +68,10 @@
 import numpy as np
 import pandas as pd
 from array import array
+try:
+    import hits.hitdetector as hd
+except(ImportError):
+    import hitdetector as hd
 
 #TODO implement extended Kalman and use to identify decay pattern for hits (assume exponential?)
 #TODO can you transform detected (and Kalman-cleaned?) hits into some sort of linear space to get actual decaying exponential coefficents using basic Kalman??
@@ -123,7 +127,7 @@ class KalmanData():
 
     def __repr__(self): #No benefit in showing all values for large objects. Especially since the most useful data in this class is generated on the fly.
         """Representation of the data."""
-        return "Kalman data object, length: %r\n[%r ... %r]" % (len(self), self._data[0], self.data[-1])
+        return "Kalman data object, length: %r\n[%r ... %r]" % (len(self), self._data[0], self._data[-1])
     
 
     def __getitem__(self, index):
@@ -161,9 +165,12 @@ class KalmanData():
     @checkdatatype
     def __le__(self, other):
         return self._data <= other._data
-    @checkdatatype
+
     def __ne__(self, other):
-        return self._data != other._data
+        if isinstance(other, KalmanData):
+            return self._data != other._data
+        else:
+            return True
     #--------------------------------------
 
     def __add__(self, other): #addition is implemented elementwise
@@ -190,8 +197,10 @@ class KalmanData():
         """Allows multiplication by scalars and elementwise by arrays of equal length to self."""
         if isinstance(other, (int, float)):
             return KalmanData([a * other for a in self._data])
+        elif isinstance(other, KalmanData):
+            return KalmanData([a * b for a,b in zip(self._data, other._data)])
         elif hasattr(other, "__iter__") and len(other) == len(self) and not isinstance(other, str): # all of these are necessary for elementwise multiplication to make sense
-            return KalmanData([a * b for a,b in zip(self, other)])
+            return KalmanData([a * b for a,b in zip(self._data, other)])
         else:
             raise(TypeError("Unable to multiply types %r and %r." % (type(self), type(other))))
 
@@ -215,9 +224,12 @@ class KalmanData():
         else:
             raise(TypeError("Unable to divide type %r by type %r." % (type(self), type(other))))
 
+    def __rmul__(self,other): #commutativity is not an issue so simply swap the order of the variables and multiply as defined under __mul__
+        return self*other
+
     def __call__(self): # allow easy iteration over generated data.
         """Returns a generator for the Kalman filtered data."""
-        return self._kalman_data
+        return next(self._kalman_data)
     #-------------------------------------------------------------------------
 
     #private methods and variables (so far as python allows)------------------
@@ -390,3 +402,31 @@ class KalmanData():
             df['w1_rate'] = df['rate'].copy().rolling(window=3600, min_periods=0).mean()
 
         return df
+
+    def copy(self):
+        return KalmanData(self._data)
+    
+    def minimise(self):#TODO: this
+    #by calling indentifyNoise() on data, is able to identify how many anomalies are not hits
+    #aim is to reduce this to 0, without reducing hits detected to 0.
+    #this looks like it will involve writing the data to a pandas dataframe and calling identifyNoise() on it multiple times.
+    #this is ridiculously slow SO
+    #need a better algorithm.
+
+    #can it be done by incorporating principles of identifyNoise() but without all the flashier bits? (almost certainly)
+    #can it be done without writing and keeping as a generator? (likely not)
+
+    #Fast:
+        #tweak_q
+        #tweak_r
+    #Slow:
+        #to_pandas
+        #hd.identifyNoise
+
+        """
+        By running hd.identifyNoise() on the produced data, is able to tweak q and r to produce better data.
+        """
+        data, t = hd.identifyNoise(self.to_pandas())
+
+        noise_count = len(data['hits'][t.index][data['hits'][t.index] == False])
+        return noise_count
