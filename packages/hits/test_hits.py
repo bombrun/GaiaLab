@@ -13,9 +13,15 @@ import math
 
 #functions to run tests on
 #equivalent to from . import * but more verbose
-from hitdetector import identifyAnomaly, identifyNoise, plotAnomaly
-from hitsimulator import hitDist, flux, p_distribution, freq, generateEvent, generateData, masses
-from response import isolateAnomalies, splineAnomalies, getTurningPoints, filterTurningPoints
+try:
+    from hits.hitdetector import identifyAnomaly, identifyNoise, plotAnomaly
+    from hits.hitsimulator import hitDist, flux, p_distribution, freq, generateEvent, generateData, masses
+    from hits.response import isolateAnomalies, splineAnomalies, getTurningPoints, filterTurningPoints
+except(ImportError):
+    from hitdetector import identifyAnomaly, identifyNoise, plotAnomaly
+    from hitsimulator import hitDist, flux, p_distribution, freq, generateEvent, generateData, masses
+    from response import isolateAnomalies, splineAnomalies, getTurningPoints, filterTurningPoints
+
 
 #------------hitdetector.py tests-----------
 class TestHitDetectorIdentifyFuncs(unittest.TestCase):
