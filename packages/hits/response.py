@@ -7,14 +7,14 @@
 # of polynomial fit.
 
 
-# Standard imports. Requires identifyClanks() from hitdetector.py.
+# Standard imports. Requires identifyNoise() from hitdetector.py.
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 try:
-    from hits.hitdetector import identifyClanks
+    from hits.hitdetector import identifyNoise
 except(ImportError):
-    from hitdetector import identifyClanks
+    from hitdetector import identifyNoise
 from scipy.interpolate import UnivariateSpline, BSpline
 
 
@@ -29,7 +29,7 @@ def isolateAnomalies(df, time_res=0.01):
 
         or equivalent.
 
-    Passes this dataframe to hits.hitdetector.identifyClanks()
+    Passes this dataframe to hits.hitdetector.identifyNoise()
     to identify the hits.
 
     Isolates these data.
@@ -49,7 +49,7 @@ def isolateAnomalies(df, time_res=0.01):
         or equivalent.
     """
 
-    working_df = identifyClanks(df)[0] #calls identifyClanks() from hitdetector to identify clanks and hits
+    working_df = identifyNoise(df)[0] #calls identifyNoise() from hitdetector to identify noise and hits
     hit_df = working_df[working_df['hits']] #isolate the regions where hits are detected
     
     #Generate neighbourhoods around the hits with width 2*time_res

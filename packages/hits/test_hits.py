@@ -13,7 +13,7 @@ import math
 
 #functions to run tests on
 #equivalent to from . import * but more verbose
-from hitdetector import identifyAnomaly, identifyClanks, plotAnomaly
+from hitdetector import identifyAnomaly, identifyNoise, plotAnomaly
 from hitsimulator import hitDist, flux, p_distribution, freq, generateEvent, generateData, masses
 from response import isolateAnomalies, splineAnomalies, getTurningPoints, filterTurningPoints
 

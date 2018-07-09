@@ -28,7 +28,7 @@ def identifyAnomaly(df, anomaly_threshold=2):
     rate for that region.
 
     By inspection, this definition catches most hits in real data but 
-    is also sensitive to clanks.
+    is also sensitive to noise.
     
     Therefore, this function suffices for basic hit detection but requires
     refining. Clank identification is handled by later functions.
@@ -79,7 +79,7 @@ def identifyAnomaly(df, anomaly_threshold=2):
 
     return (working_df,anomaly_df.drop_duplicates(subset='obmt'))
 
-def identifyClanks(df): #It was found that jit compilation offered negligible performance benefits for this function.
+def identifyNoise(df): #It was found that jit compilation offered negligible performance benefits for this function.
                         #The aesthetic benefits of pythonic unpacking and listcomps mean jit compilation is not used.
                         #Re-design of the function to a compilable function may be worth doing.
     """
@@ -94,8 +94,8 @@ def identifyClanks(df): #It was found that jit compilation offered negligible pe
 
     Calls identifyAnomaly() on the dataframe to identify the hits.
 
-    Checks the periodicity of the hits to identify clanks - any two hits occuring with period
-    constant to within 0.1 revolutions are assumed to be clanks - it can be demonstrated that 
+    Checks the periodicity of the hits to identify noise - any two hits occuring with period
+    constant to within 0.1 revolutions are assumed to be noise - it can be demonstrated that 
     the probability of two genuine hits occuring within this timescale is vanishingly small.[1]
 
     This method does however reject hits that occur in close temporal proximity to a clank.
@@ -164,7 +164,7 @@ def identifyClanks(df): #It was found that jit compilation offered negligible pe
         return (working_df, t)
 
 
-def plotAnomaly(*dfs, highlight=False, clanks=False, **kwargs):
+def plotAnomaly(*dfs, highlight=False, highlights=False, noise=False, show=True, **kwargs):
     """
     Accepts:
         
@@ -175,22 +175,28 @@ def plotAnomaly(*dfs, highlight=False, clanks=False, **kwargs):
 
         or equivalent.
 
-    Calls identifyAnomaly() or identifyClanks() on each dataframe as
+    Calls identifyAnomaly() or identifyNoise() on each dataframe as
     appropriate. 
 
-    identifyAnomaly() (clanks=False, default) is much faster due to jit compilation.
+    identifyAnomaly() (noise=False, default) is much faster due to jit compilation.
     
     Plots (rate - w1_rate) against obmt.
 
     Kwargs:
 
-        highlight (bool, default=False):
+        highlight (bool, default=False); highlights (bool, default=False):
             if True,  plots windows of width 0.1 (= tolerance for 
             hit quantisation) around hit locations.
 
-        clanks (bool, default=False):
-            if True, highlights the clanks in red and the hits
+            highlight and highlights are both acceptable parameters for ease of use.
+
+        noise (bool, default=False):
+            if True, highlights the noise in red and the hits
             in green.
+        
+        show (bool, default=True):
+            if True, shows the plot. If False, plt.show() needs to be called after.
+
 
         **kwargs:
             passes these to plt.scatter().
@@ -202,16 +208,16 @@ def plotAnomaly(*dfs, highlight=False, clanks=False, **kwargs):
     """
     for df in dfs:
         #spelling of colour is standardised to color, even if colour is used in comments
-        if clanks:
-        #Call identifyClanks() to locate hits and clanks, and colour code appropriately
-            data,t = identifyClanks(df)
+        if noise:
+        #Call identifyNoise() to locate hits and noise, and colour code appropriately
+            data,t = identifyNoise(df)
             colors = pd.DataFrame(index=t.index.values, data=dict(color = [(lambda x: 'green' if x else 'red')(data['hits'][time]) for time in t.index]))
         else:
         #Call identifyAnomaly() to locate hits
             data,t = identifyAnomaly(df)
             colors = pd.DataFrame(index=t.index.values, data=dict(color = ['red' for time in t.index])) #create dummy colour array where all are red
         
-        if highlight:
+        if highlight or highlights or noise: #plot highlights if any of these kwargs are given
         #get times of anomalies and corresponding colours
             for index, row in t.iterrows():
                 time = row['obmt']
@@ -224,9 +230,9 @@ def plotAnomaly(*dfs, highlight=False, clanks=False, **kwargs):
         #pretty plot up and show
         plt.xlabel("obmt")
         plt.ylabel("rate - w1_rate")
-    plt.show()
    
-    return t #trivial return
+    if show:
+        plt.show()
 
 
 if __name__ == '__main__':
@@ -239,5 +245,5 @@ if __name__ == '__main__':
 
     for datafile in sys.argv[1:]:
         df = pd.read_csv(datafile)
-        hits, _ = identifyClanks(df)
+        hits, _ = identifyNoise(df)
         print(len(hits[hits['hits']]))
