@@ -66,7 +66,7 @@ def isolateAnomaly(df, time_res=0.01, hits=True):
     return tuple(hit_neighbourhoods)
 
 
-def splineAnomaly(df, smooth=0.5, plot=False, B=False, turning=False, filtered=False):   #This is currently nothing but scipy's UnivariateSpline class.
+def splineAnomaly(df, smooth=0.5, plot=False, B=False, turning=False, filtered=False, threshold=1):   #This is currently nothing but scipy's UnivariateSpline class.
                                                                            #A custom implementation may yield benefits, however scipy's splining
                                                                            #algorigthms are incredibly fast.
     """
@@ -104,6 +104,9 @@ def splineAnomaly(df, smooth=0.5, plot=False, B=False, turning=False, filtered=F
         filtered (bool, default=False):
             if True, plots the filterd turning points alongside a normal plot.
 
+        threshold (float, default=1.0):
+            the threshold for filtering turning points
+
     Returns:
         
         tuple of the arrays of knots and coefficients (in that order)
@@ -134,7 +137,7 @@ def splineAnomaly(df, smooth=0.5, plot=False, B=False, turning=False, filtered=F
                 turning_points = getTurningPoints(df)
             
             elif filtered:      #calls filterTurningPoints() to only return interesting output
-                turning_points = filterTurningPoints(getTurningPoints(df))
+                turning_points = filterTurningPoints(getTurningPoints(df), threshold=threshold)
             
             plt.scatter(turning_points['obmt'], turning_points['rate'] - turning_points['w1_rate'], color='red')
 
@@ -236,3 +239,11 @@ def filterTurningPoints(df, threshold=1):
     working_df['turning'] = turning_points
 
     return working_df[working_df['turning']]
+
+def countTurningPoints(df, threshold=1):
+
+    turning_points = filterTurningPoints(getTurningPoints(df), threshold=threshold)
+
+    peak = max(abs(df['rate'] - df['w1_rate']))
+
+    return (peak, len(turning_points) -1)
