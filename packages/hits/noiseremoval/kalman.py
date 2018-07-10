@@ -237,6 +237,7 @@ class KalmanData():
     _obmt = None
     _q = None
     _r = None
+    _w1_rate = None
 
     def _from_pandas(self, df): # I wanted this to be a separate function called by __init__. I think it is sufficiently unique to justify existing in its own right.
         """
@@ -249,19 +250,20 @@ class KalmanData():
         #obmt is not always increasing therefore if it is given, sort the data according to obmt.
         if 'obmt' in df.columns:# saves obmt and indices to lists. this obviously takes up potentially unnecessary memory
             sorted_df = df.sort_values('obmt')
-            self._indices = sorted_df.index.values.tolist()
-            self._obmt = sorted_df['obmt'].tolist()
+            self._indices = array('d', sorted_df.index.values.tolist())
+            self._obmt = array('d',sorted_df['obmt'].tolist())
         else:
             sorted_df = df
 
         #if rate and windowed rate are given, good - it will behave as expected
         if 'rate' and 'w1_rate' in sorted_df.columns:
+            self._w1_rate = array('d', sorted_df['w1_rate'].tolist())
             data_array = (sorted_df['rate'] - sorted_df['w1_rate']).tolist()
-            self._data = data_array
+            self._data = array('d', data_array)
         #if just the rate is given it will attempt to work with that but depending on the origin of the data this will not necessarily work as well
         elif 'rate' in sorted_df.columns:
             data_array = sorted_df['rate'].tolist()
-            self._data = data_array
+            self._data = array('d', data_array)
         #if rate is not given the dataset is unusable
         else:
             raise(ValueError("The dataframe used does not have the correct columns to use this method. Please manually prepare the data and initialise the class the normal way."))
@@ -379,6 +381,10 @@ class KalmanData():
         #if a w1_rate is given, calculate the rate from that
                 rate = self.kalman_data + w1_rate
         else:
+            if self._w1_rate is not None:
+                w1_rate = self._w1_rate
+                rate = self.kalman_data + w1_rate
+            else:
         #if not, just use the kalman data as the rate data, set w1_data as None
                 rate = self.kalman_data
 
