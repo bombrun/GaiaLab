@@ -179,4 +179,97 @@ def PlotXi(satellite, dt, n):
     plt.xlabel('Time (days)')
     plt.title('Xi Angle, increment = %f (deg)'%percentage)
     plt.show()    
+
+def Angle(scanner):
+    angles = [i[1] for i in scanner.observations]
+    plt.figure()
+    plt.grid()
+    plt.plot(angles, 'bo')
+    plt.ylabel('rad')
+    plt.title('Angle between Scanner Axis and star position')
+    plt.show()
     
+    
+def PlotAxis(scanner):
+    
+    x = [i[0] for i in scanner.axis]
+    y = [i[1] for i in scanner.axis]
+    z = [i[2] for i in scanner.axis]
+    
+    mpl.rcParams['legend.fontsize'] = 10
+    
+    fig = plt.figure()
+    ax = fig.gca(projection='3d')
+
+    ax.plot(x, y, z,'bo', label='x-axis')
+
+    ax.legend()
+    ax.set_xlabel('l')
+    ax.set_ylabel('m')
+    ax.set_zlabel('n')
+    
+    ax.set_xlim(-1,1)
+    ax.set_ylim(-1,1)
+    ax.set_zlim(-1,1)
+    
+    plt.show()      
+    
+def PlotObs(scanner,satellite):
+    stars_list = []
+    for t in scanner.times_obs:
+        star_ = satellite.GetXAxis(t)
+        stars_list.append(star_)
+        
+    x = [i[0] for i in stars_list]
+    y = [i[1] for i in stars_list]
+    z = [i[2] for i in stars_list]
+        
+
+    mpl.rcParams['legend.fontsize'] = 10
+    
+    fig = plt.figure()
+    ax = fig.gca(projection='3d')
+
+    ax.plot(x, y, z,'b*', label='Measurement')
+
+    ax.legend()
+    ax.set_xlabel('l')
+    ax.set_ylabel('m')
+    ax.set_zlabel('n')
+    
+    ax.set_xlim(-1,1)
+    ax.set_ylim(-1,1)
+    ax.set_zlim(-1,1)
+    
+    plt.show()         
+    
+                          
+def Plot3DX(satellite, dt, n):
+    satellite.Reset()
+    for i in np.arange(n/dt):
+        satellite.Update(dt)
+        x_quat = satellite.attitude * Quaternion(0,1,0,0) * satellite.attitude.conjugate() 
+        x_ = quaternion_to_vector(x_quat)
+        x_list.append(x_)
+    
+    x_listx = [i[0] for i in x_list]
+    x_listy = [i[1] for i in x_list]
+    x_listz = [i[2] for i in x_list]
+    
+    
+    mpl.rcParams['legend.fontsize'] = 10
+    
+    fig = plt.figure()
+    ax = fig.gca(projection='3d')
+
+    ax.plot(x_listx, x_listy, x_listz,'--', label='X vector rotation')
+    ax.legend()
+    ax.set_xlabel('l')
+    ax.set_ylabel('m')
+    ax.set_zlabel('n')
+    
+    ax.set_xlim(-1,1)
+    ax.set_ylim(-1,1)
+    ax.set_zlim(-1,1)
+    plt.show()               
+  
