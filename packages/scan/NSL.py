@@ -24,7 +24,7 @@ import matplotlib as mpl
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
     
-        
+##############################  SATELLITE ####################################    
 class Satellite: 
 
     def __init__(self,*args):  
@@ -162,7 +162,7 @@ class Satellite:
     
     
         
-################################ SCANNER ######################################
+################################ SKY ######################################
 class Sky:
     def __init__(self, n):
         self.elements = []
@@ -176,6 +176,7 @@ class Source:
     def __init__(self, alpha, delta, mualpha = 0, mudelta = 0, parallax = 1):
         self.coor = xyz(alpha, delta)
         
+################################ SCANNER ######################################        
 class Scanner:
     '''
     __init__
@@ -206,14 +207,14 @@ class Scanner:
         found_stars = []
         for star in sky.elements:
             x_ = unit_vector(x_)
-            angle = np.arccos(np.dot(star.coor, x_)) #are both normalised?
+            angle = np.arccos(np.dot(star.coor, x_)) 
             if np.abs(angle) < self.tolerance:
                 found_stars.append([star, angle])
                 self.axis.append(x_)
                 
         return found_stars, x_
         
-                                                                                
+###########################################################################                                                                                
 def Do_Scan(scanner, satellite, sky, time_total, dt):
     scanner.Reset()
     satellite.Reset()
@@ -225,100 +226,6 @@ def Do_Scan(scanner, satellite, sky, time_total, dt):
             scanner.observations.append(info)
             scanner.times_obs.append(i*dt)
 
-
-def Angle(scanner):
-    angles = [i[1] for i in scanner.observations]
-    plt.figure()
-    plt.grid()
-    plt.plot(angles, 'bo')
-    plt.ylabel('rad')
-    plt.title('Angle between Scanner Axis and star position')
-    plt.show()
-    
-    
-def PlotAxis(scanner):
-    
-    x = [i[0] for i in scanner.axis]
-    y = [i[1] for i in scanner.axis]
-    z = [i[2] for i in scanner.axis]
-    
-    mpl.rcParams['legend.fontsize'] = 10
-    
-    fig = plt.figure()
-    ax = fig.gca(projection='3d')
-
-    ax.plot(x, y, z,'bo', label='x-axis')
-
-    ax.legend()
-    ax.set_xlabel('l')
-    ax.set_ylabel('m')
-    ax.set_zlabel('n')
-    
-    ax.set_xlim(-1,1)
-    ax.set_ylim(-1,1)
-    ax.set_zlim(-1,1)
-    
-    plt.show()      
-    
-def PlotObs(scanner,satellite):
-    stars_list = []
-    for t in scanner.times_obs:
-        star_ = satellite.GetXAxis(t)
-        stars_list.append(star_)
-        
-    x = [i[0] for i in stars_list]
-    y = [i[1] for i in stars_list]
-    z = [i[2] for i in stars_list]
-        
-
-    mpl.rcParams['legend.fontsize'] = 10
-    
-    fig = plt.figure()
-    ax = fig.gca(projection='3d')
-
-    ax.plot(x, y, z,'b*', label='Measurement')
-
-    ax.legend()
-    ax.set_xlabel('l')
-    ax.set_ylabel('m')
-    ax.set_zlabel('n')
-    
-    ax.set_xlim(-1,1)
-    ax.set_ylim(-1,1)
-    ax.set_zlim(-1,1)
-    
-    plt.show()         
-    
- ############################################################################    
-                          
-def Plot3DX(satellite, dt, n):
-    satellite.Reset()
-    for i in np.arange(n/dt):
-        satellite.Update(dt)
-        x_quat = satellite.attitude * Quaternion(0,1,0,0) * satellite.attitude.conjugate() 
-        x_ = quaternion_to_vector(x_quat)
-        x_list.append(x_)
-    
-    x_listx = [i[0] for i in x_list]
-    x_listy = [i[1] for i in x_list]
-    x_listz = [i[2] for i in x_list]
-    
-    
-    mpl.rcParams['legend.fontsize'] = 10
-    
-    fig = plt.figure()
-    ax = fig.gca(projection='3d')
-
-    ax.plot(x_listx, x_listy, x_listz,'--', label='X vector rotation')
-    ax.legend()
-    ax.set_xlabel('l')
-    ax.set_ylabel('m')
-    ax.set_zlabel('n')
-    
-    ax.set_xlim(-1,1)
-    ax.set_ylim(-1,1)
-    ax.set_zlim(-1,1)
-    plt.show()               
 
 
     
