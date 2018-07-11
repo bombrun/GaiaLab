@@ -1,6 +1,6 @@
 from quaternion import*
 from sympy import*
-from frameRotation import*
+#from frameRotation import*
 from sympy import Line3D, Point3D
 import numpy as np
 import math
@@ -24,11 +24,16 @@ def point_to_vector(point):
 
 def vector_to_quaternion(vector):
     return Quaternion(0, float(vector[0]), float(vector[1]), float(vector[2]))  
+    
+def quaternion_to_vector(quat):
+    return np.array([quat.x,quat.y,quat.z])
        
 def rotation_quaternion(vector, angle): 
     '''    
     Calculates Quaternion equivalent to a rotation given by a vector and a angle in radians.
     '''   
+    norm = np.sqrt(vector[0]**2 + vector[1]**2 + vector[2]**2)
+    vector = vector/norm
     t = np.cos(angle/2.)
     x = np.sin(angle/2.)*vector[0]
     y = np.sin(angle/2.)*vector[1]
@@ -37,8 +42,25 @@ def rotation_quaternion(vector, angle):
     qvector = Quaternion(t,x,y,z)
     return qvector   
     
+def alphadelta(vector):
+    alpha = np.arctan2(vector[1], vector[0])
+    delta = np.arctan2(vector[2], np.sqrt(vector[1]**2 + vector[0]**2))  
+    return alpha, delta
     
 def xyz(azimuth, altitude):
+    '''
+    args
+    _____
+    
+    azimuth: [float]
+    altitude: [float]
+    
+    Returns
+    ________
+    
+    vector = (x,y,z)
+    
+    '''
     x = np.cos(azimuth)*np.cos(altitude)
     y = np.sin(azimuth)*np.cos(altitude)
     z = np.sin(altitude)
@@ -125,6 +147,7 @@ def Nu(self, t0 = 1., tf = 10., n=101):
         nu[i] = deltat*(self.ldot + (np.sqrt(self.S**2- (np.cos(nu[i-1]))**2) + np.cos(self.xi)*np.sin(nu[i-1]))/np.sin(self.xi)) + nu[i-1]
     
     return t, nu  
+    
 def Omega(self, t0 = 1., tf = 10., n=101):
         t, nu = self.Nu(t0 = 1., tf = 10., n=101)
                 
@@ -142,7 +165,19 @@ def Omega(self, t0 = 1., tf = 10., n=101):
         w[0] = w0
         for i in range(1,n):
             w[i] = self.wz - dnu[i]*np.cos(self.xi) - self.ldot*np.sin(self.xi)*np.sin(nu[i-1])
-        return t, w      
+        return t, w 
+        
+def WMatrix(self, w_):
+        w_[0] = wl
+        w_[1] = wm
+        w_[2] = wn
+        
+        
+        wMatrix = np.array([0, -wl,-wm,-wn,wl,0,wn,-wm,wm,-wn,0,wl,wn,wm,-wl,0])   #need to change this to have proper structure of quaternion (x,y,z,t) rather than (t,x,y,z)
+        wMatrix = wMatrix.reshape(4,4)
+       
+        return wMatrix  
+          
 def SRS(attitude, vector):
     '''
     Changes coordinates of a vector in BCRS to SRS frame.
