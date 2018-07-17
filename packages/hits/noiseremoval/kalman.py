@@ -383,7 +383,7 @@ class KalmanData():
         else:
             if self._w1_rate is not None:
                 w1_rate = self._w1_rate
-                rate = self.kalman_data + w1_rate
+                rate = [a + b for a, b in zip(self.kalman_data, w1_rate)]
             else:
         #if not, just use the kalman data as the rate data, set w1_data as None
                 rate = self.kalman_data
