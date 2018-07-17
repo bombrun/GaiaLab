@@ -25,5 +25,5 @@ __version__ = "0.1"
 import hits.hitdetector
 import hits.response
 import hits.hitsimulator
-from hits.hitdetector import plotAnomaly
-from hits.hitsimulator import generateData, masses
+from hits.hitdetector import plot_anomaly
+from hits.hitsimulator import generate_data, masses

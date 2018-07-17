@@ -14,13 +14,13 @@ import math
 #functions to run tests on
 #equivalent to from . import * but more verbose
 try:
-    from hits.hitdetector import identifyAnomaly, identifyNoise, plotAnomaly
-    from hits.hitsimulator import hitDist, flux, p_distribution, freq, generateEvent, generateData, masses
-    from hits.response import isolateAnomalies, splineAnomalies, getTurningPoints, filterTurningPoints
+    from hits.hitdetector import identify_anomaly, identify_noise, plot_anomaly
+    from hits.hitsimulator import hit_distribution, flux, p_distribution, freq, generate_event, generate_data, masses
+    from hits.response import isolate_anomaly, spline_anomaly, get_turning_points, filter_turning_points
 except(ImportError):
-    from hitdetector import identifyAnomaly, identifyNoise, plotAnomaly
-    from hitsimulator import hitDist, flux, p_distribution, freq, generateEvent, generateData, masses
-    from response import isolateAnomalies, splineAnomalies, getTurningPoints, filterTurningPoints
+    from hitdetector import identify_anomaly, identify_noise, plot_anomaly
+    from hitsimulator import hit_distribution, flux, p_distribution, freq, generate_event, generate_data, masses
+    from response import isolate_anomaly, spline_anomaly, get_turning_points, filter_turning_points
 
 
 #------------hitdetector.py tests-----------
@@ -43,15 +43,15 @@ class TestHitDetectorIdentifyFuncs(unittest.TestCase):
                                     rate = rate,
                                     w1_rate = w1_rate))
 
-    def test_identifyAnomaly_correctly_identifies(self):
+    def test_identify_anomaly_correctly_identifies(self):
         #should identify 3 anomalies in the generated data
         warnings.simplefilter("ignore", NumbaWarning)
-        self.assertTrue(len(identifyAnomaly(self.df)[1]) == self.hits)
+        self.assertTrue(len(identify_anomaly(self.df)[1]) == self.hits)
 
-    def test_identifyAnomaly_return_shape(self):
+    def test_identify_anomaly_return_shape(self):
         #tests the function returns the expected dataframe shape
         warnings.simplefilter("ignore", NumbaWarning)
-        self.assertTrue(['obmt', 'rate', 'w1_rate', 'anomaly'] in identifyAnomaly(self.df)[0].columns.values)
+        self.assertTrue(['obmt', 'rate', 'w1_rate', 'anomaly'] in identify_anomaly(self.df)[0].columns.values)
 
 
 #------------hitsimulator.py tests-----------
@@ -72,7 +72,7 @@ class TestHitSimulatorNumericalFuncs(unittest.TestCase):
 class TestHitSimulatorGeneratorFuncs(unittest.TestCase):
     
     def test_expected_rate_of_impacts(self):
-    #test that generateEvent creates expected rate of impact.
+    #test that generate_event creates expected rate of impact.
     #conservative estimate used, expected rate is around 1% so 
     #it is run 100 times and tested that the total amount is no
     #greater than 8. (Probability(X > 8 = 1e-6.)
@@ -83,7 +83,7 @@ class TestHitSimulatorGeneratorFuncs(unittest.TestCase):
         frequencies = freq(masses)
         count = 0
         for _ in range(1000):
-            count += 1*int(bool(generateEvent(masses, frequencies)[0])) #int(bool( to turn any non zero number into 1. I'm not proud.
+            count += 1*int(bool(generate_event(masses, frequencies)[0])) #int(bool( to turn any non zero number into 1. I'm not proud.
         try:
             self.assertGreater(80, count)
         except(AssertionError):
@@ -91,7 +91,7 @@ class TestHitSimulatorGeneratorFuncs(unittest.TestCase):
             poisson_1000 = lambda x: (np.e**(-10))/math.factorial(x) #poisson distribution with rate parameter 1 - not exact but indicative
             probability = 1 - sum([poisson_100(x) for x in range(count)]) #probability of receiving a value of count or higher
 
-            raise RuntimeError("\n\n***\nUnexpectedly high hitrate produced by generateData. Consider re-running tests.\n1000 attempts yielded %r hits. The probability of this occurring is less than %.2e.\nIf this happens multiple times, use your statistical discretion to consider this a failure.\n***\n\n" % (count, probability))
+            raise RuntimeError("\n\n***\nUnexpectedly high hitrate produced by generate_data. Consider re-running tests.\n1000 attempts yielded %r hits. The probability of this occurring is less than %.2e.\nIf this happens multiple times, use your statistical discretion to consider this a failure.\n***\n\n" % (count, probability))
             
 
 #------------response.py tests---------------
@@ -107,12 +107,12 @@ class TestResponseTurningPointFuncs(unittest.TestCase):
                                          rate = rate,
                                          w1_rate = w1_rate))
 
-    def test_getTurningPoints(self):
-        self.assertEqual(len(getTurningPoints(self.df)),self.points)
+    def test_get_turning_points(self):
+        self.assertEqual(len(get_turning_points(self.df)),self.points)
 
 
-    def test_filterTurningPoints(self):
-        self.assertTrue(len(filterTurningPoints(self.df)) <= len(getTurningPoints(self.df)))
+    def test_filter_turning_points(self):
+        self.assertTrue(len(filter_turning_points(self.df)) <= len(get_turning_points(self.df)))
 
 #-------------------------------------------
 
