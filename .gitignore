@@ -107,4 +107,4 @@ venv.bak/
 .idea/
 
 #python config files
-.conf.py
+conf.py
