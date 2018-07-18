@@ -1,7 +1,9 @@
-# # Hit detector functions for datasets.
-#
-# Functions to identify sudden changes in rate.
+"""
+Hit detector functions for AGIS 2.2 alongscan datasets.
 
+Contains functions for the identification of hits, the separation of hits from noise,
+and for plotting and highlighting both hits and noise.
+"""
 
 #Standard imports - sys to accept command line file arguments
 import numpy as np
@@ -84,7 +86,43 @@ def identify_anomaly(df, anomaly_threshold=2):
 @sort_data
 def identify_through_gradient(df, anomaly_threshold=0.3):
     """
-    Identify an anomaly by recognising a steep gradient.
+    Accepts:
+        
+        a Pandas dataframe of shape:
+
+                obmt    rate    w1_rate
+           1.  float   float   float
+
+        or equivalent.
+
+    Identifies anomalies in the data by identifying regions where the instantaneous
+    change in hit rate is larger than anomaly_threshold. Sensitive to smaller
+    amplitude hits than identify_anomaly, but highly sensitive to noise for low values
+    of anomaly_threshold.
+
+    Kwargs:
+        
+        anomaly_threshold (float, default=0.3):
+            the threshold for rate change above which a region is identified as
+            anomalous.
+
+    Returns:
+       
+        a tuple of:
+
+            a Pandas dataframe of shape:
+
+                    obmt    rate    w1_rate anomaly
+                1.  float   float   float   bool
+
+            or equivalent.
+        
+            and a dataframe of shape:
+
+                    obmt
+                1.  float
+
+            containing the times of detected anomalies.
     """
     working_df = df.copy()
 
