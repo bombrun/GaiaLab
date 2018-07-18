@@ -1,12 +1,3 @@
-# #Funtions to analyze AOCS response to hits
-#
-# Able to generate splines for the hits and plot them.
-#
-# Also able to isolate turning points in the hit region
-# and use this information to determine suitable degrees
-# of polynomial fit.
-
-
 # Standard imports. Requires identify_noise() from hitdetector.py.
 import numpy as np
 import matplotlib.pyplot as plt

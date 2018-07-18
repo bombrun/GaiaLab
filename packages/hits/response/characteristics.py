@@ -106,7 +106,7 @@ def count_turning_points(df, threshold=1):
 
         or equivalent.
         
-    This should be a hit detected using isolate_anomaly().        
+    This should be a hit detected using hits.response.anomaly.isolate_anomaly().        
 
     Counts the number of turning points with magnitude greater than threshold.
 
@@ -141,7 +141,7 @@ def response_time(df, t=10, window_size=25):
             1.  float   float   float
         or equivalent.
 
-    This should be a hit detected using isolate_anomaly().
+    This should be a hit detected using hits.response.anomaly.isolate_anomaly().
 
     By comparing the baseline level before the hit with the baseline level
     after the hit, is able to calculate the time taken for the satellite
