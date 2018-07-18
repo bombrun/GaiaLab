@@ -15,7 +15,16 @@ def vector(x,y,z):
 
 def unit_vector(vector): 
     return vector / np.linalg.norm(vector) 
-            
+    
+def mag(vector):
+     n = len(vector) 
+     num = [] 
+     for i in range(n):
+         x = vector[i]**2
+         num.append(x)
+     magnitud = np.sqrt(sum(num))
+     return magnitud
+         
 def vector_to_point(vector):
     return Point3D(vector[0], vector[1], vector[2])
     
