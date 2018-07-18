@@ -1,5 +1,5 @@
 """
-Hit simulation of micrometeorites on Gaia
+Hit simulation of micrometeoroids on Gaia
  
 Based on Lennart Lindegren's [SAG--LL-030 technical note](http://www.astro.lu.se/~lennart/Astrometry/TN/Gaia-LL-031-20000713-Effects-of-micrometeoroids-on-GAIA-attitude.pdf).
 
@@ -50,7 +50,7 @@ if _use_defaults:
 #First functions use @jit decorators for speed.
 
 @jit
-def hit_distribution(hits): #distribution of micrometeorite hits across Gaia - assumed to be uniform across a disk
+def hit_distribution(hits): #distribution of micrometeoroid hits across Gaia - assumed to be uniform across a disk
     """
     Accepts:
     
@@ -65,7 +65,7 @@ def hit_distribution(hits): #distribution of micrometeorite hits across Gaia - a
     return [(t,r) for t, r in zip(theta,radius)]
 
 @jit
-def flux(mass):    #typical flux of micrometeorites greater than mass = mass
+def flux(mass):    #typical flux of micrometeoroids greater than mass = mass
     """
     Accepts:
         

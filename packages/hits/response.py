@@ -13,10 +13,13 @@ import matplotlib.pyplot as plt
 import pandas as pd
 try:
     from hits.hitdetector import identify_noise, identify_anomaly
+    from hits.misc import sort_data
 except(ImportError):
     from hitdetector import identify_noise, identify_anomaly
+    from mis import sort_data
 from scipy.interpolate import UnivariateSpline, BSpline
 
+@sort_data
 def isolate_anomaly(df, time_res=0.01, hits=True):
     """
     Accepts:
@@ -52,14 +55,14 @@ def isolate_anomaly(df, time_res=0.01, hits=True):
         or equivalent.
     """
     
-    sorted_df = df.sort_values('obmt')
+    working_df = df.copy()
 
     if hits:
-        working_df = identify_noise(sorted_df)[0] #calls identify_noise() from hitdetector to identify noise and hits
+        working_df = identify_noise(working_df)[0] #calls identify_noise() from hitdetector to identify noise and hits
         hit_df = working_df[working_df['hits']] #isolate the regions where hits are detected
 
     else:
-        working_df = identify_anomaly(sorted_df)[0] # calls identify_anomaly() from hitdetector to identify anomaly
+        working_df = identify_anomaly(working_df)[0] # calls identify_anomaly() from hitdetector to identify anomaly
         print("Data obtained\n")
         hit_df = working_df[working_df['anomaly'] == True] # isolate the anomaly
         print("...and processed")
@@ -68,7 +71,7 @@ def isolate_anomaly(df, time_res=0.01, hits=True):
 
     return tuple(hit_neighbourhoods)
 
-
+@sort_data
 def spline_anomaly(df, smooth=0.5, plot=False, B=False, turning=False, filtered=False, threshold=1):   #This is currently nothing but scipy's UnivariateSpline class.
                                                                            #A custom implementation may yield benefits, however scipy's splining
                                                                            #algorigthms are incredibly fast.
@@ -116,14 +119,12 @@ def spline_anomaly(df, smooth=0.5, plot=False, B=False, turning=False, filtered=
         of the fitted spline.
     """
 
-    sorted_hit = df.sort_values('obmt')            #independent data must be strictly increasing for scipy
-
     #create spline
-    spl = UnivariateSpline(sorted_hit['obmt'], sorted_hit['rate'] - sorted_hit['w1_rate'])
+    spl = UnivariateSpline(df['obmt'], df['rate'] - df['w1_rate'])
     spl.set_smoothing_factor(smooth)
     knots, coeffs = (spl.get_knots(), spl.get_coeffs())
 
-    xs = np.linspace(sorted_hit['obmt'].tolist()[0], sorted_hit['obmt'].tolist()[-1], 10000)
+    xs = np.linspace(df['obmt'].tolist()[0], df['obmt'].tolist()[-1], 10000)
 
     if B:
         spl = BSpline(knots, coeffs, 3)
@@ -148,6 +149,7 @@ def spline_anomaly(df, smooth=0.5, plot=False, B=False, turning=False, filtered=
 
     return (knots, coeffs)
 
+@sort_data
 def get_turning_points(df):
     """
     Accepts:
@@ -174,14 +176,12 @@ def get_turning_points(df):
     """
     working_df = df.copy()
    
-    sorted_df = working_df.sort_values('obmt')
-
     #At a turning point, the differences either side differ in sign.
     #Therefore, create two arrays and test where the sign differences are.
     #Return the indices where this is the case.
 
-    differences_lower = np.sign([*np.diff(sorted_df['rate']-sorted_df['w1_rate']), 0]) #np.sign() returns 1 or -1
-    differences_upper = np.sign([1, *np.diff(sorted_df['rate']-sorted_df['w1_rate'])]) #or 0 for 0
+    differences_lower = np.sign([*np.diff(working_df['rate']-working_df['w1_rate']), 0]) #np.sign() returns 1 or -1
+    differences_upper = np.sign([1, *np.diff(working_df['rate']-working_df['w1_rate'])]) #or 0 for 0
 
     turning_points = [d1 == -d2 if d1 != 0 else True for d1, d2 in zip(differences_lower, differences_upper)] #if the first value is 0 then it is a turning point. else check for inverse.
 
@@ -189,9 +189,8 @@ def get_turning_points(df):
                                #in reality cannot really ever consider the last datapoint to be a turning point so this is also okay from that
                                #perspective
 
-    sorted_df['turning'] = turning_points
-    return sorted_df[sorted_df['turning']]
-
+    working_df['turning'] = turning_points
+    return working_df[working_df['turning']]
 
 def filter_turning_points(df, threshold=1):
     """
@@ -278,6 +277,7 @@ def count_turning_points(df, threshold=1):
 
     return (peak, len(turning_points) -1)
 
+@sort_data
 def response_time(df, t=10, window_size=25):
     """
     Accepts:
@@ -314,20 +314,20 @@ def response_time(df, t=10, window_size=25):
     
     peak = max(abs(df['rate'] - df['w1_rate'])) #height of the hit
     
-    sorted_df = df.sort_values('obmt') # df is not necessarily sorted in obmt order
+    working_df = df.copy()
 
     #This calculates the base level of noise. It takes the maximum displacement of the rate
     #from 0 from the start of the event to t samples before hit_start
-    base_level = max([abs(x) for x in (sorted_df['rate'] - sorted_df['w1_rate'])[sorted_df['obmt'] < hit_start].tolist()[:-t]])
+    base_level = max([abs(x) for x in (working_df['rate'] - working_df['w1_rate'])[working_df['obmt'] < hit_start].tolist()[:-t]])
 
     #create a window of window_size samples to move along the axis, checking if the maximum value within
     #the window is less than the baseline maximum. Once it is less, the hit is over.
-    window = (sorted_df['rate'] - sorted_df['w1_rate'])[sorted_df['obmt'] >= hit_start].tolist()[:window_size]
+    window = (working_df['rate'] - working_df['w1_rate'])[working_df['obmt'] >= hit_start].tolist()[:window_size]
     i = 1
 
     while max([abs(x) for x in window]) > base_level:
-        window = (sorted_df['rate'] - sorted_df['w1_rate'])[sorted_df['obmt'] >= hit_start][i:].tolist()[:window_size]
+        window = (working_df['rate'] - working_df['w1_rate'])[working_df['obmt'] >= hit_start][i:].tolist()[:window_size]
         i += 1
    
    #return the time from the start of the window within which the hit ends - hit_start
-    return (peak, sorted_df['obmt'][sorted_df['obmt'] >= hit_start].tolist()[i] - hit_start)
+    return (peak, working_df['obmt'][working_df['obmt'] >= hit_start].tolist()[i] - hit_start)

@@ -9,9 +9,11 @@ import matplotlib.pyplot as plt
 import sys
 import pandas as pd
 import warnings
+from hits.misc import sort_data
 from numba import jit
 
-@jit()
+@sort_data
+@jit
 def identify_anomaly(df, anomaly_threshold=2):
     """
     Accepts:
@@ -79,6 +81,30 @@ def identify_anomaly(df, anomaly_threshold=2):
 
     return (working_df,anomaly_df.drop_duplicates(subset='obmt'))
 
+@sort_data
+def identify_through_gradient(df, anomaly_threshold=0.3):
+    """
+    Identify an anomaly by recognising a steep gradient.
+    """
+    working_df = df.copy()
+
+    working_df = working_df.sort_values('obmt')
+
+    working_df['grad'] = [0,*np.diff(working_df['rate'] - working_df['w1_rate'])]
+    
+    working_df['anomaly'] = (abs(working_df['grad'] >= anomaly_threshold))
+    
+    #== True is not needed but makes clearer the selection occuring here
+    times   = np.array(working_df['obmt'][working_df['anomaly'] == True]) #array of times of anomalies
+    indices = np.array(working_df.index[working_df['anomaly'] == True]) #array of indices of anomalies 
+
+    #floor the times*10 and then divide by 10. then drop duplicates to isolate points to within 1/10 of a revolution, a reasonable accuracy
+    #for hit individuality.
+    anomaly_df = pd.DataFrame(index=indices, data=dict(obmt = np.floor(times*10)/10))
+
+    return (working_df,anomaly_df.drop_duplicates(subset='obmt'))
+
+@sort_data
 def identify_noise(df): #It was found that jit compilation offered negligible performance benefits for this function.
                         #The aesthetic benefits of pythonic unpacking and listcomps mean jit compilation is not used.
                         #Re-design of the function to a compilable function may be worth doing.
@@ -117,8 +143,8 @@ def identify_noise(df): #It was found that jit compilation offered negligible pe
 
 
     [1] From Lennart Lindegren's [SAG--LL-030 technical note](http://www.astro.lu.se/~lennart/Astrometry/TN/Gaia-LL-031-20000713-Effects-of-micrometeoroids-on-GAIA-attitude.pdf),
-        the rate of micrometeorite impacts of mass greater than 1e-13 can be shown not to exceed 0.01 per second. This is equivalent to 216 per revolution.
-        The rate of micrometeorite impacts of mass large enough to cause a disturbance > 2mas/s can be shown to be ~6e-8 per second, ie ~1e-3 per revolution.
+        the rate of micrometeoroid impacts of mass greater than 1e-13 can be shown not to exceed 0.01 per second. This is equivalent to 216 per revolution.
+        The rate of micrometeoroid impacts of mass large enough to cause a disturbance > 2mas/s can be shown to be ~6e-8 per second, ie ~1e-3 per revolution.
         
         The hits follow a poisson distribution with these rates as the rate parameter. The difference between hits therefore follows an exponential distribution with
         the same rate parameter. 
@@ -130,13 +156,13 @@ def identify_noise(df): #It was found that jit compilation offered negligible pe
 
     data,t = identify_anomaly(df)
 
-    sorted_t = t.sort_values('obmt') #initial dataset is not necessarily indexed in order with obmt
+    t = t #.sort_values('obmt') #initial dataset is not necessarily indexed in order with obmt
 
     #to detect periodic clanking behaviour, the difference between hits is calculated.
     #If the difference between neighbouring differences is small (indicating periodicity)
     #the anomaly is considered a clank
 
-    if len(sorted_t['obmt']) < 3:                           #if there are fewer than 3 data points, the difference between the differences
+    if len(t['obmt']) < 3:                           #if there are fewer than 3 data points, the difference between the differences
         working_df = data.copy()                            #does not exist. Furthermore, it is unrealistic that any of these 3 are not
         working_df['hits'] = working_df['anomaly'].copy()   #genuine hits. The dataframe is simply altered to the expected return shape and 
                                                             #returned as is.
@@ -146,11 +172,11 @@ def identify_noise(df): #It was found that jit compilation offered negligible pe
 
     else:
 
-        differences = np.diff(sorted_t['obmt'])             #generate differences and differences of them
+        differences = np.diff(t['obmt'])             #generate differences and differences of them
 
         differences2 = np.diff(differences)
         #time_data dataframe is indexed as the time-sorted dataset, but includes columns for the time differences.
-        time_data = pd.DataFrame(index=sorted_t.index, data=dict(ombt = sorted_t['obmt'],
+        time_data = pd.DataFrame(index=t.index, data=dict(ombt = t['obmt'],
                                            diff = [1,*differences],
                                            diff_diff = [1,1, *differences2])) #arbitrarily large values for the first two numbers: 1 suffices
                                                                               #since clank behaviour has period << 1s
@@ -164,7 +190,7 @@ def identify_noise(df): #It was found that jit compilation offered negligible pe
         return (working_df, t)
 
 
-def plot_anomaly(*dfs, highlight=False, highlights=False, noise=False, show=True, **kwargs):
+def plot_anomaly(*dfs, highlight=False, highlights=False, noise=False, show=True, grad=True, **kwargs):
     """
     Accepts:
         
@@ -212,12 +238,17 @@ def plot_anomaly(*dfs, highlight=False, highlights=False, noise=False, show=True
         #Call identify_noise() to locate hits and noise, and colour code appropriately
             data,t = identify_noise(df)
             colors = pd.DataFrame(index=t.index.values, data=dict(color = [(lambda x: 'green' if x else 'red')(data['hits'][time]) for time in t.index]))
+        elif grad:
+        #Call identify_through_gradient() to locate hits
+            data,t = identify_through_gradient(df)
+            colors = pd.DataFrame(index=t.index.values, data=dict(color = ['red' for time in t.index])) #create dummy colour array where all are red
+
         else:
         #Call identify_anomaly() to locate hits
             data,t = identify_anomaly(df)
             colors = pd.DataFrame(index=t.index.values, data=dict(color = ['red' for time in t.index])) #create dummy colour array where all are red
         
-        if highlight or highlights or noise: #plot highlights if any of these kwargs are given
+        if highlight or highlights: #plot highlights if any of these kwargs are given
         #get times of anomalies and corresponding colours
             for index, row in t.iterrows():
                 time = row['obmt']
