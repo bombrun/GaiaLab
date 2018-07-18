@@ -100,7 +100,7 @@ def identify_through_gradient(df, anomaly_threshold=0.3):
 
     #floor the times*10 and then divide by 10. then drop duplicates to isolate points to within 1/10 of a revolution, a reasonable accuracy
     #for hit individuality.
-    anomaly_df = pd.DataFrame(index=indices, data=dict(obmt = np.floor(times*10)/10))
+    anomaly_df = pd.DataFrame(index=indices, data=dict(obmt = np.floor(times*20)/20))
 
     return (working_df,anomaly_df.drop_duplicates(subset='obmt'))
 
@@ -189,7 +189,6 @@ def identify_noise(df): #It was found that jit compilation offered negligible pe
         
         return (working_df, t)
 
-
 def plot_anomaly(*dfs, highlight=False, highlights=False, noise=False, show=True, grad=True, **kwargs):
     """
     Accepts:
@@ -252,7 +251,7 @@ def plot_anomaly(*dfs, highlight=False, highlights=False, noise=False, show=True
         #get times of anomalies and corresponding colours
             for index, row in t.iterrows():
                 time = row['obmt']
-                plt.axvspan(time, time+0.1, color=colors['color'][index], alpha=0.5) #create coloured bars
+                plt.axvspan(time, time+0.05, color=colors['color'][index], alpha=0.5) #create coloured bars
             plt.scatter(df.obmt, df.rate-df.w1_rate, s=0.1)
         else:
         #basic plot
