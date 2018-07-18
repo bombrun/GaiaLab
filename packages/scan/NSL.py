@@ -6,25 +6,13 @@ Created on Mon Jun 18 14:59:19 2018
 @author: vallevaro
 """
 
-from quaternion import*
-from sympy import*
-from functions import*
 from plots import*
-
-from sympy import*
-from sympy import Line3D, Point3D
-from sympy import Symbol
+from functions import*
 
 import numpy as np
-import math
 import time
-import datetime
 
-import matplotlib as mpl
-from mpl_toolkits.mplot3d import Axes3D
-import matplotlib.pyplot as plt
-    
-################################ SKY ######################################
+
 class Sky:
     def __init__(self, n):
         self.elements = []
@@ -38,16 +26,16 @@ class Source:
     def __init__(self, alpha, delta, mualpha = 0, mudelta = 0, parallax = 1):
         self.coor = xyz(alpha, delta) 
 
-################################# SATELLITE ######################################       
+################################# SATELLITE ######################################
 class Satellite: 
 
     def __init__(self,*args):  
         self.t = 0
-        self.Parameters(*args)
-        self.Reset()
-        self.storinglist = []     
+        self.parameters(*args)
+        self.reset()
+        self.storinglist = []   
         
-    def Parameters(self, S = 4.035, epsilon = np.radians(23.26) , xi =  np.radians(55) , wz = 120):
+    def parameters(self, S = 4.035, epsilon = np.radians(23.26) , xi =  np.radians(55) , wz = 120):
         '''
         Args
         _______
@@ -80,12 +68,11 @@ class Satellite:
         self.l0 = 0.
         self.beta0 = 0.
 
-    def InitAttitude(self):
+    def init_attitude(self):
         '''
         Called in __init__ method. 
         Initialises satellite.attitude according to initial values of all parameters. 
         '''
-        
         q1 = Quaternion(np.cos(self.epsilon/2), np.sin(self.epsilon/2), 0, 0)                            #epsilon about l-axis
         q2 = Quaternion(np.cos(self.l0/2), 0,0,np.sin(self.l0/2))                                        #lambda about n-axis
         q3 = Quaternion(np.cos((self.nu0-np.pi/2.)/2), np.sin((self.nu0-np.pi/2.)/2), 0, 0)              #nu - 90 abbout l-axis
@@ -95,20 +82,19 @@ class Satellite:
         q_total = q1*q2*q3*q4*q5
         return q_total
         
-    def Reset(self):
+    def reset(self):
         '''
         Resets satellite to t = 0 and initialization status.
         '''
-        
         #initialization of satellite.attitude.
         #self.storinglist = []
-        self.attitude = self.InitAttitude()
+        self.attitude = self.init_attitude()
         
         #Initial orientation values set equal to initial-value conditions.
         self.t = self.t0
         self.nu = self.nu0
         self.omega = self.omega0
-        self.l = self.l0
+        self.lamb = self.l0
         self.beta = self.beta0
         
         #Initialization of z-axis and inertial rotation vector.
@@ -116,12 +102,12 @@ class Satellite:
         self.z_ = np.array([z_quat.x, z_quat.y, z_quat.z])
         self.w_ = np.cross(np.array([0,0,1]),self.z_)
         l_,j_,k_ = ljk(self.epsilon)
-        self.s_ = l_*np.cos(self.l) + j_*np.sin(self.l)
+        self.s_ = l_*np.cos(self.lamb) + j_*np.sin(self.lamb)
 
-    def Update(self, dt):
+    def update(self, dt):
         self.t = self.t + dt
         self.dL = self.ldot * dt
-        self.l = self.l + self.dL
+        self.lamb = self.lamb + self.dL
         
         #Updates Nu
         self.nudot = self.ldot*(np.sqrt(self.S**2 - np.cos(self.nu)**2) + np.cos(self.xi)*np.sin(self.nu))/np.sin(self.xi)
@@ -129,7 +115,7 @@ class Satellite:
         self.nu = self.nu + self.dNu
         
         #LatitudeAngles
-        self.lamb_z = self.l + np.arctan(np.tan(self.xi)*np.cos(self.nu))
+        self.lamb_z = self.lamb + np.arctan(np.tan(self.xi)*np.cos(self.nu))
         self.beta_z = np.arcsin(np.sin(self.xi)*np.sin(self.nu))
         
         #Updates Omega
@@ -139,7 +125,7 @@ class Satellite:
         
         #calculates coordinates and then calculates s-vector 
         l_,j_,k_ = ljk(self.epsilon)
-        self.s_ = l_*np.cos(self.l) + j_*np.sin(self.l)
+        self.s_ = l_*np.cos(self.lamb) + j_*np.sin(self.lamb)
         
         #Calculates z-axis from cross product: deltaz = (k x z)*ldot + (s x z)dNu
         zdot_ = np.cross(k_, self.z_)*self.ldot + np.cross(self.s_,self.z_)*self.nudot
@@ -160,202 +146,157 @@ class Satellite:
         x_quat = self.attitude * Quaternion(0,1,0,0) * self.attitude.conjugate()
         self.x_ = quaternion_to_vector(x_quat)
 
-    
-    def Storing(self,t0, tf, dt):
-        
-        if len(self.storinglist) != 0:
-            raise Exception('Careful, already made storing list')
-                
-        self.t0 = t0
-        self.tf = tf
-        n_steps = (tf-t0)/dt
-        self.t = t0
-        for i in np.arange(n_steps):
-            self.Update(dt)
-            self.storinglist.append([self.t, self.l, self.nu,self.omega, self.w_,self.s_, self.z_, self.attitude, self.x_])
-        self.storinglist.sort()
-        
-    def ResetToTime(self, t):
+    def move(self, ti, tf, dt):
+        '''
+        Moves following nls for tf - ti period of time at a dt spaced time.
 
+        obj = (t, lambda, nu, omega, w_, s_, z_, attitude, x_)
+        '''
+
+        self.reset_to_time(ti)
+
+        n_steps = (tf-ti)/dt
+        self.t = ti
+        for i in np.arange(n_steps):
+            self.update(dt)
+            self.storinglist.append([self.t, self.lamb, self.nu,
+                                    self.omega, self.w_,self.s_, 
+                                    self.z_, self.attitude, self.x_])
+        self.storinglist.sort()  
+    def reset_to_time(self, t):
+        '''
+        Resets all parameters of the satellite to input time t. 
+        '''
         templist = [obj for obj in self.storinglist if obj[0] <= t]
-        if len(templist) != 0:
-            listelement = templist[-1]
         
-            self.t        = listelement[0]
-            self.l        = listelement[1]
-            self.nu       = listelement[2]
-            self.omega    = listelement[3]
-            self.w_       = listelement[4]
-            self.s_       = listelement[5]
-            self.z_       = listelement[6]
-            self.attitude = listelement[7]
-            self.x_       = listelement[8]
+        if len(templist) != 0:
+            listelement  = templist[-1]
             
+            self.t = listelement[0]
+            self.lamb = listelement[1]
+            self.nu = listelement[2]
+            self.omega = listelement[3]
+            self.w_ = listelement[4]
+            self.s_ = listelement[5]
+            self.z_ = listelement[6]
+            self.attitude = listelement[7]
+            self.x_ = listelement[8]
             
         else: 
-            self.Reset()
-                
-        #LatitudeAngles
-        self.lamb_z = self.l + np.arctan(np.tan(self.xi)*np.cos(self.nu))
-        self.beta_z = np.arcsin(np.sin(self.xi)*np.sin(self.nu))  
-        
-    def GetAttitude(self, t): 
-        self.ResetToTime(t)
+            self.reset()
+   
+        #deltat = t%self.t
+        #self.update(deltat)
+      
+    def get_attitude(self, t):
+        self.reset_to_time(t)
         return self.attitude
         
-    def GeXAxis(self, t):
-        self.ResetToTime(t)
-        x_quat = self.attitude * Quaternion(0,1,0,0) * self.attitude.conjugate() 
-        x_ = quaternion_to_vector(x_quat)
-        return x_
+    def get_xaxis(self, t):
+        self.reset_to_time(t)
+        return self.x_
        
-################################ SCANNER ######################################        
+
+ 
 class Scanner:
     '''
     __init__
     
     tolerance: [float][radians] for searching a star position with scanner axis.
-    
-    .Reset()
-    .xxis(attitude): [quaternion]
-        returns: [3D vector]
-    '''
-    def __init__(self, tolerance, dAngle = np.radians(106.5)):
-        self.dAngle = dAngle
-        self.tolerance = tolerance
-        self.storinglist = []
-        
-    def Reset(self):
-        self.storinglist = []
-    
-    
-    def SelectRange(self, t0_scan, tf_scan, satellite):
-        self.storinglist = [x for x in satellite.storinglist if x[0]>= t0_scan and x[0] <= tf_scan]
-    
-    def SortPositions(self):
-        self.starspositions = []
-        for obj in self.storinglist:
-            x_ = obj[8]
-            self.starspositions.append(x_)
-          
-###########################################################################  
- 
-def StarFinder(satellite, scanner, t0, tf, sky, dt):
-    satellite.Reset()
-    scanner.Reset()
-    satellite.storinglist =[]
-    satellite.Storing(t0, tf, dt)
-    diff_list = []
-    for star in sky.elements:
-        for idx, obj in enumerate(satellite.storinglist):
-            diff_ = np.abs(obj[8] - star.coor)
-            diff_list.append(mag(diff_))
-            if mag(diff_) < scanner.tolerance:
-                scanner.storinglist.append(obj)
 
+    '''
+    def __init__(self, ccd = 0.15, delta_z = 0.1, delta_y = 0.01, dAngle = np.radians(106.5)):
+        self.dAngle = dAngle #not used, is for second ccd
+        self.delta_z = delta_z
+        self.delta_y = delta_y
+        self.ccd = ccd
         
-def DeepScan(star, scanner, satellite, tinitial, tfinal, dt = 0.001):
-    
-    satellite.ResetToTime(tinitial)
-    
-    n_steps = (tfinal - tinitial)/dt
-    #t = obj[0]
-    objnext = scanner.storinglist[idx+1]
-    
-    attitude_objnext = objnext[7]
-    attitude_obj= obj[7]
-    #x_1 = scanner.GetFV1(attitude)
-    #x_2 = scanner.GetFV2(attitude)
-    z_1 = obj[6]
+        self.obs_times = []
+        self.starspositions = []
+        self.times_to_scan_star = []
+        
+    def reset(self):
+        self.obs_times = []
+        self.starspositions = []
+        self.times_to_scan_star = []
+   
+    def intercept(self, star, satellite):
+        '''
+        Calculates approx times where star transit occurs. 
+        '''
+        for obj in satellite.storinglist:
+            t = obj[0]
+            attitude = obj[7]
+            
+            starcoor_srs = SRS(attitude, star.coor)
+            xyproy_star_srs = np.array([starcoor_srs[0], starcoor_srs[1], 0])
+            xzproy_star_srs = np.array([starcoor_srs[0], 0, starcoor_srs[2]])
+            
+            x_telescope1 = obj[8]
+            x_srs_telescope1 = SRS(attitude, x_telescope1)
+            
+            width_angle = 2*np.arctan2(self.ccd/2, x_srs_telescope1[0])
+            aperture_angle = 2*np.arctan2(self.delta_z/2, x_srs_telescope1[0])
+            
+            if np.arccos(np.dot(xyproy_star_srs, x_srs_telescope1)) < width_angle:
+                if np.arccos(np.dot(xzproy_star_srs, x_srs_telescope1)) < aperture_angle:
+                    self.times_to_scan_star.append(t)
+
+    def zoom_intercept(self, satellite,  dt = 0.001):
+        for idx, t in enumerate(self.times_to_scan_star):
+            while (idx+1) < len(self.times_to_scan_star):
+                satellite.move(t, self.times_to_scan_star[idx + 1], dt)
+            else:
+                satellite.move(t, t+0.5, dt)
+
+
+def StarFinder(satellite, scanner, sky): 
+    scanner.reset()
     for star in sky.elements:
-        if np.arccos(np.dot(star.coor, z_1)) <= (np.pi/2 - scanner.tolerance) and np.arccos(np.dot(star.coor, z_1)) <= (np.pi/2 + scanner.tolerance): 
-            star_coorquat_telescope1 = attitude_obj * vector_to_quaternion(star.coor) * attitude_obj.conjugate()
-            star_coor_telescope1 = quaternion_to_vector(star_coorquat_telescope1)
-            star_coorquat_telescope1_next = attitude_objnext * vector_to_quaternion(star.coor) * attitude_objnext.conjugate()
-            star_coor_telescope1_next = quaternion_to_vector(star_coorquat_telescope1_next)
+
+        scanner.intercept(star, satellite)
+        scanner.zoom_intercept(satellite)
+
+        for obj in satellite.storinglist:
+            x_telescope1 = obj[8]  #wrt bcrs frame
+            t  = obj[0]
+            attitude = obj[7]
             
+            #change frame to SRS for scanning.
+            x_srs_telescope1= SRS(attitude, x_telescope1)     #approx should be (1,0,0) always.
+            star_srs_coor = SRS(attitude, star.coor)
             
-            q2 = rotation_quaternion(np.array([0,0,1]), scanner.dAngle)
-            star_coor_telescope2 = quaternion_to_vector(q2 * star_coorquat_telescope1 * q2.conjugate())
-            star_coor_telescope2_next = quaternion_to_vector(q2 * star_coorquat_telescope1_next * q2.conjugate())
+            #scanner parameters
+            aperture_angle = np.arctan2(scanner.delta_z/2, x_srs_telescope1[0])
             
-            if star_coor_telescope1[1] < 0 and star_coor_telescope1_next[1] > 0:
-                found_stars_1.append(obj)
-            if star_coor_telescope2[1] < 0 and star_coor_telescope2_next[1] > 0:
-                found_stars_2.append(obj)      
-    return found_stars_1, found_stars_2
-    
-    
+            #condition for xaxis:
+            if  np.arccos(np.dot(star_srs_coor, x_srs_telescope1)) < aperture_angle:
+                #condition for z axis
+                if np.abs(star_srs_coor[2] - x_srs_telescope1[2]) < scanner.delta_z:
+                    #condition for y axis:
+                    if np.abs(star_srs_coor[1] - x_srs_telescope1[1]) < scanner.delta_y:
+                        scanner.obs_times.append(t)
+                        scanner.starspositions.append(BCRS(attitude, x_srs_telescope1))
 
 ###########################################################################
-        
 def Run():
     start_time = time.time()
-    
-    scan = Scanner(0.01)
-    gaia = Satellite()
     sky = Sky(1)
-    true_stars = Do_Scan(scan, gaia, sky, 365, 0.001)
-    PlotObsTwoTelescopes(scan, true_stars)
+    scan = Scanner()
+    gaia = Satellite()
+    gaia.storinglist = []
+    gaia.move(0,365, 0.01)
     
+    StarFinder(gaia, scan, sky)
+
     seconds = time.time() - start_time
     m, s = divmod(seconds, 365)
     h, m = divmod(m, 60)
     
     print ("%d:%02d:%02d" % (h, m, s))
-    return scan, gaia, sky, true_stars
+    print (len(scan.starspositions))
+    return scan, gaia, sky
 
     
-###########################################################################
-def PlotObsTwoTelescopes(scanner, true_stars):
-    stars_position_1 = scanner.observations_1
-    x_1= [i[0] for i in stars_position_1]
-    y_1= [i[1] for i in stars_position_1]
-    z_1= [i[2] for i in stars_position_1]
-    
-    stars_position_2 = scanner.observations_2
-    x_2= [i[0] for i in stars_position_2]
-    y_2= [i[1] for i in stars_position_2]
-    z_2= [i[2] for i in stars_position_2]
-    
-    sx= [i.coor[0] for i in true_stars]
-    sy= [i.coor[1] for i in true_stars]
-    sz= [i.coor[2] for i in true_stars]
-    
 
-    fig, ((ax1, ax2, ax3)) = plt.subplots(1,3)
-    fig.subplots_adjust(left=0.2, wspace=0.6)
-    
-    ax1.plot(x_1, y_1,'ro', label='FV1')
-    ax1.plot(x_2, y_2, 'go', label='FV2')
-    ax1.plot(sx, sy, 'b*', label='True Star Position')
-    ax1.legend()
-    ax1.set(xlabel='XY PLANE')
-    
-    ax2.plot(y_1, z_1, 'ro')
-    ax2.plot(y_2, z_2, 'go')
-    ax2.plot(sy, sz, 'b*')
-    ax2.set(xlabel='YZ PLANE')
 
-    ax3.plot(x_1, z_1, 'ro')
-    ax3.plot(x_2, z_2, 'go')
-    ax3.plot(sx, sz, 'b*')
-    ax3.set(xlabel='XZ PLANE')
-    
-    mpl.rcParams['legend.fontsize'] = 10
-    
-    fig = plt.figure()
-    ax = fig.gca(projection='3d')
-
-    ax.plot(x_1, y_1, z_1,'ro', label='FV1')
-    ax.plot(x_2, y_2, z_2,'go', label='FV2')
-    ax.plot(sx, sy, sz,'b*', label='True Star Position')
-    ax.legend()
-    ax.set_xlabel('l')
-    ax.set_ylabel('m')
-    ax.set_zlabel('n')
-    
-    plt.show()    
-
-    plt.show()
-    

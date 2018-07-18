@@ -1,28 +1,15 @@
 # -*- coding: utf-8 -*-
 from NSL import*
 
-from sympy import*
-from sympy import Line3D, Point3D
-from sympy import Symbol
 
 import numpy as np
-import math
-import time
-import datetime
-
 import matplotlib as mpl
-from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import axes3d
-import matplotlib.pyplot as plt
-from matplotlib import cm
 
 
-########################## PLOTS ################################
-            
 
 
-def PlotAttitude(satellite, dt, n0, nf):
+def plot_attitude(satellite, dt, n0, nf):
     '''
     Args
     ______
@@ -71,7 +58,7 @@ def PlotAttitude(satellite, dt, n0, nf):
     
     plt.show()
    
-def PlotLatLong(satellite, dt, n):
+def plot_longlat(satellite, dt, n):
     
     satellite.Reset()
     lambda_list = [] 
@@ -91,10 +78,7 @@ def PlotLatLong(satellite, dt, n):
     #plt.title('Revolving scanning')
     plt.show()
         
-
-    
-
-def PlotXi(satellite, dt, n):
+def plot_xi(satellite, dt, n):
 
     satellite.Reset()
     angle_list = []
@@ -119,7 +103,7 @@ def PlotXi(satellite, dt, n):
     plt.show()    
     
                           
-def Plot3DX(satellite, dt, n):
+def plot_3DX(satellite, dt, n):
     satellite.Reset()
     x_list = []
     for i in np.arange(n/dt):
@@ -149,7 +133,7 @@ def Plot3DX(satellite, dt, n):
     ax.set_zlim(-1,1)
     plt.show() 
     
-def Plot3DZ(satellite, dt, n, frame = None):
+def plot_3DZ(satellite, dt, n, frame = None):
     #frame allows a quaternion rotation to be applied to the z_ vector before being plotted, e.g. rotation_quaternion(np.array([1,0,0]),-gaia.epsilon) will move from the lmn frame to the ecliptic plane.
     if frame == None:   #frame allows a quaternion rotation to be applied to the z_ vector before being plotted, e.g. rotation_quaternion(np.array([1,0,0]),-gaia.epsilon) will move from the lmn frame to the ecliptic plane.
         frame = Quaternion(1,0,0,0)
@@ -182,7 +166,7 @@ def Plot3DZ(satellite, dt, n, frame = None):
     
     plt.show()         
      
-def Plot3DW(satellite, dt, n):
+def plot_3DW(satellite, dt, n):
     satellite.Reset()
     w_list = []
     for i in np.arange(n/dt):
@@ -207,11 +191,11 @@ def Plot3DW(satellite, dt, n):
     
     plt.show() 
 
-def PlotStar(scanner, sky):
-    scanner.SortPositions()
+def plot_observations(scanner, sky):
     x = [i[0] for i in scanner.starspositions]
     y = [i[1] for i in scanner.starspositions]
     z = [i[2] for i in scanner.starspositions]
+    
     xstar = [i.coor[0] for i in sky.elements]
     ystar = [i.coor[1] for i in sky.elements]
     zstar = [i.coor[2] for i in sky.elements]
@@ -222,7 +206,8 @@ def PlotStar(scanner, sky):
     fig = plt.figure()
     ax = fig.gca(projection='3d')
 
-    ax.plot(x, y, z,'--', label='Observations')
+    ax.plot(x, y, z,'ro', label='Observations')
+    ax.plot(xstar, ystar, zstar, 'b*')
     ax.legend()
     ax.set_xlabel('l')
     ax.set_ylabel('m')
@@ -237,24 +222,32 @@ def PlotStar(scanner, sky):
     fig.subplots_adjust(left=0.2, wspace=0.6)
     
     ax1.plot(x, y,'ro')
-    ax1.plot(xstar, ystar, 'b*', ms = 15)
+    ax1.plot(xstar, ystar, 'b*', ms = 10)
     ax1.set(title='XY PLANE')
     
 
     ax2.plot(y, z, 'ko')
-    ax2.plot(ystar, zstar, 'b*', ms = 15)
+    ax2.plot(ystar, zstar, 'b*', ms = 10)
     ax2.set(title='YZ PLANE')
 
     ax3.plot(x, z, 'go')
-    ax3.plot(xstar, zstar, 'b*', ms = 15)
+    ax3.plot(xstar, zstar, 'b*', ms = 10)
     ax3.set(title='XZ PLANE')
 
     
     plt.rcParams.update({'font.size': 22})
     
     plt.show()
-       
-
+            
+def PlotDiff(satellite, sky):
+    diff_list = []
+    for star in sky.elements:
+        for idx, obj in enumerate(satellite.storinglist):
+            diff_ = np.abs(obj[8] - star.coor)
+            diff_list.append(mag(diff_))
+    plt.figure()
+    plt.plot(diff_list, 'bo--')
+    plt.show()
     
     
 
