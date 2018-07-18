@@ -16,11 +16,13 @@ import math
 try:
     from hits.hitdetector import identify_anomaly, identify_noise, plot_anomaly
     from hits.hitsimulator import hit_distribution, flux, p_distribution, freq, generate_event, generate_data, masses
-    from hits.response import isolate_anomaly, spline_anomaly, get_turning_points, filter_turning_points
+    from hits.response.anomaly import isolate_anomaly, spline_anomaly
+    from hits.response.characteristics import get_turning_points, filter_turning_points
 except(ImportError):
-    from hitdetector import identify_anomaly, identify_noise, plot_anomaly
-    from hitsimulator import hit_distribution, flux, p_distribution, freq, generate_event, generate_data, masses
-    from response import isolate_anomaly, spline_anomaly, get_turning_points, filter_turning_points
+    from .hitdetector import identify_anomaly, identify_noise, plot_anomaly
+    from .hitsimulator import hit_distribution, flux, p_distribution, freq, generate_event, generate_data, masses
+    from .response.anomaly import isolate_anomaly, spline_anomaly
+    from .response.characteristics import get_turning_points, filter_turning_points
 
 
 #------------hitdetector.py tests-----------
