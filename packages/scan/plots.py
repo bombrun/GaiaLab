@@ -5,11 +5,12 @@ from NSL import*
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 
 
-
-def plot_attitude(satellite, dt, n0, nf):
+def plot_attitude(satellite, ti, tf, dt): #change this function, maybe better use storing list since we aredy have it?
     '''
     Args
     ______
@@ -24,16 +25,17 @@ def plot_attitude(satellite, dt, n0, nf):
     attitude = (t, x, y, z)
     Each graph plots time in days versus each component evolution wrt time.
     '''
-    satellite.Reset()
-    t = np.linspace(n0, nf, (nf-n0)/dt)
+    n_steps = (tf-ti)/dt
+    t = np.linspace(ti, tf, n_steps)
+
     qt_list = []
     qx_list = []
     qy_list = []
     qz_list = []
-    
-    satellite.t = n0
-    for i in np.arange((nf-n0)/dt): #number of steps
-        satellite.Update(dt)
+
+    satellite.reset_to_time(ti)
+    for i in np.arange(n_steps):
+        satellite.update(dt)
         qt_list.append(satellite.attitude.w)
         qx_list.append(satellite.attitude.x)
         qy_list.append(satellite.attitude.y)
@@ -60,11 +62,11 @@ def plot_attitude(satellite, dt, n0, nf):
    
 def plot_longlat(satellite, dt, n):
     
-    satellite.Reset()
+    satellite.reset()
     lambda_list = [] 
     beta_list = [] 
     for i in np.arange(n/dt):
-        satellite.Update(dt)
+        satellite.update(dt)
         lambda_list.append(satellite.lamb_z%(2*np.pi)) 
         beta_list.append(satellite.beta_z)  
    
@@ -75,7 +77,7 @@ def plot_longlat(satellite, dt, n):
     plt.ylim(-np.pi/2, np.pi/2)
     
     plt.rcParams.update({'font.size': 22})
-    #plt.title('Revolving scanning')
+    plt.title('Revolving scanning')
     plt.show()
         
 def plot_xi(satellite, dt, n):
@@ -134,15 +136,17 @@ def plot_3DX(satellite, dt, n):
     plt.show() 
     
 def plot_3DZ(satellite, dt, n, frame = None):
-    #frame allows a quaternion rotation to be applied to the z_ vector before being plotted, e.g. rotation_quaternion(np.array([1,0,0]),-gaia.epsilon) will move from the lmn frame to the ecliptic plane.
-    if frame == None:   #frame allows a quaternion rotation to be applied to the z_ vector before being plotted, e.g. rotation_quaternion(np.array([1,0,0]),-gaia.epsilon) will move from the lmn frame to the ecliptic plane.
+    #frame allows a quaternion rotation to be applied to the z_ vector before being plotted, e.g.
+    # rotation_quaternion(np.array([1,0,0]),-gaia.epsilon) will move from the lmn frame to the ecliptic plane.
+    if frame == None:   #frame allows a quaternion rotation to be applied to the z_ vector before being plotted,
+        # e.g. rotation_quaternion(np.array([1,0,0]),-gaia.epsilon) will move from the lmn frame to the ecliptic plane.
         frame = Quaternion(1,0,0,0)
         
     satellite.Reset()
     z_list = []
     for i in np.arange(n/dt):
         satellite.Update(dt)
-        z_list.append(quaternion_to_vector(frame*vector_to_quaternion(satellite.z_)*frame.conjugate()))     #z = frame*z_vector*frame.conj
+        z_list.append(quaternion_to_vector(frame*vector_to_quaternion(satellite.z_)*frame.conjugate()))
     
     z_listx = [i[0] for i in z_list]
     z_listy = [i[1] for i in z_list]
@@ -200,7 +204,7 @@ def plot_observations(scanner, sky):
     ystar = [i.coor[1] for i in sky.elements]
     zstar = [i.coor[2] for i in sky.elements]
     
-    mpl.rcParams['legend.fontsize'] = 18
+    #mpl.rcParams['legend.fontsize'] = 18
     
     # 3D PLOT
     fig = plt.figure()
@@ -235,7 +239,7 @@ def plot_observations(scanner, sky):
     ax3.set(title='XZ PLANE')
 
     
-    plt.rcParams.update({'font.size': 22})
+    #plt.rcParams.update({'font.size': 22})
     
     plt.show()
             
