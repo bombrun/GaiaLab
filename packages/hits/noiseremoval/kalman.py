@@ -78,6 +78,11 @@ except(ImportError):
 
 class KalmanData(filters.FilterData):
     
+    def __init__(self, *args):
+        filters.FilterData.__init__(self, *args)
+        self._q = None
+        self._r = None
+
 #public methods--------------------------------------------------------------- 
     def tweak_q(self, q):
         """Change the variance of the noise on the measurable value."""
@@ -90,12 +95,9 @@ class KalmanData(filters.FilterData):
         self.reset()
 #-----------------------------------------------------------------------------
 
-#private variables and methods------------------------------------------------
-    _q = None
-    _r = None
+#private and methods------------------------------------------------
 
-    @staticmethod
-    def _kalman(data_array, r=_r, q=_q, samples=50):
+    def _kalman(self, data_array, r=None, q=None, samples=50):
         """
         Accepts:
             
@@ -126,7 +128,9 @@ class KalmanData(filters.FilterData):
         """
         x = data_array[0]
         p = x**2
-        if q is None:
+        if q is None and self._q is not None:
+            q = self._q
+        elif q is None and self._q is None:
             q = KalmanData._var(data_array, samples)
         i = 0
         while True:
@@ -135,7 +139,9 @@ class KalmanData(filters.FilterData):
                 z = data_array[i]
             except(IndexError):
                 break
-            if r is None:
+            if r is None and self._r is not None:
+                r = self._r
+            elif r is None and self._r is None:
                 r = 1
             K = p/(p+r)
             x = x + K * (z - x)
