@@ -28,7 +28,7 @@ class FilterData():
 
             if isinstance(data_array, pd.DataFrame): # this is a more hefty task, delegated to self._from_pandas()
                 self._from_pandas(data_array)
-                self._pandas = True
+                self._initialised_from_pandas = True
 
             elif all(isinstance(data_point, (int, float)) for data_point in data_array): # check that each element is a real number
                 self._data = array('d', data_array)
