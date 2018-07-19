@@ -1,19 +1,20 @@
 
 import unittest 
 from NSL import*
+import numpy as np
 
 class SatelliteTest(unittest.TestCase):
     
     def setUp(self):
         self.satellite = Satellite()
         
-    def test_InitAttitude(self):
-        if isinstance(self.satellite.InitAttitude(), Quaternion) == False:
+    def test_init_attitude(self):
+        if isinstance(self.satellite.init_attitude(), Quaternion) == False:
             raise Exception('Satellite attitude not a quaternion object')
         
-    def test_Reset(self):
-        self.satellite.Update(np.random.uniform(0,10))
-        self.satellite.Reset()
+    def test_reset(self):
+        self.satellite.update(np.random.uniform(0,10))
+        self.satellite.reset()
         
         self.assertEqual(self.satellite.nu0, self.satellite.nu)
         self.assertEqual(self.satellite.omega0, self.satellite.omega)
@@ -24,21 +25,35 @@ class SatelliteTest(unittest.TestCase):
         if isinstance(self.satellite.z_, np.ndarray) == False:
             raise Exception('z is not a vector')
     
-    def test_Update(self):
+    def test_update(self):
         dt = np.random.uniform(0,10)
-        self.satellite.Update(dt)
+        self.satellite.update(dt)
         
         self.assertEqual(self.satellite.nudot, self.satellite.dNu/dt)
         self.assertEqual(self.satellite.ldot, self.satellite.dL/dt)
                 
         if isinstance(self.satellite.attitude, Quaternion) == False:
             raise Exception('updated satellite.attitude is not a quaternion')
-            
-    def test_GetAttitude(self):
+           
+    def test_move(self):
+        ti = np.random.uniform(0,10)
+        tf = np.random.uniform(0,10)
         dt = np.random.uniform(0,1)
-        t = np.random.uniform(0,10)
-        #need to check that it updates the attitude i times. 
         
+        self.satellite.move(ti, tf, dt)
+        
+        for obj in self.satellite.storing_list:
+            self.assertEqual(len(obj), 9)
+
+    def test_reset_to_time(self):
+        t = np.random.uniform(0,10)
+        self.satellite.reset_to_time(t)
+        
+        if len(self.storing_list) != 0:
+            self.assertAlmostEqual(self.satellite.t, t)
+        else:
+            self.assertEqual(self.satellite.t, 0.0)
+            
     def test_GetXAxis(self):
         #need to check that x_quat is quaternion and then that x_ is a vector.
         t = np.random.uniform(0,10)
@@ -74,26 +89,11 @@ class ScannerTest(unittest.TestCase):
         self.attitude = Quaternion(np.random.uniform(-1,1), np.random.uniform(-1,1),np.random.uniform(-1,1),np.random.uniform(-1,1))
         self.sky = Sky(5)
         
-    def test_GetFV1(self):
-        if isinstance(self.attitude, Quaternion) == False:
-            raise ValueError('self.scanner.GetFV1 takes only quaternion as attitude')
-        if isinstance(self.scanner.GetFV1(self.attitude), np.dnarray) == False:
-            raise Exception('scanner.GetFV1 does not return np.array')
-        self.assertEqual(len(self.scanner.GetFV1(self.attitude)),3)
+    def test_intercept(self):
+        self.star = Source()
+        self.satellite = Satellite()
+
         
-    def test_GetFV2(self):
-        if isinstance(self.attitude, Quaternion) == False:
-            raise ValueError('self.scanner.GetFV2 takes only quaternion as attitude')
-        if isinstance(self.scanner.GetFV2(self.attitude), np.dnarray) == False:
-            raise Exception('scanner.GetFV2 does not return np.array')
-        self.assertEqual(len(self.scanner.GetFV2(self.attitude)),3)
-        
-    def Inst_Scan_FV1(self):
-        findings_1 = self.scanner.Inst_Scan_FV1(self.sky, self.attitude)
-        for i in findings_1:
-            if isinstance(i, np.dnarray) == False:
-                return Exception('element in found stars in not a np.array')
-      
 if __name__ == "__main__":
     unittest.main
 
