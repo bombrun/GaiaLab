@@ -108,3 +108,6 @@ venv.bak/
 
 #python config files
 conf.py
+
+#vim swap files
+*.swp
