@@ -1,15 +1,7 @@
+# -*- coding: utf-8 -*-
 from quaternion import*
-from sympy import*
-#from frameRotation import*
-from sympy import Line3D, Point3D
 import numpy as np
-import math
-import matplotlib.pyplot as plt
-import time
-import datetime
 
-################################## FUNCTIONS ##################################
-                                                                                                                                       
 def vector(x,y,z): 
     return np.array([x,y,z])
 
@@ -52,13 +44,22 @@ def rotation_quaternion(vector, angle):
     return qvector   
     
 def alphadelta(vector):
+    '''
+    Input:
+        vector
+        np.dnarray
+    
+    Returns:
+            alpha   delta
+            float   float
+    '''
     alpha = np.arctan2(vector[1], vector[0])
     delta = np.arctan2(vector[2], np.sqrt(vector[1]**2 + vector[0]**2))  
     return alpha, delta
     
 def xyz(azimuth, altitude):
     '''
-    args
+    Args
     _____
     
     azimuth: [float]
@@ -187,18 +188,18 @@ def WMatrix(self, w_):
        
         return wMatrix  
           
-def SRS(attitude, vector):
+def BCRS(attitude, vector):
     '''
     Changes coordinates of a vector in BCRS to SRS frame.
     '''
     q_vector_bcrs= vector_to_quaternion(vector)
     q_vector_srs = attitude * q_vector_bcrs * attitude.conjugate()  
-    return np.array([q_vector_srs.x, q_vector_srs.y, q_vector_srs.z])    
+    return quaternion_to_vector(q_vector_srs)    
    
-def BCRS(attitude, vector):
+def SRS(attitude, vector):
     '''
     Changes coordinates of a vector in SRS to BCRS frame.
     '''
     q_vector_srs= vector_to_quaternion(vector)
     q_vector_bcrs = attitude.conjugate() * q_vector_srs * attitude  
-    return np.array([q_vector_bcrs.x, q_vector_bcrs.y, q_vector_bcrs.z])
+    return quaternion_to_vector(q_vector_bcrs)  
