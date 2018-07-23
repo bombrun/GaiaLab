@@ -7,7 +7,9 @@ Packages within the module are:
 * hitsimulator
 * hitdetector
 * noiseremoval
+    * filters
     * kalman
+    * lowpass
 * response
     * characteristics
     * anomaly

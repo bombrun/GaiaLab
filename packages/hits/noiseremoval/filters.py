@@ -23,10 +23,12 @@ class FilterData():
                 If True, saves the filtered data to self.data on initialisation.
                 If False, doesn't. This saves memory.
         """
+        self._initialised_from_pandas = False #check if data was initialised from pandas dataframe
         if  hasattr(data_array, "__iter__"): # if data_array can be iterated over, iterate over it and add each element
 
             if isinstance(data_array, pd.DataFrame): # this is a more hefty task, delegated to self._from_pandas()
                 self._from_pandas(data_array)
+                self._initialised_from_pandas = True
 
             elif all(isinstance(data_point, (int, float)) for data_point in data_array): # check that each element is a real number
                 self._data = array('d', data_array)
@@ -34,9 +36,8 @@ class FilterData():
             else: # isolate the issue with the given array and raise a TypeError
                 for data_point in data_array:
                     if not isinstance(data_point, (int, float)):
-                        bad_type = type(data_point)
                         break
-                raise(TypeError("Data type %r is not supported. Please supply an iterable of numerical values." % bad_type))
+                raise(TypeError("Data type %r is not supported. Please supply an iterable of numerical values." % type(data_point)))
 
         else:
             raise(TypeError("Data type %r is not supported. Please supply an iterable of numerical values." % type(data_array)))
@@ -45,6 +46,12 @@ class FilterData():
         
         if save: # saves data as a list rather than as a generator. more resource heavy but useful nonetheless
             self.data = list(FilterData._filter(self._data))
+
+        #private variables----------------------------------------------------
+        if not self._initialised_from_pandas: #set equal to None if not initialised from pandas
+            self._indices = None
+            self._obmt = None
+            self._w1_rate = None
 
         
     def __len__(self):#delegate to __len__ of array.array.
@@ -60,7 +67,7 @@ class FilterData():
         Apply filter to selected regions.
         Returns a list rather than a generator.
         """
-        return list(FilterData._filter(self._data[index]))
+        return list(self._filter(self._data[index]))
         
     # Comparison operators:
     #-------------------------------------
@@ -157,9 +164,6 @@ class FilterData():
     #-------------------------------------------------------------------------
 
     #private methods and variables (so far as python allows)------------------
-    _indices = None
-    _obmt = None
-    _w1_rate = None
 
     def _from_pandas(self, df): # I wanted this to be a separate function called by __init__. I think it is sufficiently unique to justify existing in its own right.
         """
@@ -200,7 +204,10 @@ class FilterData():
         """Basic filter. Not a filter. Just a generator for the given data."""
         i = 0
         while True:
-            yield data_array[i]
+            try:
+                yield data_array[i]
+            except(IndexError):
+                break
             i+=1
 
     #public methods-----------------------------------------------------------
