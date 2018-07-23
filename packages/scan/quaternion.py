@@ -89,7 +89,8 @@ class Quaternion():
     # matrices are never multiplied here therefore it is probably not currently worth 
     # implementing.
 
-    def __mul__(self, other):       #Allow for right multiplication by scalars, matrices and quaternions
+    def __mul__(self, other):
+        # Allow for right multiplication by scalars, matrices and quaternions
         if isinstance(other, Quaternion):
             x = self.x * other.w + self.y * other.z - self.z * other.y + self.w * other.x
             y = -self.x *other.z + self.y * other.w + self.z * other.x + self.w * other.y
@@ -107,9 +108,10 @@ class Quaternion():
                               self.y*other,
                               self.z*other)
         else:
-            raise TypeError("Multiplication of quaternion with %r is not supported." %type(other))
+            raise TypeError("Multiplication of quaternion with %r is not supported." % type(other))
 
-    def __rmul__(self,other):       #Allow for left multiplication by matrices and scalars (quaternion right multiplication handled above)
+    def __rmul__(self,other):
+        # Allow for left multiplication by matrices and scalars (quaternion right multiplication handled above)
         if isinstance(other, np.ndarray):
             if other.shape[1] == 4: 
                 return other.dot(np.array([self.w,self.x,self.y,self.z]))
@@ -123,7 +125,8 @@ class Quaternion():
         else:
             raise TypeError("Multiplication of quaternion with %r is not supported." %type(other))
 
-    def __truediv__(self, other):   #Allow for division by scalars and quaternions: division by other types is undefined
+    def __truediv__(self, other):
+        # Allow for division by scalars and quaternions: division by other types is undefined
         if isinstance(other, Quaternion):   
             mag_2 = other.magnitude**2
             w = (other.w*self.w + other.x*self.x + other.y*self.y + other.z*self.z)/mag_2
@@ -139,6 +142,10 @@ class Quaternion():
         else:
 
             raise TypeError("Division of quaternion by given types is not supported.")
+
+    def to_vector(self):
+        return np.array([self.x, self.y, self.z])
+
     def basis(self):
         a_11 = 1 - 2*((self.y)**2 + (self.z)**2)
         a_12 = 2*(self.x*self.y + self.z*self.w)
@@ -152,6 +159,7 @@ class Quaternion():
         
         A = np.array([a_11, a_12, a_13, a_21, a_22, a_23, a_31, a_32, a_33])
         
-        self.A = A.reshape(3,3) 
+        return A.reshape(3,3)
 
-    __array_priority__ = 10000 #big number so numpy respects left matrix multiplication with quaternions
+
+    __array_priority__ = 10000  # big number so numpy respects left matrix multiplication with quaternions
