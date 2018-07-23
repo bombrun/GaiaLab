@@ -49,11 +49,12 @@ def qOmega(omega,t0,t1):
     
     """
     r = np.linalg.norm(omega)
-    if r>0.0 :
+    if r > 0.0:
         v = omega/r*np.sin((t0-t1)*r/2)
     else :
         v = np.zeros(3)
-    return v[0],v[1],v[2],np.cos((t0-t1)*r/2)
+    return v[0], v[1], v[2], np.cos((t0-t1)*r/2)
+
 
 def qEpsilon(epsilon):
     """
@@ -61,19 +62,19 @@ def qEpsilon(epsilon):
     
     """
     r = np.linalg.norm(epsilon)
-    if r>0.0 :
+    if r > 0.0:
         v = epsilon/r*np.sin(r/2)
     else :
         v = np.zeros(3)
-    return v[0],v[1],v[2],np.cos(r/2)
+    return v[0], v[1], v[2], np.cos(r/2)
 
 
-def q_star(q) :
+def q_star(q):
     """
     quaternion conjugate
     """
-    x,y,z,w = q
-    return -x,-y,-z,w
+    x, y, z, w = q
+    return -x, -y, -z, w
 
 def q_mult(qa, qb):
     """
@@ -81,7 +82,7 @@ def q_mult(qa, qb):
     """
     ax, ay, az, aw = qa
     bx, by, bz, bw = qb
-   
+
     x = ax*bw + ay*bz - az*by + aw*bx
     y = -ax*bz + ay*bw + ax*bx + aw*by
     z = ax*by - ay*bx + az*bw + aw*bz
