@@ -10,7 +10,7 @@ http://docs.astropy.org/en/stable/coordinates/index.html#module-astropy.coordina
 
 import frame_transformations as ft
 from quaternion import Quaternion
-
+from numba import jit
 import numpy as np
 import time
 
@@ -51,23 +51,17 @@ class Source:
 
     def __init__(self, alpha, delta, mualpha=0, mudelta=0, parallax=1):
         # make alpha delta attributes
-        # time dependence, get direction at time t. Create a function coor that does all of this and
+        # time dependence, get direction at time __t. Create a function coor that does all of this and
         # is able to implement relativistic effects.
         self.coor = ft.xyz(alpha, delta)
         self.velocity = np.array([mualpha, mudelta, parallax])
 
 class Satellite:
-    """
-    Satellite that moves changing its attitude according to Nominal Scanning Law.
-    Attributes:
-        t (float): initial time of satellite [days].
-        storing_list (list of objects): first empty, filled when satellite.move() method is called.
-    """
 
     def __init__(self, *args):
         self.init_parameters(*args)
 
-    def init_parameters(self, S=4.036, epsilon=np.radians(23.26), xi=np.radians(45), wz=120):
+    def init_parameters(self, S=4.036, epsilon=np.radians(23.26), xi=np.radians(55), wz=120):
         """
         Sets satellite to initialization status.
         Args:
@@ -75,109 +69,102 @@ class Satellite:
             epsilon (float): ecliptical angle [rad].
             xi (float): revolving angle [rad].
             wz (float): z component of inertial spin vector [arcsec/s].
-            ldot (float): velocity of the sun around the earth [rad/day].
-            t0 (float): J2000 [days].
-            nu0 (float): initial revolving angle at t0 [rad].
-            omega0 (flaot): initial spin angle at t0 [rad].
-            l0 (float): initial solar longitud angle at t0 [rad].
-            beta0 (float): initial solar altitude angle at t0 [rad].
         """
         self.S = S
         self.epsilon = epsilon
         self.xi = xi
-        self.wz = wz * (60 * 60 * 24. / 206264.8062470946)  # to [rad/day]
+        self.wz = wz * 60 * 60 * 24. * 0.0000048481368110954  # to [rad/day]
+
 
 class Attitude(Satellite):
-
-    def __init__(self, ti, tf, dt):
+    """
+    Child class to Satellite.
+    """
+    def __init__(self):
         Satellite.__init__(self)
-        self.empty()
-        self.t = 0
-        self.lambda_ = 0
-        self.beta_ = 0
-        self.nu = 0
-        self.omega = 0
-        self.z_ = np.array([0., 0., 1.])
-        self.x_ = np.array([1., 0., 0.])
-        self.w_ = np.array([0., 0., 1.])
-        self.l_, self.j_, self.k_ = ft.ljk(self.epsilon)
-        self.s_ = self.l_ * np.cos(self.lambda_) + self.j_ * np.sin(self.lambda_)
-        self.lambda_dot = 2 * np.pi / 365
-
-        q1 = Quaternion(np.cos(self.epsilon / 2), np.sin(self.epsilon / 2), 0, 0)
-        q2 = Quaternion(np.cos(self.lambda_ / 2), 0, 0, np.sin(self.lambda_ / 2))
-        q3 = Quaternion(np.cos((self.nu - np.pi / 2.) / 2), np.sin((self.nu - np.pi / 2.) / 2), 0, 0)
-        q4 = Quaternion(np.cos((np.pi / 2. - self.xi) / 2), 0, np.sin((np.pi / 2. - self.xi) / 2), 0)
-        q5 = Quaternion(np.cos(self.omega / 2.), 0, 0, np.sin(self.omega / 2.))
-
-        q_total = q1 * q2 * q3 * q4 * q5
-        self.attitude = q_total * Quaternion(0, 0, 0, 1) * q_total.conjugate()
-
-        self.create_storage(ti, tf, dt)
-
-    def empty(self):
+        self.init_state()
         self.storage = []
 
+    def init_state(self):
+        """
+        :return: initial status of satellite
+        """
+        self.__t = 0
+        self.__lambda = 0
+        self.__beta = 0
+        self.__nu = 0
+        self.__omega = 0
+
+        self.__ldot = 2 * np.pi / 365
+        self.__l, self.__j, self.__k = ft.ljk(self.epsilon)
+        self.__s = self.__l*np.cos(self.__lambda) + self.__j*np.sin(self.__lambda)
+
+        self.attitude = self.init_attitude()
+
+        self.__z = (self.attitude * Quaternion(0,0,0,1)*self.attitude.conjugate()).to_vector()
+        self.__x = (self.attitude * Quaternion(0,1,0,0)*self.attitude.conjugate()).to_vector()
+        self.__w = np.cross(np.array([0, 0, 1]), self.__z)
+
+    def init_attitude(self):
+        """
+        :return: quaternion equivalent to initialization of satellite
+        """
+        q1 = Quaternion(np.cos(self.epsilon/2), np.sin(self.epsilon/2), 0, 0)
+        q2 = Quaternion(np.cos(self.__lambda/2), 0, 0, np.sin(self.__lambda/2))
+        q3 = Quaternion(np.cos((self.__nu - (np.pi/2.))/2), np.sin((self.__nu - (np.pi/2.)) / 2), 0, 0)
+        q4 = Quaternion(np.cos((np.pi / 2. - self.xi)/2), 0, np.sin((np.pi/2. - self.xi)/2), 0)
+        q5 = Quaternion(np.cos(self.__omega/2.), 0, 0, np.sin(self.__omega/2.))
+
+        q_total = q1*q2*q3*q4*q5
+        return q_total
+
+    def reset(self):
+        """
+        :return: reset satellite to initialization status
+        """
+        self.init_state()
+        self.storage = []
+
+    @jit
     def update(self, dt):
         """
-        Calculates the change in all parameters of satellite to update its attitude.
-        First order approximation (Euler's method) to calculate derivatives of the variables.
-        Args:
-            dt (float): delta time to update satellite's parameters from initial time (self.t) to self.t + dt
-        Attributes:
-            t (float): time
-            lamb (float): solar longitudinal angle in galatic frame.
-            nu (float): revolving phase.
-            lamb_z (float): solar longitudinal angle in ecliptic plane.
-            beta_z (float): solat altitude angle in ecliptic plane.
-            l_, j_, k_ (np.dnarray): ecliptic triad frame.
-            s_ (np.dnarray): vector to position of the sun from satellite's centre.
-            z_ (np.dnarray): z-axis of SRS frame wrt BCRS.
-            x_ (np.dnarray): x-axis of SRS frame wrt BCRS.
-            w_ (np.dnarray): inertial spin vector wrt BCRS.
-            attitude (quaternion): attitude updated after dt time change, from initialization parameters.
-
+        :param dt: time step to calculate derivatibles of functions
+        :return: update value of functions for next moment in time by calculating their infinitesimal change in dt
         """
+        self.__t = self.__t + dt
+        dL = self.__ldot * dt
+        self.__lambda = self.__lambda + dL
 
-        self.t = self.t + dt
-        dL = self.lambda_dot * dt
-        self.lambda_ = self.lambda_ + dL
-
-        # Updates Nu
-        nu_dot = self.lambda_dot * (np.sqrt(self.S ** 2 - np.cos(self.nu) ** 2) + np.cos(self.xi) * np.sin(self.nu)) / np.sin(self.xi)
+        nu_dot = (self.__ldot/np.sin(self.xi))*(np.sqrt(self.S**2 - np.cos(self.__nu)**2)
+                                                + np.cos(self.xi)*np.sin(self.__nu))
         d_nu = nu_dot * dt
-        self.nu = self.nu + d_nu
+        self.__nu = self.__nu + d_nu
 
-        # LatitudeAngles
-        lamb_z = self.lambda_ + np.arctan(np.tan(self.xi) * np.cos(self.nu))
-        beta_z = np.arcsin(np.sin(self.xi) * np.sin(self.nu))
+        self.__lamb_z = self.__lambda + np.arctan2(np.tan(self.xi) * np.cos(self.__nu), 1)
+        self.__beta_z = np.arcsin(np.sin(self.xi) * np.sin(self.__nu))
 
-        # Updates Omega
-        omega_dot = self.wz - nu_dot * np.cos(self.xi) - self.lambda_ * np.sin(self.xi) * np.sin(self.nu)
+        omega_dot = self.wz - nu_dot * np.cos(self.xi) - self.__ldot * np.sin(self.xi) * np.sin(self.__nu)
         d_omega = omega_dot * dt
-        self.omega = self.omega + d_omega
+        self.__omega = self.__omega + d_omega
 
-        # Calculates coordinates and then calculates s-vector
-        self.s_ = self.l_ * np.cos(self.lambda_) + self.j_ * np.sin(self.lambda_)
+        self.__s = self.__l * np.cos(self.__lambda) + self.__j * np.sin(self.__lambda)
 
-        # Calculates z-axis from cross product: delta_z = (k x z)*lambda_dot + (s x z)dNu
-        z_dot_ = np.cross(self.k_, self.z_) * self.lambda_dot + np.cross(self.s_, self.z_) * nu_dot
-        dz_ = z_dot_ * dt
-        self.z_ = self.z_ + dz_
-        self.z_ = self.z_ / np.linalg.linalg.norm(self.z_)
+        z_dot = np.cross(self.__k, self.__z) * self.__ldot + np.cross(self.__s, self.__z) * nu_dot
+        dz = z_dot * dt
+        self.__z = self.__z + dz
+        self.__z = self.__z/np.linalg.linalg.norm(self.__z)
 
-        # Updates inertial rotation vector
-        self.w_ = self.k_ * self.lambda_dot + self.s_ * nu_dot + self.z_ * omega_dot
+        self.__w = self.__k * self.__ldot + self.__s * nu_dot + self.__z * omega_dot
 
-        # Calculates new attitude by delta_quat
-        w_magnitude = np.sqrt((self.w_[0]) ** 2 + (self.w_[0]) ** 2 + (self.w_[0]) ** 2)
+        w_magnitude = np.linalg.norm(self.__w)
         d_zheta = w_magnitude * dt
-        delta_quat = ft.rotation_to_quat(self.w_, d_zheta)
+        delta_quat = ft.rotation_to_quat(self.__w, d_zheta/2.)
         self.attitude = delta_quat * self.attitude
 
         # x axis
-        x_quat = self.attitude * Quaternion(0, 1, 0, 0) * self.attitude.conjugate()
-        self.x_ = x_quat.to_vector()
+        x_quat = Quaternion(0, self.__x[0], self.__x[1], self.__x[2])
+        x_quat = self.attitude * x_quat * self.attitude.conjugate()
+        self.__x= x_quat.to_vector()
 
     def create_storage(self, ti, tf, dt):
         '''
@@ -187,14 +174,14 @@ class Attitude(Satellite):
             tf (float): integrating time upper limit [days]
             dt (float): step discretness of integration.
         Notes:
-            The data is stored in satellite.storing_list
+            stored in: attitude.storage
         '''
 
-        self.t = ti
+        self.__t = ti
         n_steps = (tf - ti) / dt
         for i in np.arange(n_steps):
             self.update(dt)
-            self.storage.append([self.t, self.w_, self.z_, self.x_, self.attitude])
+            self.storage.append([self.__t, self.__w, self.__z, self.__x, self.attitude, self.__lamb_z, self.__beta_z])
 
         self.storage.sort(key=lambda x: x[0])
 
@@ -206,15 +193,22 @@ class Attitude(Satellite):
         '''
 
         temp_list = [obj for obj in self.storage if obj[0] <= t]
-        list_element = temp_list[-1]
-        self.t = list_element[0]
-        self.w_ = list_element[1]
-        self.z_ = list_element[2]
-        self.x_ = list_element[3]
+
+        if len(temp_list) == 0:
+            list_element = self.storage[0]
+        else:
+            list_element = temp_list[-1]
+
+        self.__t = list_element[0]
+        self.__w = list_element[1]
+        self.__z = list_element[2]
+        self._x_ = list_element[3]
         self.attitude = list_element[4]
+        self.__lamb_z = list_element[5]
+        self.__beta_z = list_element[6]
 
         # Account for decimal loss difference from discreteness from NM.
-        delta_t = t % self.t
+        delta_t = t % self.__t
         self.update(delta_t)
 
 class Scanner:
@@ -274,7 +268,7 @@ class Scanner:
                     self.times_deep_scan.append(t)
                     self.times_deep_scan.sort()
 
-    def deep_scan(self, att, deep_dt=0.001):
+    def deep_scan(self, att, deep_dt=0.001):    # improve with zip ()function
         """
         Increases precision of satellite at points where source is intercept by scanner in the CCD.
         :param: attitude: attitude class.
@@ -285,21 +279,20 @@ class Scanner:
             att.create_storage(t - 0.5, t + 0.5, deep_dt)
 
 
-def star_finder(scanner, att, sky):
+def star_finder(sky, att, scanner):
     """
     Finds times at which source transit CCD line of scanner and estimates their position in the BCRS frame.
-
-    :param scanner: scan objects.
-    :param att: attitude object.
-    :param sky: sky to be scanned.
-    :return:
+    :param sky: object
+    :param att:object
+    :param scanner: object
+    :return: scanner.star_positions, scanner.obs_times.
     """
     for star in sky.elements:
         scanner.intercept(att, star)
         scanner.deep_scan(att)
 
         for obj in att.storage:
-            t = obj[0]
+            __t = obj[0]
             attitude = obj[4]
             x_telescope1 = obj[3]
 
@@ -316,7 +309,7 @@ def star_finder(scanner, att, sky):
                 if np.abs(star_srs_coor[2] - x_srs_telescope1[2]) < scanner.delta_z:
                     # condition for y axis:
                     if np.abs(star_srs_coor[1] - x_srs_telescope1[1]) < scanner.delta_y:
-                        scanner.obs_times.append(t)
+                        scanner.obs_times.append(__t)
                         scanner.stars_positions.append(ft.bcrs(attitude, x_srs_telescope1))
 
 
@@ -325,8 +318,8 @@ def run():
 
     sky = Sky(1)
     scan = Scanner()
-    att = Attitude(0, 365, 0.01)
-    star_finder(scan, att, sky)
+    att = Attitude()
+    star_finder(sky, att, scan)
 
     seconds = time.time() - start_time
     print(seconds)
