@@ -1,80 +1,83 @@
 """
- Kalman filter implementation in Python
+Kalman filter implementation in Python
 
- The Kalman filter is an algorithm for the prediction of the true state of a noisy system.
- It works through prediction and measurement cycles wherein the previous state of the 
- system is considered.
+The Kalman filter is an algorithm for the prediction of the true state 
+of a noisy system. It works through prediction and measurement cycles 
+wherein the previous state of the system is considered.
 
- The key equations for the Kalman filter are:
-        
-    -----SCALAR VERSION-----------
-    
-    time update---------------------------------------------------------->
-    x = A * x + B * u
+The key equations for the Kalman filter are:
+       
+   -----SCALAR VERSION-----------
+   
+   time update----------------------------------------------------------
+   x = A * x + B * u
 
-    P_pri = A * P_pos * A + Q
-    --------------------------------------------------------------------->
-    
-    measurement update--------------------------------------------------->
+   P_pri = A * P_pos * A + Q
+   ---------------------------------------------------------------------
+   
+   measurement update---------------------------------------------------
 
-    K =   P_pri
-        (P_pri + R) 
+   K =   P_pri
+       (P_pri + R) 
 
-    P_pos = (I - K) * P_pri
+   P_pos = (I - K) * P_pri
 
-    x_pos = x_pri + K * (z - H * x_pri)
-    --------------------------------------------------------------------->
+   x_pos = x_pri + K * (z - H * x_pri)
+   ---------------------------------------------------------------------
 
 
-    -----MATRIX VERSION-----------
-    where @ is the matrix multiplication operator:
+   -----MATRIX VERSION-----------
+   where @ is the matrix multiplication operator:
 
-    time update---------------------------------------------------------->
-    x = A @ x + B @ u
+   time update----------------------------------------------------------
+   x = A @ x + B @ u
 
-    P_pri = A @ P_pos @ A + Q
-    --------------------------------------------------------------------->
-    
-    measurement update--------------------------------------------------->
-    e_pri = x - x_pri
+   P_pri = A @ P_pos @ A + Q
+   ---------------------------------------------------------------------
+   
+   measurement update---------------------------------------------------
+   e_pri = x - x_pri
 
-    e_pos = x - x_pos
+   e_pos = x - x_pos
 
-    K is equal to P_pri @ H_T @ (H @ P_pri @ H_T + R) ^ (-1) 
-    inverse matrices are often numerically unstable therefore
-    formulate as Alpha K = Beta and solve algorithmically
-    for K.
-    
-    Alpha = H @ P_pri @ H_T + R
+   K is equal to P_pri @ H_T @ (H @ P_pri @ H_T + R) ^ (-1) 
+   inverse matrices are often numerically unstable therefore
+   formulate as Alpha K = Beta and solve algorithmically
+   for K.
+   
+   Alpha = H @ P_pri @ H_T + R
 
-    Beta = P_pri @ H_T
+   Beta = P_pri @ H_T
 
-    P_pos = (I - K @ H) @ P_pri
+   P_pos = (I - K @ H) @ P_pri
 
-    x_pos = x_pri + K @ (z - H @ x_pri)
-    --------------------------------------------------------------------->
+   x_pos = x_pri + K @ (z - H @ x_pri)
+   ---------------------------------------------------------------------
 
- It is implemented here as a class to accept measured data and apply the Kalman filter.
- This returns a generator allowing large datasets to be used without being committed to memory twice.
- 
- Current implementation supports 1-dimensional data.
+It is implemented here as a class to accept measured data and apply the 
+Kalman filter. This returns a generator allowing large datasets to be 
+used without being committed to memory twice.
 
- References:
-    kalmanfilter.net
-    Welch G, Bishop G; An Introduction to the Kalman Filter; UNC; 1994.
+Current implementation supports 1-dimensional data.
 
- Toby James 2018
+References:
+   kalmanfilter.net
+   Welch G, Bishop G; An Introduction to the Kalman Filter; UNC; 1994.
 """
 try:
     import filters
 except(ImportError):
     from hits.noiseremoval import filters
 
-#TODO implement extended Kalman and use to identify decay pattern for hits (assume exponential?)
-#TODO can you transform detected (and Kalman-cleaned?) hits into some sort of linear space to get actual decaying exponential coefficents using basic Kalman??
-#                                       answer: maybe??
-#TODO decide on appropriate starting values for q and r.
-#TODO implement multiple dimensional Kalman.
+# TODO implement extended Kalman and use to identify decay pattern for 
+# hits (assume exponential?).
+
+# TODO can you transform detected (and Kalman-cleaned?) hits into some 
+# sort of linear space to get actual decaying exponential coefficents 
+# using basic Kalman?
+
+# TODO decide on appropriate starting values for q and r.
+# TODO implement multiple dimensional Kalman.
 
 class KalmanData(filters.FilterData):
     
@@ -83,7 +86,7 @@ class KalmanData(filters.FilterData):
         self._q = None
         self._r = None
 
-#public methods--------------------------------------------------------------- 
+# Public methods--------------------------------------------------------------- 
     def tweak_q(self, q):
         """Change the variance of the noise on the measurable value."""
         self._q = q
@@ -93,9 +96,9 @@ class KalmanData(filters.FilterData):
         """Change the variance of the noise on the measured value."""
         self._r = r
         self.reset()
-#-----------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 
-#private and methods------------------------------------------------
+# Private methods--------------------------------------------------------------
 
     def _kalman(self, data_array, r=None, q=None, samples=50):
         """
@@ -107,20 +110,25 @@ class KalmanData(filters.FilterData):
 
         Performs the Kalman filter algorithm on the calculated data.
 
-        Is a generator rather than a function. self._kalman_data is the generator applied to self._data.
+        Is a generator rather than a function. self._kalman_data is the 
+        generator applied to self._data.
 
         This data is accessible by calling the class as self().
 
         Kwargs:
             
             r (float, default=1):
-                The variance of the noise on the measured data. Changeable through self.tweak_r().
+                The variance of the noise on the measured data. 
+                Changeable through self.tweak_r().
             
-            q (float, default is calculated as the variance of the first samples=samples.):
-                The variance of the noise on the measurable data. Changeable through self.tweak_q().
+            q (float, default is calculated as the variance of the first 
+                                                      samples=samples.):
+                The variance of the noise on the measurable data. 
+                Changeable through self.tweak_q().
 
             samples: (float, default=50):
-                The number of samples to be used to calculated the variance on the data.
+                The number of samples to be used to calculated the 
+                variance on the data.
         
         Yields:
             
@@ -149,6 +157,6 @@ class KalmanData(filters.FilterData):
             yield x
             i += 1
 
-    #reassign _filter function to _kalman function
+    # Reassign _filter function to _kalman function.
     _filter = _kalman
-#-----------------------------------------------------------------------------
+#------------------------------------------------------------------------------
