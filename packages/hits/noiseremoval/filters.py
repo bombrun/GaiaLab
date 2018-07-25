@@ -59,7 +59,7 @@ class FilterData():
         if save:
             # Saves data as a list rather than as a generator. More 
             # resource heavy but can be useful nonetheless.
-            self.data = list(FilterData._filter(self._data))
+            self.data = array('d',FilterData._filter(self._data))
         else:
             self.data = None
 
@@ -69,7 +69,8 @@ class FilterData():
             self._obmt = None
             self._w1_rate = None
 
-        
+        self._rev = False
+
     def __len__(self):# Delegate to __len__ of array.array.
         """Length of the data."""
         return len(self._data)
@@ -87,7 +88,7 @@ class FilterData():
         Apply filter to selected regions.
         Returns a list rather than a generator.
         """
-        return list(self._filter(self._data[index]))
+        return array('d',self._filter(self._data[index]))
         
     # Comparison operators:
     #-------------------------------------
@@ -285,12 +286,17 @@ class FilterData():
         """Resets the generator."""
         self._filter_data = self._filter(self._data)
     
+    def reverse(self):
+        """Reverse the order of the data to run the filter backwards."""
+        self._data = array('d', reversed(self._data))
+        self._rev = not self._rev
+
     def save(self):
         """Saves the filtered data to a variable - self.data."""
         # Reset first to ensure the generator starts from the first 
         # datapoint.
         self.reset()
-        self.data = list(self._filter_data)
+        self.data = array('d',self._filter_data)
     
     def to_pandas(self, obmt=None, columns=None, w1_rate=None):
         """
@@ -320,6 +326,9 @@ class FilterData():
         """
         # To return a dataframe, the data needs to exist first. 
         self.save() 
+        
+        if self._rev:
+            self.data = array('d',reversed(self.data))
         
         if self._obmt is not None:
         # If obmt is already saved, then use this as the obmt column.
