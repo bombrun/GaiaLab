@@ -2,9 +2,9 @@
 
 
 import matplotlib as mpl
-from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import matplotlib.pyplot as plt
+from quaternion import Quaternion
 
 
 def plot_longalt(att, ti, tf, dt):
@@ -85,6 +85,27 @@ def plot_3DW(att, ti, tf, dt):
     ax = fig.gca(projection='3d')
 
     ax.plot(w_listx, w_listy, w_listz, '--', label='W vector rotation')
+    ax.legend()
+    ax.set_xlabel('l')
+    ax.set_ylabel('m')
+    ax.set_zlabel('n')
+
+    plt.show()
+
+def plot_3Dsun(att, ti, tf, dt):
+    att.reset()
+    att.create_storage(ti, tf, dt)
+    sun_list = [obj[7] for obj in att.storage]
+    x_srs_ecliptical = [i[0] for i in sun_list]
+    y_srs_ecliptical = [i[1] for i in sun_list]
+    z_srs_ecliptical = [i[2] for i in sun_list]
+
+    mpl.rcParams['legend.fontsize'] = 10
+
+    fig = plt.figure()
+    ax = fig.gca(projection='3d')
+
+    ax.plot(x_srs_ecliptical, y_srs_ecliptical, z_srs_ecliptical, 'bo--', label='s vector /sun movement wrt SRS-ecliptical')
     ax.legend()
     ax.set_xlabel('l')
     ax.set_ylabel('m')
