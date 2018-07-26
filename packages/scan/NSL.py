@@ -320,11 +320,16 @@ def star_finder(att, sky, scanner):
                 x_srs_telescope1 = ft.srs(attitude, x_telescope1)
 
                 star_srs_coor = ft.srs(attitude, star.coor)
-                aperture_angle = np.arctan2(scanner.delta_z/2, x_srs_telescope1[0])
+                height_angle = 2* np.arctan2(scanner.delta_z/2, x_srs_telescope1[0])
 
+                xy_star = np.array([star_srs_coor[0], star_srs_coor[1], 0])
+                xz_star = np.array([star_srs_coor[0], 0, star_srs_coor[2]])
 
-                if np.arccos(np.dot(star_srs_coor, x_srs_telescope1)) < aperture_angle:
-                    if np.abs(star_srs_coor[2] - x_srs_telescope1[2]) < scanner.delta_z:
+                width_star = np.arctan2(xy_star[1], xy_star[0])
+                height_star = np.arctan2(xz_star[2], xz_star[0])
+
+                if np.abs(width_star) < height_angle:
+                    if np.abs(height_star) < scanner.delta_z:
                         if np.abs(star_srs_coor[1] - x_srs_telescope1[1]) < scanner.delta_y:
 
                             scanner.obs_times.append(t)
