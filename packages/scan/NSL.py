@@ -231,7 +231,7 @@ class Scanner:
         stars_positions (list of arrays): positions calculated from obs_times of transits using satellite's attitude.
     """
 
-    def __init__(self, ccd=0.3, delta_z=0.2, delta_y=0.01):
+    def __init__(self, ccd=0.3, delta_z=0.2, delta_y=0.1):
         self.delta_z = delta_z
         self.delta_y = delta_y
         self.ccd = ccd
@@ -250,14 +250,14 @@ class Scanner:
         self.times_deep_scan.clear()
 
     @jit
-    def intercept(self, att, star):
+    def intercept(self, att, star, line = False):
         """
         :param star: source object.
         :param attitude: contains storage list.
         :return: populates scanner.times_to_scan list, before deep_scan is executed.
         """
         print ('intercepting')
-        for idx, obj in enumerate(att.storage):
+        for obj in att.storage:
             t = obj[0]
             x_telescope1 = obj[3]
             attitude = obj[4]
@@ -276,12 +276,18 @@ class Scanner:
 
             if np.abs(width_star) < width_angle:
                 if np.abs(height_star) < height_angle:
-                    self.times_deep_scan.append([t, idx])
-                    self.times_deep_scan.sort()
-                    print ('scanner.times_deep_scan filled')
-    
+                    if line == True:
+                        if np.abs(star_coor_srs[1] - x_srs_telescope1[1]) < self.delta_y:
+                            self.obs_times.append(t)
+                            self.stars_positions.append(ft.bcrs(attitude, x_srs_telescope1))
+                    else:
+                        self.times_deep_scan.append(t)
+                        self.times_deep_scan.sort()
+                        self.stars_positions.append(ft.bcrs(attitude, x_srs_telescope1))
 
-    def deep_scan(self, att, deep_dt=0.001):
+        print('times intercepted:', len(self.times_deep_scan))
+
+    def deep_scan(self, att, star, deep_dt=0.001):
         """
         Increases precision of satellite at points where source is intercept by scanner in the CCD.
         :param: attitude: attitude class.
@@ -289,12 +295,14 @@ class Scanner:
         :param deep_dt: new step dt fur higher numerical method precision.
         """
         print ('doing deep_scan')
-        target_times = [i[0] for i in self.times_deep_scan]
-        i = 0
-        for t in target_times:
-            i = i +1
-            print (i, len(self.times_deep_scan))
-            att.create_storage(t - 0.1, t + 0.1, deep_dt)
+
+        for t in self.times_deep_scan:
+            att.short_reset_to_time(t)
+            att.create_storage(t - 0.2, t + 0.2, deep_dt)
+
+        self.intercept(att, star, line = True)
+
+        print('deep_scan done')
 
 
 def star_finder(att, sky, scanner):
@@ -306,35 +314,11 @@ def star_finder(att, sky, scanner):
     :return: scanner.star_positions, scanner.obs_times.
     """
     scanner.reset_memory()
+
     for star in sky.elements:
         scanner.intercept(att, star)
-
         if len(scanner.times_deep_scan) != 0:
-            scanner.deep_scan(att)
-            indexes = [i[1] for i in scanner.times_deep_scan]
-            for index in  indexes:
-                obj = att.storage[index]
-                t = obj[0]
-                attitude = obj[4]
-                x_telescope1 = obj[3]
-                x_srs_telescope1 = ft.srs(attitude, x_telescope1)
-
-                star_srs_coor = ft.srs(attitude, star.coor)
-                height_angle = 2* np.arctan2(scanner.delta_z/2, x_srs_telescope1[0])
-
-                xy_star = np.array([star_srs_coor[0], star_srs_coor[1], 0])
-                xz_star = np.array([star_srs_coor[0], 0, star_srs_coor[2]])
-
-                width_star = np.arctan2(xy_star[1], xy_star[0])
-                height_star = np.arctan2(xz_star[2], xz_star[0])
-
-                if np.abs(width_star) < height_angle:
-                    if np.abs(height_star) < scanner.delta_z:
-                        if np.abs(star_srs_coor[1] - x_srs_telescope1[1]) < scanner.delta_y:
-
-                            scanner.obs_times.append(t)
-                            scanner.stars_positions.append(ft.bcrs(attitude, x_srs_telescope1))
-                            print ('found star at:', t, index)
+            scanner.deep_scan(att, star)
 
 def run(days, dt):
     """
