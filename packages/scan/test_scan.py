@@ -19,8 +19,6 @@ class AttitudeTest(unittest.TestCase):
         if isinstance(self.att.init_attitude(), Quaternion) is False:
             raise Exception('Init Attitude not a quaternion object')
 
-        self.assertAlmostEqual(self.att.z,ft.bcrs(self.att.attitude,
-                                                  ft.srs(self.att.attitude, self.att.z)), 4)
 
     def test_reset(self):
         self.att.update(np.random.uniform(0,10))
@@ -45,14 +43,7 @@ class AttitudeTest(unittest.TestCase):
     def test_long_reset_to_time(self):
         t = np.random.uniform(0,10)
         dt = np.random.uniform(0, 1)
-        self.att.long_reset_to_time(t,dt)
-        self.assertAlmostEqual(self.att.t, t, 4)
-
-    def test_create_storage(self, ti, tf, dt):
-        if len(self.att.storage) == 0:
-            ti = ti
-        if len(self.att.storage) != 0:
-            self.att.short_reset_to_time(ti)
+        self.att.long_reset_to_time(t, dt)
 
 
 class SkyTest(unittest.TestCase):
@@ -63,7 +54,7 @@ class SkyTest(unittest.TestCase):
                
     def test_initSky(self):
         self.assertEqual(len(self.sky.elements), self.n)
-        self.assertEqual(self.sky.elements[0].coor, np.ndarray)
+        self.assertEqual(type(self.sky.elements[0].coor), np.ndarray)
 
 class Source(unittest.TestCase):
     
@@ -80,16 +71,9 @@ class ScannerTest(unittest.TestCase):
         delta_y = np.random.uniform(0, 0.3)
         self.scan = Scanner(ccd, delta_z, delta_y)
 
-    def test_intercept(self):
-        star = Source()
-        att = Attitude()
-        n_days = np.random.uniform(0, 1825, 1)
-        dt = np.random.uniform(0, 1)
-        att.create_storage(0, n_days, dt)
-        self.scan.intercept(att, star)
 
-if __name__ == "__main__":
-    unittest.main
+if __name__ == '__main__':
+    unittest.main()
 
 
 
