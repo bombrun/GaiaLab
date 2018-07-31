@@ -3,10 +3,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 try:
-    from hits.hitdetector import identify_noise, identify_anomaly
+    from hits.hitdetector import identify_noise, identify_through_magnitude
     from hits.misc import sort_data
 except(ImportError):
-    from hitdetector import identify_noise, identify_anomaly
+    from hitdetector import identify_noise, identify_through_magnitude
     from misc import sort_data
 from scipy.interpolate import UnivariateSpline, BSpline
 
@@ -54,8 +54,8 @@ def isolate_anomaly(df, time_res=0.01, hits=True):
         hit_df = working_df[working_df['hits']] # Isolate the hits.
 
     else:
-        # Call hitdetector.identify_anomaly() to identify anomalies.
-        working_df = identify_anomaly(working_df)[0]
+        # Call hitdetector.identify_through_magnitude() to identify anomalies.
+        working_df = identify_through_magnitude(working_df)[0]
         print("Data obtained\n")
         hit_df = working_df[working_df['anomaly'] == True]
         print("...and processed")

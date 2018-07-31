@@ -8,20 +8,24 @@ import unittest
 import numpy as np
 import pandas as pd
 import warnings
+from array import array
 from numba import NumbaWarning
 import math
 
 #functions to run tests on
 #equivalent to from . import * but more verbose
 try:
-    from hits.hitdetector import identify_anomaly, identify_noise, plot_anomaly
+    from hits.hitdetector import identify_through_magnitude, identify_noise, \
+                                 plot_anomaly, identify_through_gradient, \
+                                 Abuelmaatti
     from hits.hitsimulator import hit_distribution, flux, p_distribution, \
                                   freq, generate_event, generate_data, masses
     from hits.response.anomaly import isolate_anomaly, spline_anomaly
     from hits.response.characteristics import get_turning_points, \
                                               filter_turning_points
 except(ImportError):
-    from .hitdetector import identify_anomaly, identify_noise, plot_anomaly
+    from .hitdetector import identify_through_magnitude, identify_noise, plot_anomaly, \
+                             identify_through_gradient, Abuelmaatti
     from .hitsimulator import hit_distribution, flux, p_distribution, freq, \
                               generate_event, generate_data, masses
     from .response.anomaly import isolate_anomaly, spline_anomaly
@@ -34,37 +38,168 @@ class TestHitDetectorIdentifyFuncs(unittest.TestCase):
 
     def setUp(self):
         # Create dummy data with anomalies to test for hits.
-        obmt = np.linspace(0,100,1000)
+        obmt = np.linspace(0,10,1000)
         rate = np.zeros(1000)
-        # Generate a random number of hits between 1 and 20.
-        self.hits = np.random.randint(1,20)
+        # Generate a random number of hits between 4 and 25.
+        # Needs to be > 3 or identify_noise will mark them correct
+        # despite periodicity (this is intended behaviour).
+        self.hits = np.random.randint(4,25)
         
-        hit_loc = np.linspace(0,999, self.hits)
+        hit_loc = np.linspace(2,900, self.hits)
         for i in hit_loc:
             rate[int(i)] = 4
 
         w1_rate = np.zeros(1000) # Value here is okay to be 0.
         
         self.df = pd.DataFrame(data=dict(obmt = obmt,
-                                    rate = rate,
-                                    w1_rate = w1_rate))
-
-    def test_identify_anomaly_correctly_identifies(self):
+                                         rate = rate,
+                                         w1_rate = w1_rate))
+        sin_data = 3*np.sin(2*np.pi * obmt)
+        self.sin_df = pd.DataFrame(data=dict(obmt = obmt,
+                                             rate = sin_data,
+                                             w1_rate = w1_rate))
+    def test_identify_through_magnitude_correctly_identifies(self):
         # Should identify 3 anomalies in the generated data.
         warnings.simplefilter("ignore", NumbaWarning)
-        self.assertTrue(len(identify_anomaly(self.df)[1]) == self.hits)
+        self.assertTrue(len(identify_through_magnitude(self.df)[1]) == self.hits)
 
-    def test_identify_anomaly_return_shape(self):
+    def test_identify_through_magnitude_return_shape(self):
         # Tests the function returns the expected dataframe shape.
         warnings.simplefilter("ignore", NumbaWarning)
         
         self.assertTrue(['obmt', 'rate', 'w1_rate', 'anomaly'] in \
-        identify_anomaly(self.df)[0].columns.values)
+        identify_through_magnitude(self.df)[0].columns.values)
 
+    def test_identify_through_gradient_correctly_identifies(self):
+        try:
+            self.assertTrue(len(identify_through_gradient(self.df)[1]) == \
+                                                                 self.hits)
+        except(AssertionError):
+            raise(AssertionError("Detected %r hits. Expected to detect %r." %\
+                 (len(identify_through_gradient(self.df)[1]), self.hits)))
+"""
+    def test_identify_noise_correctly_identifies_periodic_noise(self):
+        noise_df = identify_noise(self.df)[0]
+        try:
+            self.assertNotEqual(len(noise_df[noise_df['anomaly']]), 0)
+        except(AssertionError):
+            raise(AssertionError("Expected to detect anomalies and reject " \
+                              "but detected no anomalies."))
+    def test_identify_noise_correctly_rejects_periodic_noise(self): 
+        noise_df = identify_noise(self.df)[0]
+        try:
+            self.assertTrue(len(noise_df[noise_df['hits']]) ==0)
+        except(AssertionError):
+            raise(AssertionError("Expected to detect 0 hits. Detected %r " \
+                                 " hits. %r hits generated." % \
+                                 (len(noise_df[noise_df['hits']]), self.hits)))
+"""
+class TestHitDetectorAbuelmaattiFuncs(unittest.TestCase):
+    """
+    The tests implemented here are based on the examples given in 
+    Abuelma'atti's original paper. Values from the paper are tested
+    against.
 
+    Known values for periodic functions' periodicity are also tested
+    against.
+    """
+    def setUp(self):
+        func = lambda t: array('d',(max(a,0) for a in np.sin(2*np.pi*t)))
+    
+        self.time_array = np.linspace(0,1,1000)
+
+        self.samples = func(self.time_array)
+
+        self.a = Abuelmaatti(self.time_array, self.samples)
+
+    def test_abuelmaatti_gamma_function_returns_05(self):
+        try:
+            self.assertAlmostEqual(self.a.gamma(1), 0.5, places=3)
+        except(AssertionError):
+            raise(AssertionError("Calculated value for gamma(1) is 0.5. "\
+                                 "Value returned was %r." % self.a.gamma(1)))
+
+    def test_abuelmaatti_gamma_function_returns_0(self):
+        for i in range(1,11):
+            try:
+                self.assertAlmostEqual(self.a.gamma(2), 0, places=3)
+            except(AssertionError):
+                raise(AssertionError("Calculated value for gamma(%r) is 0. "\
+                                     "Value returned was %r." \
+                                     % (i, self.a.gamma(2))))
+
+    def test_abuelmaatti_delta_function_returns_expected_values(self):
+        expected_deltas = [0, -0.212, 0, -0.042, 0, -0.018,
+                           0, -0.0098,0, -0.0064]
+        delta_0 = 0.318
+
+        try:
+            self.assertAlmostEqual(self.a.delta_0, delta_0, places=3)
+        except(AssertionError):
+            raise(AssertionError("Calculated value for delta_0 is %r. Value"\
+                                 " returned was %r." % (delta_0, 
+                                                        self.a.delta_0)))
+        for i in range(1,11):
+            try:
+                self.assertAlmostEqual(self.a.delta(i), expected_deltas[i-1],
+                                       places=3)
+            except(AssertionError):
+                raise(AssertionError("Calculated value for delta(%r) is %r. "\
+                                     "Value returned was %r." % \
+                                     (i, expected_deltas[i-1], 
+                                      self.a.delta(i))))
+
+    def test_abuelmaatti_returns_equal_values_for_regions_of_equal_phase(self):
+        func = lambda t: array('d',(max(a,0) for a in np.sin(np.pi*t)))
+        samples = func(self.time_array)
+        a = Abuelmaatti(self.time_array[:int(len(samples)/2)],
+                        samples[:int(len(samples)/2)])
+        b = Abuelmaatti(self.time_array[:int(len(samples)/2)], 
+                        samples[int(len(samples)/2):])
+
+        for i in range(1,11):
+            try:
+                self.assertAlmostEqual(a.delta(i), b.delta(i), places=3)
+            except(AssertionError):
+                raise(AssertionError("%r and %r do not match for the %r"
+                                     "th harmonic." % (a.delta(i), b.delta(i),
+                                                       i)))
+"""
+    def test_abuelmaatti_returns_equal_values_for_equal_region_sizes(self):
+        a1 = Abuelmaatti(self.time_array[0:70], self.samples[0:70])
+        a2 = Abuelmaatti(self.time_array[70:140], self.samples[70:140])
+        a3 = Abuelmaatti(self.time_array[140:210], self.samples[140:210])
+    
+        try:
+            self.assertAlmostEqual(sum([a1.delta(i) for i in range(1,100)]), 
+                                   sum([a2.delta(i) for i in range(1,100)]), 
+                                   places=3)
+
+            self.assertAlmostEqual(sum([a3.delta(i) for i in range(1,100)]),
+                                   sum([a2.delta(i) for i in range(1,100)]), 
+                                   places=3)
+        except(AssertionError):
+            raise(AssertionError("%r, %r and %r are not equal." % \
+                                (sum([a1.delta(i) for i in range(1,100)]),
+                                 sum([a2.delta(i) for i in range(1,100)]),
+                                 sum([a3.delta(i) for i in range(1,100)]))))
+"""    
+"""
+    def test_identify_noise_through_magnitude_correctly_identifies_noise(self):
+        noise_df = identify_noise_through_magnitude(self.df)
+        self.assertTrue(len(noise_df[noise_df['hits']]) == 0)
+
+    def test_identify_noise_through_magnitude_correctly_allows_sin(self):
+        noise_df = identify_noise_through_magnitude(self.sin_df)
+        self.asserTrue(len(noise_df[noise_df['hits']]) != 0)
+"""
 #------------hitsimulator.py tests---------------------------------------------
 class TestHitSimulatorNumericalFuncs(unittest.TestCase):
+    def test_hit_distribution_returns_correct_values(self):
+        self.assertTrue(hit_distribution(1)[0][0] <= 2*np.pi)
+        self.assertTrue(hit_distribution(1)[0][1] <= 4.5)
     
+
     def test_flux_expected_values_mass(self):
     # Test the flux function returns expected values.
         self.assertAlmostEqual(flux(2.7e-11), 5.388e-6, places=4, 
@@ -124,7 +259,7 @@ class TestHitSimulatorGeneratorFuncs(unittest.TestCase):
                                "a failure.\n***\n\n" % (count, probability))
             
 
-#------------response.py tests-------------------------------------------------
+#------------characteristics.py tests------------------------------------------
 class TestResponseTurningPointFuncs(unittest.TestCase):
 
     def setUp(self):

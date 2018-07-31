@@ -13,10 +13,12 @@ import pandas as pd
 import warnings
 from hits.misc import sort_data
 from numba import jit
+from array import array
+
 
 @sort_data
 @jit
-def identify_anomaly(df, anomaly_threshold=2):
+def identify_through_magnitude(df, anomaly_threshold=2):
     """
     Accepts:
     
@@ -84,7 +86,7 @@ def identify_anomaly(df, anomaly_threshold=2):
     return (working_df,anomaly_df.drop_duplicates(subset='obmt'))
 
 @sort_data
-def identify_through_gradient(df, gradient_threshold=0.3):
+def identify_through_gradient(df, gradient_threshold=1):
     """
     Accepts:
         
@@ -97,7 +99,7 @@ def identify_through_gradient(df, gradient_threshold=0.3):
 
     Identifies anomalies in the data by identifying regions where the
     instantaneous change in hit rate is larger than gradient_threshold. 
-    Sensitive to smaller amplitude hits than identify_anomaly, but 
+    Sensitive to smaller amplitude hits than identify_through_magnitude, but 
     highly sensitive to noise for low values of gradient_threshold.
 
     Kwargs:
@@ -144,7 +146,92 @@ def identify_through_gradient(df, gradient_threshold=0.3):
 
     return (working_df,anomaly_df.drop_duplicates(subset='obmt'))
 
+
+
+class Abuelmaatti:
+    """
+    Fourier coefficient calculation algorithm proposed by Muhammad Tahir
+    Abuelma'atti [1]
+    
+    [1] Abuelma'atti MT. A Simple Algorithm for Computing the Fourier 
+        Spectrum of Experimentally Obtained Signals. Applied Mathematics
+        and Computation. 1999;98;pp229-239.
+    """
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.y0 = self.y[0]
+        self.y = [z - self.y0 for z in y]
+        self.B = x[-1] - x[0]
+        self.alpha = np.diff(y)/np.diff(x)
+
+        self.delta_0 = 1/self.B * (0.5*self.x[2]*y[2] + 0.5*(self.x[-1] \
+                       - self.x[-2])*self.y[-2] + sum([(self.x[s+1]-self.x[s])\
+                       *self.y[s+1] - 0.5 * (self.x[s+1]-self.x[s])\
+                       *(self.y[s+1]-self.y[s])\
+                       for s in range(2, len(self.x)-2)]))
+    
+    def delta(self, m):
+        return -self.B/(2 * (m*np.pi)**2) * (self.alpha[1] - self.alpha[-1] \
+            + sum([(self.alpha[s+1] - self.alpha[s]) * \
+                   np.cos(2*m*np.pi*self.x[s+1]/self.B)\
+                   for s in range(2, len(self.x)-2)]))
+
+    def gamma(self, m):
+        return -self.B/(2 * (m*np.pi)**2)\
+            * sum([(self.alpha[s+1] - self.alpha[s]) * \
+                   np.sin(2*m*np.pi*self.x[s+1]/self.B)\
+                   for s in range(2, len(self.x)-2)])
+    def lam(self, m):
+        return np.sqrt(self.delta(m) ** 2 + self.gamma(m) ** 2)
+
+    def phi(self, m):
+        return np.atan(self.gamma(m)/self.delta(m))
+
+    def f(self,x, harmonics):
+        return self.delta_0 + sum(self.delta(m) * np.cos(2*np.pi*m*x/self.B) \
+                                + self.gamma(m) * np.sin(2*np.pi*m*x/self.B) \
+                                  for m in range(1,harmonics+1)) + self.y0
+"""        
 @sort_data
+def identify_through_abuelmaatti(df):
+""" 
+
+def point_density(df):
+    rate = array('d', df['rate']-df['w1_rate'])
+    max_height = max(rate)
+    _rate = array('d',)
+    _height = array('d',)
+    while max_height > 0:
+        _height.append(max_height)
+        _rate.append(len([1 for x in rate if x > max_height]))
+        max_height -= 0.1
+    return (_height[::-1], _rate)
+
+@sort_data
+@jit
+def filter_through_response(df, threshold=2):
+
+    rate_array = array('d',)
+    working_df = df.iloc[::-1]
+    _rate = 0
+    _rate_diff= 0
+    hit_array = array('i',)
+    for time, rate in zip(working_df['obmt'], 
+                    working_df['rate']-working_df['w1_rate']):
+        
+        _rate_diff = rate-_rate
+
+        if abs(_rate_diff) > threshold and abs(rate) > abs(_rate):
+            rate = _rate
+
+        rate_array.append(rate)
+        _rate = rate
+
+    df['rate'] = rate_array[::-1] + df['w1_rate']
+
+    return df
+
 def identify_noise(df): 
     """
     Accepts:
@@ -156,7 +243,8 @@ def identify_noise(df):
 
         or equivalent.
 
-    Calls identify_anomaly() on the dataframe to identify the hits.
+    Calls identify_through_magnitude() on the dataframe to identify the 
+    hits.
 
     Checks the periodicity of the hits to identify noise - any two hits 
     occuring with period constant to within 0.1 revolutions are assumed 
@@ -178,8 +266,9 @@ def identify_noise(df):
                 obmt    rate    w1_rate anomaly hits
             1.  float   float   float   bool    bool
 
-        and the Pandas time dataframe returned by identify_anomaly()[1].
-        See help(identify_anomaly) for more information.
+        and the Pandas time dataframe returned by 
+        identify_through_magnitude()[1]. See 
+        help(identify_through_magnitude) for more information.
 
 
     [1] From Lennart Lindegren's SAG--LL-030 technical note 
@@ -205,7 +294,7 @@ def identify_noise(df):
         therefore accurate to around 0.01% accuracy.
     """
 
-    data,t = identify_anomaly(df)
+    data,t = identify_through_magnitude(df)
 
     # To detect periodic noise, the difference between hits is 
     # calculated. If the difference between neighbouring differences is
@@ -230,28 +319,78 @@ def identify_noise(df):
 
         differences2 = np.diff(differences)
         # time_data dataframe is indexed as the time-sorted dataset, but
-        # ncludes columns for the time differences.
+        # includes columns for the time differences.
         time_data = pd.DataFrame(index=t.index, data=dict(ombt = t['obmt'],
                                            diff = [1,*differences],
                                            diff_diff = [1,1, *differences2])) 
 
-        hit_data = time_data.copy() # Be careful with python mutables.
-        
-        hit_data['hits'] = [False if diff < 0.5 else True \
-        for diff in time_data['diff_diff']]
+        # Mark anomalies as hits only if
+        time_data['hits'] = [False if (diff < 0.1 and diff1 < 0.1) or \
+        (diff1 < 0.1 and diff2 < \
+        0.1) else True for diff, diff1, diff2 in zip(time_data['diff_diff'],
+        [*time_data['diff_diff'].tolist()[1:], 1],
+        [*time_data['diff_diff'].tolist()[2:], 1, 1])]
 
         working_df = data.copy()
         
         # Mark all entries in the hits column of the returned dataframe
         # as False unless they have a value in hit_data. In that case, 
         # use that value.
-        working_df['hits'] = np.array([hit_data.loc[index]['hits'] if index in\
-        hit_data.index else False for index in np.array(working_df.index)])
+        working_df['hits'] = np.array([time_data.loc[index]['hits'] if index in\
+        time_data.index else False for index in np.array(working_df.index)])
         
         return (working_df, t)
+"""
+def identify_noise_through_magnitude(df):
+    data, t = identify_through_magnitude(df)
+    differences = 
+""" 
+    
+def anomaly_density(df, method='response', window_size=3600, **kwargs):
+    """
+    Accepts:
+    
+        a Pandas dataframe of shape:
 
-def plot_anomaly(*dfs, highlight=False, highlights=False, noise=False,
-                 show=True, grad=True, **kwargs):
+                obmt    rate    w1_rate
+            1.  float   float   float
+
+        or equivalent.
+
+    By calling identify_through_magnitude on the data, calculates the 
+    anomaly density for each region (in unique hits per datapoint).
+
+    Kwargs:
+        
+        window_size (float, default=3600):
+            the size of the window to be used to calculate the rolling
+            anomaly density.
+
+    Returns:
+        
+        a Pandas dataframe of shape:
+
+                obmt    rate    w1_rate anomaly density
+            1.  float   float   float   bool    float
+
+        or equivalent.
+    """
+
+    
+    if 'anomaly' not in df.columns.values:
+        identify = method_dict[method]
+        anomaly_df = identify(df)[0]
+    else:
+        anomaly_df = df.copy()
+
+    anomaly_df['density'] = anomaly_df['anomaly'].rolling(window=window_size,
+                                                  min_periods=0, 
+                                                  **kwargs).mean()
+    return anomaly_df
+
+
+def plot_anomaly(*dfs, method='magnitude', highlight=False, highlights=False, 
+                 show=True, **kwargs):
     """
     Accepts:
         
@@ -262,15 +401,23 @@ def plot_anomaly(*dfs, highlight=False, highlights=False, noise=False,
 
         or equivalent.
 
-    Calls identify_anomaly() or identify_noise() on each dataframe as
-    appropriate. 
+    Calls identify_through_magnitude() or identify_noise() on each 
+    dataframe as appropriate. 
 
-    identify_anomaly() (noise=False, default) is much faster due to jit 
-    compilation.
+    identify_through_magnitude() (noise=False, default) is much faster 
+    due to jit compilation.
     
     Plots (rate - w1_rate) against obmt.
 
     Kwargs:
+
+        method (string, default="magnitude"):
+            the method to use for hit identification.
+            Options are:
+                abuelmaatti
+                magnitude
+                gradient
+                response
 
         highlight (bool, default=False);
         highlights (bool, default=False):
@@ -280,10 +427,6 @@ def plot_anomaly(*dfs, highlight=False, highlights=False, noise=False,
             highlight and highlights are both acceptable parameters for 
             ease of use.
 
-        noise (bool, default=False):
-            if True, highlights the noise in red and the hits
-            in green.
-        
         show (bool, default=True):
             if True, shows the plot. If False, plt.show() needs to be 
             called after.
@@ -293,42 +436,32 @@ def plot_anomaly(*dfs, highlight=False, highlights=False, noise=False,
 
     Returns:
         
-        the Pandas dataframe of times generated by identify_anomaly().
-        See help(identify_anomaly) for more information.
+        the Pandas dataframe of times generated by 
+        identify_through_magnitude(). See 
+        help(identify_through_magnitude) for more information.
     """
+    try:
+        identify = method_dict[method]
+    except(KeyError):
+        raise(KeyError("Unknown value given for kwarg 'method'."))
+    
     for df in dfs:
-        if noise:
-        # Call identify_noise() to locate hits and noise, and colour
-        # code appropriately.
-            data,t = identify_noise(df)
-            colors = pd.DataFrame(index=t.index.values, \
-            data=dict(color = [(lambda x: 'green' if x else 'red') \
-            (data['hits'][time]) for time in t.index]))
-        
-        elif grad:
-        # Call identify_through_gradient() to locate hits.
-            data,t = identify_through_gradient(df) 
-            # Create dummy colour array where all are red.
-            colors = pd.DataFrame(index=t.index.values, \
-            data=dict(color = ['red' for time in t.index]))
 
-        else:
-        # Call identify_anomaly() to locate hits.
-            data,t = identify_anomaly(df)
-            # Create dummy colour array where all are red.
-            colors = pd.DataFrame(index=t.index.values, \
-            data=dict(color = ['red' for time in t.index]))
-        
+        data,t = identify(df) 
+        # Create dummy colour array where all are red.
+        colors = pd.DataFrame(index=t.index.values, \
+        data=dict(color = ['red' for time in t.index]))
+
         if highlight or highlights:
         # Get times of anomalies and corresponding colours.
             for index, row in t.iterrows():
                 time = row['obmt']
                 plt.axvspan(time, time+0.05, color=colors['color'][index], \
                             alpha=0.5) # Create coloured bars.
-            plt.scatter(df.obmt, df.rate-df.w1_rate, s=0.1)
+            plt.scatter(df.obmt, df.rate-df.w1_rate, s=1)
         else:
         # Basic plot.
-            plt.scatter(df.obmt,df.rate-df.w1_rate,s=1)
+            plt.scatter(df.obmt,df.rate-df.w1_rate,s=2)
 
         # Pretty plot up and show.
         plt.xlabel("obmt")
@@ -337,6 +470,11 @@ def plot_anomaly(*dfs, highlight=False, highlights=False, noise=False,
     if show:
         plt.show()
 
+# Dictionary to allow hit detection method selection.
+method_dict = dict(magnitude = identify_through_magnitude,
+                   gradient = identify_through_gradient,
+#                   abuelmaatti = identify_through_abuelmaatti,
+                   response = identify_through_response)
 
 if __name__ == '__main__':
 
