@@ -90,30 +90,30 @@ class Attitude(Satellite):
         """
         :return: initial status of satellite
         """
-        self.__t = 0
-        self.__lambda = 0
-        self.__beta = 0
-        self.__nu = 0
-        self.__omega = 0
+        self.t = 0
+        self._lambda = 0
+        self._beta = 0
+        self.nu = 0
+        self.omega = 0
 
-        self.__l, self.__j, self.__k = ft.ljk(self.epsilon)
-        self.__s = self.__l*np.cos(self.__lambda) + self.__j*np.sin(self.__lambda)
+        self.l, self.j, self.k = ft.ljk(self.epsilon)
+        self.s = self.l*np.cos(self._lambda) + self.j*np.sin(self._lambda)
 
         self.attitude = self.init_attitude()
 
-        self.__z = (self.attitude * Quaternion(0,0,0,1)*self.attitude.conjugate()).to_vector()
-        self.__x = (self.attitude * Quaternion(0,1,0,0)*self.attitude.conjugate()).to_vector()
-        self.__w = np.cross(np.array([0, 0, 1]), self.__z)  # where was this coming from?
+        self.z = (self.attitude * Quaternion(0,0,0,1)*self.attitude.conjugate()).to_vector()
+        self.x = (self.attitude * Quaternion(0,1,0,0)*self.attitude.conjugate()).to_vector()
+        self.w = np.cross(np.array([0, 0, 1]), self.z)
 
     def init_attitude(self):
         """
         :return: quaternion equivalent to initialization of satellite
         """
         q1 = Quaternion(np.cos(self.epsilon/2), np.sin(self.epsilon/2), 0, 0)
-        q2 = Quaternion(np.cos(self.__lambda/2), 0, 0, np.sin(self.__lambda/2))
-        q3 = Quaternion(np.cos((self.__nu - (np.pi/2.))/2), np.sin((self.__nu - (np.pi/2.)) / 2), 0, 0)
+        q2 = Quaternion(np.cos(self._lambda/2), 0, 0, np.sin(self._lambda/2))
+        q3 = Quaternion(np.cos((self.nu - (np.pi/2.))/2), np.sin((self.nu - (np.pi/2.)) / 2), 0, 0)
         q4 = Quaternion(np.cos((np.pi / 2. - self.xi)/2), 0, np.sin((np.pi/2. - self.xi)/2), 0)
-        q5 = Quaternion(np.cos(self.__omega/2.), 0, 0, np.sin(self.__omega/2.))
+        q5 = Quaternion(np.cos(self.omega/2.), 0, 0, np.sin(self.omega/2.))
 
         q_total = q1*q2*q3*q4*q5
         return q_total
@@ -131,40 +131,41 @@ class Attitude(Satellite):
         :param dt: time step to calculate derivatibles of functions
         :return: update value of functions for next moment in time by calculating their infinitesimal change in dt
         """
-        self.__t = self.__t + dt
+        self.t = self.t + dt
         dL = self.ldot * dt
-        self.__lambda = self.__lambda + dL
+        self._lambda = self._lambda + dL
 
-        nu_dot = (self.ldot/np.sin(self.xi))*(np.sqrt(self.S**2 - np.cos(self.__nu)**2)
-                                                + np.cos(self.xi)*np.sin(self.__nu))
+        nu_dot = (self.ldot/np.sin(self.xi))*(np.sqrt(self.S**2 - np.cos(self.nu)**2)
+                                                + np.cos(self.xi)*np.sin(self.nu))
         d_nu = nu_dot * dt
-        self.__nu = self.__nu + d_nu
+        self.nu = self.nu + d_nu
 
-        self.__lamb_z = self.__lambda + np.arctan2(np.tan(self.xi) * np.cos(self.__nu), 1)
-        self.__beta_z = np.arcsin(np.sin(self.xi) * np.sin(self.__nu))
+        self.lamb_z = self._lambda + np.arctan2(np.tan(self.xi) * np.cos(self.nu), 1)
+        self.beta_z = np.arcsin(np.sin(self.xi) * np.sin(self.nu))
 
-        omega_dot = self.wz - nu_dot * np.cos(self.xi) - self.ldot * np.sin(self.xi) * np.sin(self.__nu)
+        omega_dot = self.wz - nu_dot * np.cos(self.xi) - self.ldot * np.sin(self.xi) * np.sin(self.nu)
         d_omega = omega_dot * dt
-        self.__omega = self.__omega + d_omega
+        self.omega = self.omega + d_omega
 
-        self.__s = self.__l * np.cos(self.__lambda) + self.__j * np.sin(self.__lambda)
+        self.s = self.l * np.cos(self._lambda) + self.j * np.sin(self._lambda)
 
-        z_dot = np.cross(self.__k, self.__z) * self.ldot + np.cross(self.__s, self.__z) * nu_dot
+        z_dot = np.cross(self.k, self.z) * self.ldot + np.cross(self.s, self.z) * nu_dot
         dz = z_dot * dt
-        self.__z = self.__z + dz
-        self.__z = self.__z/np.linalg.linalg.norm(self.__z)
+        self.z = self.z + dz
+        self.z = self.z/np.linalg.linalg.norm(self.z)
 
-        self.__w = self.__k * self.ldot + self.__s * nu_dot + self.__z * omega_dot
+        self.w = self.k * self.ldot + self.s * nu_dot + self.z * omega_dot
 
-        w_magnitude = np.linalg.norm(self.__w)
+        w_magnitude = np.linalg.norm(self.w)
         d_zheta = w_magnitude * dt
-        delta_quat = ft.rotation_to_quat(self.__w, d_zheta/2.)
+        delta_quat = ft.rotation_to_quat(self.w, d_zheta/2.) # w is not in bcrs frame.
         self.attitude = delta_quat * self.attitude
 
         # x axis
-        x_quat = Quaternion(0, self.__x[0], self.__x[1], self.__x[2])
-        x_quat = self.attitude * x_quat * self.attitude.conjugate()
-        self.__x= x_quat.to_vector()
+        x_quat = Quaternion(0, self.x[0], self.x[1], self.x[2])
+        x_quat = delta_quat* x_quat* delta_quat.conjugate()
+        self.x = x_quat.to_vector()
+
     @jit
     def long_reset_to_time(self, t, dt):
         # this is slowing down create_storage but it is very exact.
@@ -181,16 +182,16 @@ class Attitude(Satellite):
 
     def short_reset_to_time(self, t):
 
-        temp_list = [obj for obj in self.storage if obj[0] <= t].sort()
-        list_element = temp_list[-1]
-        self.__t = list_element[0]
-        self.__w = list_element[1]
-        self.__z = list_element[2]
-        self._x_ = list_element[3]
+        temp_list = [obj for obj in self.storage if obj[0] <= t]
+        list_element = temp_list[0]
+        self.t = list_element[0]
+        self.w = list_element[1]
+        self.z = list_element[2]
+        self.x = list_element[3]
         self.attitude = list_element[4]
-        self.__lamb_z = list_element[5]
-        self.__beta_z = list_element[6]
-        self.__s = list_element[7]
+        self.lamb_z = list_element[5]
+        self.beta_z = list_element[6]
+        self.s = list_element[7]
 
 
     def create_storage(self, ti, tf, dt):
@@ -207,13 +208,12 @@ class Attitude(Satellite):
             ti = ti
         if len(self.storage) > 0:
             self.short_reset_to_time(ti)
-
         n_steps = (tf - ti) / dt
         for i in np.arange(n_steps):
             self.update(dt)
-            self.storage.append([self.__t, self.__w, self.__z,
-                                 self.__x, self.attitude, self.__lamb_z,
-                                 self.__beta_z, self.__s])
+            self.storage.append([self.t, self.w, self.z,
+                                 self.x, self.attitude, self.lamb_z,
+                                 self.beta_z, self.s])
 
         self.storage.sort(key=lambda x: x[0])
 
@@ -231,7 +231,7 @@ class Scanner:
         stars_positions (list of arrays): positions calculated from obs_times of transits using satellite's attitude.
     """
 
-    def __init__(self, ccd=0.3, delta_z=0.2, delta_y=0.02):
+    def __init__(self, ccd=0.3, delta_z=0.2, delta_y=0.1):
         self.delta_z = delta_z
         self.delta_y = delta_y
         self.ccd = ccd
@@ -250,35 +250,44 @@ class Scanner:
         self.times_deep_scan.clear()
 
     @jit
-    def intercept(self, att, star):
+    def intercept(self, att, star, line = False):
         """
         :param star: source object.
         :param attitude: contains storage list.
         :return: populates scanner.times_to_scan list, before deep_scan is executed.
         """
         print ('intercepting')
-        for idx, obj in enumerate(att.storage):
+        for obj in att.storage:
             t = obj[0]
             x_telescope1 = obj[3]
             attitude = obj[4]
 
             x_srs_telescope1 = ft.srs(attitude, x_telescope1)
-
             star_coor_srs = ft.srs(attitude, star.coor)
+
             xy_proy_star_srs = np.array([star_coor_srs[0], star_coor_srs[1], 0])
             xz_proy_star_srs = np.array([star_coor_srs[0], 0, star_coor_srs[2]])
 
             width_angle = 2 * np.arctan2(self.ccd/2, x_srs_telescope1[0])
-            aperture_angle = 2 * np.arctan2(self.delta_z/2, x_srs_telescope1[0])
+            height_angle = 2 * np.arctan2(self.delta_z/2, x_srs_telescope1[0])
 
-            if np.arccos(np.dot(xy_proy_star_srs, x_srs_telescope1)) < width_angle:
-                if np.arccos(np.dot(xz_proy_star_srs, x_srs_telescope1)) < aperture_angle:
-                    self.times_deep_scan.append([t, idx])
-                    self.times_deep_scan.sort()
-                    
-    
+            width_star = np.arctan2(xy_proy_star_srs[1], xy_proy_star_srs[0])
+            height_star = np.arctan2(xz_proy_star_srs[2], xz_proy_star_srs[0])
 
-    def deep_scan(self, att, deep_dt=0.001):
+            if np.abs(width_star) < width_angle:
+                if np.abs(height_star) < height_angle:
+                    if line == True:
+                        if np.abs(star_coor_srs[1] - x_srs_telescope1[1]) < self.delta_y:
+                            self.obs_times.append(t)
+                            self.stars_positions.append(ft.bcrs(attitude, x_srs_telescope1))
+                    else:
+                        self.times_deep_scan.append(t)
+                        self.times_deep_scan.sort()
+                        self.stars_positions.append(ft.bcrs(attitude, x_srs_telescope1))
+
+        print('times intercepted:', len(self.times_deep_scan))
+
+    def deep_scan(self, att, star, deep_dt=0.001):
         """
         Increases precision of satellite at points where source is intercept by scanner in the CCD.
         :param: attitude: attitude class.
@@ -286,10 +295,14 @@ class Scanner:
         :param deep_dt: new step dt fur higher numerical method precision.
         """
         print ('doing deep_scan')
-               
-        target_times = [i[0] for i in self.times_deep_scan]
-        for t in target_times:
-            att.create_storage(t - 0.5, t + 0.5, deep_dt)
+
+        for t in self.times_deep_scan:
+            att.short_reset_to_time(t)
+            att.create_storage(t - 0.2, t + 0.2, deep_dt)
+
+        self.intercept(att, star, line = True)
+
+        print('deep_scan done')
 
 
 def star_finder(att, sky, scanner):
@@ -301,28 +314,11 @@ def star_finder(att, sky, scanner):
     :return: scanner.star_positions, scanner.obs_times.
     """
     scanner.reset_memory()
+
     for star in sky.elements:
         scanner.intercept(att, star)
         if len(scanner.times_deep_scan) != 0:
-            scanner.deep_scan(att)
-            indexes = [i[1] for i in scanner.times_deep_scan]
-            for index in  indexes:
-                obj = att.storage[index]
-                t = obj[0]
-                attitude = obj[4]
-                x_telescope1 = obj[3]
-                x_srs_telescope1 = ft.srs(attitude, x_telescope1)
-                star_srs_coor = ft.srs(attitude, star.coor)
-                aperture_angle = np.arctan2(scanner.delta_z/2, x_srs_telescope1[0])
-
-
-                if np.arccos(np.dot(star_srs_coor, x_srs_telescope1)) < aperture_angle:
-                    if np.abs(star_srs_coor[2] - x_srs_telescope1[2]) < scanner.delta_z:
-                        if np.abs(star_srs_coor[1] - x_srs_telescope1[1]) < scanner.delta_y:
-
-                            scanner.obs_times.append(t)
-                            scanner.stars_positions.append(ft.bcrs(attitude, x_srs_telescope1))
-                            print ('found star at:', t, index)
+            scanner.deep_scan(att, star)
 
 def run(days, dt):
     """
