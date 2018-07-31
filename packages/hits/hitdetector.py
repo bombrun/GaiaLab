@@ -15,7 +15,6 @@ from hits.misc import sort_data
 from numba import jit
 from array import array
 
-
 @sort_data
 @jit
 def identify_through_magnitude(df, anomaly_threshold=2):
@@ -151,13 +150,36 @@ def identify_through_gradient(df, gradient_threshold=1):
 class Abuelmaatti:
     """
     Fourier coefficient calculation algorithm proposed by Muhammad Tahir
-    Abuelma'atti [1]
+    Abuelma'atti [1].
+
+    A function, f, can be approximated through the summation of harmonic
+    functions in calculable proportions. This is an algorithm for the 
+    calculation of these amplitudes from samples of data. No 
+    consideration for the effects of error on points is made.
+
+    A function, offset from 0 by z, can be represented as:
+
+                       M
+    f(x) = delta(0) + sum (  delta(m) * cos(2 pi m x/B)
+                      m=1   +gamma(m) * sin(2 pi m x/B)  ) + z.
+    
+    Abuelma'atti gives a numerical algorithm for the calculation of the
+    coefficients delta and gamma from sampled - experimental - data
+    without the need for integration. It is therefore very fast without 
+    the need to sacrifice accuracy, although it does not take into
+    account the errors on measured points, instead assuming them all to 
+    be exact and representative of the true state of the system at that
+    time.
     
     [1] Abuelma'atti MT. A Simple Algorithm for Computing the Fourier 
         Spectrum of Experimentally Obtained Signals. Applied Mathematics
         and Computation. 1999;98;pp229-239.
     """
     def __init__(self, x, y):
+        """
+        Accepts:
+            array of times, array of measurements.
+        """
         self.x = x
         self.y = y
         self.y0 = self.y[0]
@@ -172,32 +194,74 @@ class Abuelmaatti:
                        for s in range(2, len(self.x)-2)]))
     
     def delta(self, m):
+        """
+        The coefficient of the mth cosine harmonic in the Fourier
+        expansion of a function.
+        """
         return -self.B/(2 * (m*np.pi)**2) * (self.alpha[1] - self.alpha[-1] \
             + sum([(self.alpha[s+1] - self.alpha[s]) * \
                    np.cos(2*m*np.pi*self.x[s+1]/self.B)\
                    for s in range(2, len(self.x)-2)]))
 
     def gamma(self, m):
+        """
+        The coefficient of the mth sine harmonic in the Fourier
+        expansion of a function.
+        """
         return -self.B/(2 * (m*np.pi)**2)\
             * sum([(self.alpha[s+1] - self.alpha[s]) * \
                    np.sin(2*m*np.pi*self.x[s+1]/self.B)\
                    for s in range(2, len(self.x)-2)])
     def lam(self, m):
+        """
+        The amplitude of the mth harmonic in the Fourier expansion of a
+        function.
+        """
         return np.sqrt(self.delta(m) ** 2 + self.gamma(m) ** 2)
 
     def phi(self, m):
+        """
+        The phase angle of the mth harmonic in the Fourier expansion of 
+        a function.
+        """
         return np.atan(self.gamma(m)/self.delta(m))
 
     def f(self,x, harmonics):
+        """ 
+        The function fitted to the data, as produced by the algorithm.
+        harmonics gives the number of harmonics to be calculated.
+        """
         return self.delta_0 + sum(self.delta(m) * np.cos(2*np.pi*m*x/self.B) \
                                 + self.gamma(m) * np.sin(2*np.pi*m*x/self.B) \
                                   for m in range(1,harmonics+1)) + self.y0
-"""        
-@sort_data
-def identify_through_abuelmaatti(df):
-""" 
+
+# TODO: implement identification algorithm through changes in clank
+# periodicity due to hits.
+
+#@sort_data
+#def identify_through_abuelmaatti(df):
 
 def point_density(df):
+    """
+    Accepts:
+    
+        a Pandas dataframe of shape:
+
+                obmt    rate    w1_rate
+            1.  float   float   float
+
+        or equivalent.
+    
+    Calcualates the cumulative density of points as a decreasing series
+    in amplitude.
+
+    Returns:
+        
+        a tuple of:
+            
+            the amplitude array, the cumulative number of points greater
+            than each amplitude.
+    """
     rate = array('d', df['rate']-df['w1_rate'])
     max_height = max(rate)
     _rate = array('d',)
@@ -211,7 +275,34 @@ def point_density(df):
 @sort_data
 @jit
 def filter_through_response(df, threshold=2):
+    """
+    Accepts:
+    
+        a Pandas dataframe of shape:
 
+                obmt    rate    w1_rate
+            1.  float   float   float
+
+        or equivalent.
+    
+    By iterating backwards across the data, is able to trace the smooth
+    responses to hits and identify noisey data - that is, sudden jumps
+    in rate without a corresponding AOCS response. Removes these data.
+
+    Kwargs:
+         
+         threshold (float, default=2):
+            the threshold for a jump considered abnormally large.
+
+    Returns:
+       
+        a Pandas dataframe of shape:
+
+                obmt    rate    w1_rate
+            1.  float   float   float
+
+        or equivalent.
+    """
     rate_array = array('d',)
     working_df = df.iloc[::-1]
     _rate = 0
@@ -340,11 +431,6 @@ def identify_noise(df):
         time_data.index else False for index in np.array(working_df.index)])
         
         return (working_df, t)
-"""
-def identify_noise_through_magnitude(df):
-    data, t = identify_through_magnitude(df)
-    differences = 
-""" 
     
 def anomaly_density(df, method='response', window_size=3600, **kwargs):
     """
@@ -472,9 +558,8 @@ def plot_anomaly(*dfs, method='magnitude', highlight=False, highlights=False,
 
 # Dictionary to allow hit detection method selection.
 method_dict = dict(magnitude = identify_through_magnitude,
-                   gradient = identify_through_gradient,
+                   gradient = identify_through_gradient)
 #                   abuelmaatti = identify_through_abuelmaatti,
-                   response = identify_through_response)
 
 if __name__ == '__main__':
 
