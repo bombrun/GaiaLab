@@ -24,7 +24,7 @@ class LowPassData(filters.FilterData):
     """
     Low pass filter implementation.
     """
-
+    name = "LowPassData"
 # Special methods--------------------------------------------------------------
     def __init__(self, *args):
         filters.FilterData.__init__(self, *args)

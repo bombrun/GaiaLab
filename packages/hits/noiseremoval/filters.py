@@ -8,6 +8,7 @@ class FilterData():
     Data with filter applied.
     Subclass this and apply custom filter methods.
     """
+    name = "FilterData"
     #-----special methods-------------------------------------------------------
     def __init__(self, data_array, save=False):
         """
@@ -59,7 +60,7 @@ class FilterData():
         if save:
             # Saves data as a list rather than as a generator. More 
             # resource heavy but can be useful nonetheless.
-            self.data = array('d',FilterData._filter(self._data))
+            self.data = array('d',self._filter(self._data))
         else:
             self.data = None
 
@@ -79,7 +80,9 @@ class FilterData():
     # No benefit in showing all values for large objects. Especially 
     # since the most useful data in this class is generated on the fly.
         """Representation of the data."""
-        return "FilterData object, length: %r\n[%r ... %r]" % (len(self), 
+        # self.name here represents the class variable name and not
+        # an instance variable.
+        return self.name + " object, length: %r\n[%r ... %r]" % (len(self), 
                                                                self._data[0], 
                                                                self._data[-1])
     
@@ -138,7 +141,7 @@ class FilterData():
         """
         if isinstance(other, FilterData):
             if len(self) == len(other):
-                return FilterData([a + b for a, b in zip(self._data, 
+                return type(self)([a + b for a, b in zip(self._data, 
                                                          other._data)])
             else:
                 raise(ValueError("Unable to broadcast together operands of " \
@@ -146,13 +149,13 @@ class FilterData():
 
         elif hasattr(other, "__iter__") and not isinstance(other, str):
             if len(self) == len(other):
-                return FilterData([a + b for a, b in zip(self._data, other)])
+                return type(self)([a + b for a, b in zip(self._data, other)])
             else:
                 raise(ValueError("Unable to broadcast together operands of " \
                                  "shape %r and %r." % (len(self),len(other))))
         
         elif isinstance(other, (float, int)):
-            return FilterData([a + other for a in self._data])
+            return type(self)([a + other for a in self._data])
         
         else:
             raise(TypeError("Unable to broadcast together operands of type " \
@@ -164,15 +167,15 @@ class FilterData():
         equal length to self.
         """
         if isinstance(other, (int, float)):
-            return FilterData([a * other for a in self._data])
+            return type(self)([a * other for a in self._data])
         
         elif isinstance(other, FilterData):
-            return FilterData([a * b for a,b in zip(self._data, other._data)])
+            return type(self)([a * b for a,b in zip(self._data, other._data)])
 
         elif hasattr(other, "__iter__") and len(other) == len(self) and not \
                                                       isinstance(other, str):
         # All of these are necessary for elementwise multiplication.
-            return FilterData([a * b for a,b in zip(self._data, other)])
+            return type(self)([a * b for a,b in zip(self._data, other)])
         
         else:
             raise(TypeError("Unable to multiply types %r and %r." %(type(self), 
@@ -197,14 +200,14 @@ class FilterData():
         length to self.
         """
         if isinstance(other, (float, int)):
-            return FilterData([a/other for a in self._data])
+            return type(self)([a/other for a in self._data])
 
         elif hasattr(other, "__iter__") and not isinstance(other, str) and \
                                                     len(self) == len(other):
-            return FilterData([a / b for a,b in zip(self._data, other)])
+            return type(self)([a / b for a,b in zip(self._data, other)])
         
         elif isinstance(other, FilterData) and len(self) == len(other):
-            return FilterData([a / b for a,b in zip(self._data, other._data)])
+            return type(self)([a / b for a,b in zip(self._data, other._data)])
         
         else:
             raise(TypeError("Unable to divide type %r by type %r."%(type(self),

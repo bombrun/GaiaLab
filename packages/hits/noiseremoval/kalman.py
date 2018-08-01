@@ -81,6 +81,8 @@ except(ImportError):
 
 class KalmanData(filters.FilterData):
     
+    name = "KalmanData"
+
     def __init__(self, *args):
         filters.FilterData.__init__(self, *args)
         self._q = None
