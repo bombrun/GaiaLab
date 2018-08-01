@@ -12,33 +12,21 @@ def to_quaternion(vector):
     return Quaternion(0, vector[0], vector[1], vector[2])
 
 
-def alpha_delta(vector):
+def alpha_delta_radius(vector):
 
+    solar_radius = np.sqrt(vector[0] ** 2 + vector[1] ** 2 + vector[2] ** 2)
     alpha = np.arctan2(vector[1], vector[0])
-    delta = np.arctan2(vector[2], np.sqrt(vector[1]**2 + vector[0]**2))  
-    return alpha, delta
+    delta = np.arcsin(vector[2]/solar_radius)
+    return alpha, delta, solar_radius
 
 
-def xyz(azimuth, altitude):
+def cartesian_coord(azimuth, altitude, parallax = 1):
 
-    x = np.cos(azimuth)*np.cos(altitude)
-    y = np.sin(azimuth)*np.cos(altitude)
-    z = np.sin(altitude)
+    x = (1/np.tan(parallax))*np.cos(azimuth)*np.cos(altitude)
+    y = (1/np.tan(parallax))*np.sin(azimuth)*np.cos(altitude)
+    z = (1/np.tan(parallax))*np.sin(altitude)
+
     return np.array([x, y, z])
-
-
-def ljk(epsilon):
-    """
-    Calculates ecliptic triad vectors with respect to BCRS-frame.
-    (Lindegren, SAG-LL-35, Eq.1)
-
-    :param epsilon: obliquity of the equator.
-    :return: np.array, np.array, np.array
-    """
-    l = np.array([1,0,0])
-    j = np.array([0, np.cos(epsilon), np.sin(epsilon)])
-    k = np.array([0, -np.sin(epsilon), np.cos(epsilon)])
-    return l, j, k
 
 
 def rotation_to_quat(vector, angle):
@@ -57,20 +45,34 @@ def rotation_to_quat(vector, angle):
     return Quaternion(t, x, y, z)
 
 
-def bcrs(attitude, vector):
-    '''
-    Changes coordinates of a vector in BCRS to SRS frame.
-    '''
-    q_vector_bcrs = to_quaternion(vector)
-    q_vector_srs = attitude * q_vector_bcrs * attitude.conjugate()
+def ljk(epsilon):
+    """
+    Calculates ecliptic triad vectors with respect to BCRS-frame.
+    (Lindegren, SAG-LL-35, Eq.1)
 
-    return q_vector_srs.to_vector()
+    :param epsilon: obliquity of the equator.
+    :return: np.array, np.array, np.array
+    """
+    l = np.array([1,0,0])
+    j = np.array([0, np.cos(epsilon), np.sin(epsilon)])
+    k = np.array([0, -np.sin(epsilon), np.cos(epsilon)])
+    return l, j, k
 
+
+def pqr(alpha, delta):
+    p = np.array([-np.sin(alpha), np.cos(alpha), 0])
+    q = np.array([-np.sin(delta)*np.cos(alpha), -np.sin(delta)*np.sin(alpha), np.cos(delta)])
+    r = np.array([np.cos(delta)*np.cos(alpha), np.cos(delta)*np.sin(alpha), np.sin(delta)])
+
+    return p, q, r
+
+
+def xyz(attitude, vector):
+    q_vector_srs = to_quaternion(vector)
+    q_vector_xyz = attitude * q_vector_srs * attitude.conjugate()
+    return q_vector_xyz.to_vector()
 
 def srs(attitude, vector):
-    '''
-    Changes coordinates of a vector in SRS to BCRS frame.
-    '''
-    q_vector_srs = to_quaternion(vector)
-    q_vector_bcrs = attitude.conjugate() * q_vector_srs * attitude  
-    return q_vector_bcrs.to_vector()
+    q_vector_xyz = to_quaternion(vector)
+    q_vector_srs = attitude.conjugate() * q_vector_xyz * attitude
+    return q_vector_srs.to_vector()
