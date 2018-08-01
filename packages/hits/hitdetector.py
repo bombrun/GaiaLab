@@ -15,6 +15,18 @@ from hits.misc import sort_data
 from numba import jit
 from array import array
 
+# Functions and classes         test implemented?
+#
+# identify_through_magnitude    yes
+# identify_through_gradient     yes
+# Abuelmaatti                   yes
+# point_density                 yes
+# filter_through_response       no
+# identify_noise                no (fix required)
+# anomaly_density               no
+# plot_anomaly                  no (probably unnecessary)
+
+
 @sort_data
 @jit
 def identify_through_magnitude(df, anomaly_threshold=2):

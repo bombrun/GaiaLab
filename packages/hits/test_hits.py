@@ -17,7 +17,7 @@ import math
 try:
     from hits.hitdetector import identify_through_magnitude, identify_noise, \
                                  plot_anomaly, identify_through_gradient, \
-                                 Abuelmaatti
+                                 Abuelmaatti, point_density
     from hits.hitsimulator import hit_distribution, flux, p_distribution, \
                                   freq, generate_event, generate_data, masses
     from hits.response.anomaly import isolate_anomaly, spline_anomaly
@@ -25,7 +25,8 @@ try:
                                               filter_turning_points
 except(ImportError):
     from .hitdetector import identify_through_magnitude, identify_noise, plot_anomaly, \
-                             identify_through_gradient, Abuelmaatti
+                             identify_through_gradient, Abuelmaatti, \
+                             point_density
     from .hitsimulator import hit_distribution, flux, p_distribution, freq, \
                               generate_event, generate_data, masses
     from .response.anomaly import isolate_anomaly, spline_anomaly
@@ -97,11 +98,15 @@ class TestHitDetectorIdentifyFuncs(unittest.TestCase):
 class TestHitDetectorAbuelmaattiFuncs(unittest.TestCase):
     """
     The tests implemented here are based on the examples given in 
-    Abuelma'atti's original paper. Values from the paper are tested
+    Abuelma'atti's original paper [1]. Values from the paper are tested
     against.
 
     Known values for periodic functions' periodicity are also tested
     against.
+    
+    [1] Abuelma'atti MT. A Simple Algorithm for Computing the Fourier 
+        Spectrum of Experimentally Obtained Signals. Applied Mathematics
+        and Computation. 1999;98;pp229-239.
     """
     def setUp(self):
         func = lambda t: array('d',(max(a,0) for a in np.sin(2*np.pi*t)))
@@ -164,34 +169,41 @@ class TestHitDetectorAbuelmaattiFuncs(unittest.TestCase):
                 raise(AssertionError("%r and %r do not match for the %r"
                                      "th harmonic." % (a.delta(i), b.delta(i),
                                                        i)))
-"""
-    def test_abuelmaatti_returns_equal_values_for_equal_region_sizes(self):
-        a1 = Abuelmaatti(self.time_array[0:70], self.samples[0:70])
-        a2 = Abuelmaatti(self.time_array[70:140], self.samples[70:140])
-        a3 = Abuelmaatti(self.time_array[140:210], self.samples[140:210])
-    
+
+class TestHitDetectorDensityFuncs(unittest.TestCase):
+    def setUp(self):
+        point_array = np.linspace(1,100,100)
+        self.df = pd.DataFrame(data=dict(rate = point_array,
+                                    w1_rate = 0))
+        expected_density = np.array([10*[x] for x in range(1,101)]).reshape(1,
+                                                                   1000)[0]
+        self.expected_density = np.insert(expected_density,0,0)
+    def test_point_density_returns_expected_height_array(self):   
         try:
-            self.assertAlmostEqual(sum([a1.delta(i) for i in range(1,100)]), 
-                                   sum([a2.delta(i) for i in range(1,100)]), 
-                                   places=3)
-
-            self.assertAlmostEqual(sum([a3.delta(i) for i in range(1,100)]),
-                                   sum([a2.delta(i) for i in range(1,100)]), 
-                                   places=3)
+            np.testing.assert_array_almost_equal(point_density(self.df)[0], 
+                                                 np.arange(0,100.1,0.1),
+                                                 decimal=3)
         except(AssertionError):
-            raise(AssertionError("%r, %r and %r are not equal." % \
-                                (sum([a1.delta(i) for i in range(1,100)]),
-                                 sum([a2.delta(i) for i in range(1,100)]),
-                                 sum([a3.delta(i) for i in range(1,100)]))))
-"""    
+            raise(AssertionError("%r and %r are not equal." \
+                                 % (point_density(self.df)[0],
+                                    np.arange(0,100.1,0.1))))
+    def tests_point_density_returns_expected_density_array(self):
+        try:
+            np.testing.assert_array_almost_equal(point_density(self.df)[1],
+                                                 self.expected_density,
+                                                 decimal=3)
+        except(AssertionError):
+            raise(AssertionError("%r and %r are not equal."\
+                                 % ((point_density(self.df)[1]),
+                                    (self.expected_density))))
 """
-    def test_identify_noise_through_magnitude_correctly_identifies_noise(self):
-        noise_df = identify_noise_through_magnitude(self.df)
-        self.assertTrue(len(noise_df[noise_df['hits']]) == 0)
+def test_identify_noise_through_magnitude_correctly_identifies_noise(self):
+    noise_df = identify_noise_through_magnitude(self.df)
+    self.assertTrue(len(noise_df[noise_df['hits']]) == 0)
 
-    def test_identify_noise_through_magnitude_correctly_allows_sin(self):
-        noise_df = identify_noise_through_magnitude(self.sin_df)
-        self.asserTrue(len(noise_df[noise_df['hits']]) != 0)
+def test_identify_noise_through_magnitude_correctly_allows_sin(self):
+    noise_df = identify_noise_through_magnitude(self.sin_df)
+    self.asserTrue(len(noise_df[noise_df['hits']]) != 0)
 """
 #------------hitsimulator.py tests---------------------------------------------
 class TestHitSimulatorNumericalFuncs(unittest.TestCase):
