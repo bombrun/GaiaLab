@@ -44,6 +44,27 @@ def rotation_to_quat(vector, angle):
 
     return Quaternion(t, x, y, z)
 
+def lmn_srs(vector_lmn, epsilon = np.radians(23.27)):
+    l = np.array([1, 0, 0])
+    j = np.array([0, np.cos(epsilon), -np.sin(epsilon)])
+    k = np.array([0, np.sin(epsilon), np.cos(epsilon)])
+
+    A = np.vstack([l, j, k])
+    A_matrix = A.reshape(3, 3)
+
+    vector_srs = np.dot(A_matrix, vector_lmn)
+    return vector_srs
+
+def srs_lmn(vector_srs, epsilon=np.radians(23.27)):
+    l = np.array([1, 0, 0])
+    j = np.array([0, np.cos(epsilon), np.sin(epsilon)])
+    k = np.array([0, -np.sin(epsilon), np.cos(epsilon)])
+
+    A = np.vstack([l, j, k])
+    A_matrix = A.reshape(3, 3)
+
+    vector_lmn = np.dot(A_matrix, vector_srs)
+    return vector_lmn
 
 def ljk(epsilon):
     """
@@ -76,3 +97,5 @@ def srs(attitude, vector):
     q_vector_xyz = to_quaternion(vector)
     q_vector_srs = attitude.conjugate() * q_vector_xyz * attitude
     return q_vector_srs.to_vector()
+
+

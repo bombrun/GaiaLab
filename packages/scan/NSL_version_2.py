@@ -12,7 +12,11 @@ import frame_transformations as ft
 from quaternion import Quaternion
 import numpy as np
 import time
+from scipy import interpolate
 from mpl_toolkits.mplot3d import Axes3D
+from astropy import constants
+from astropy import units
+
 
 class Sky:
     """
@@ -28,67 +32,79 @@ class Sky:
         for i in range(n):
             alpha = np.random.uniform(0, 2 * np.pi)
             delta = np.random.uniform(-np.pi / 2, np.pi / 2)
+
             solar_radius = np.random.uniform(1, 5)
             parallax = np.arctan2(1, solar_radius)
             self.elements.append(Source(alpha, delta, parallax))
 
-
-class Source:
-    """
-    Defines source star by horizontal coordinate system parameters.
-    Args:
-        alpha (float): galactic longitudinal angle [rad].
-        delta (float): galactic altitude angle (rad),
-
-    Attributes:
-        coor (np.dnarray): (alpha, delta) horizontal coordinate system.
-    """
+#vega = Source(1.23, 0.9, 130.23, 201.03, 286.23, -13.9)
+#barnad = Source(200, 80, 0.4, 1, -2, 40)
+class Source: #need to take care of units
 
     def __init__(self, alpha0, delta0, parallax, mu_alpha, mu_delta, mu_radial):
-
+        """
+        :param alpha0: deg
+        :param delta0: deg
+        :param parallax: mas
+        :param mu_alpha: mas/yr
+        :param mu_delta: mas/yr
+        :param mu_radial: mas/yr
+        """
         self.init_param(alpha0, delta0, parallax, mu_alpha, mu_delta, mu_radial)
-        self.alpha = self.alpha0
-        self.delta = self.delta0
+        self.alpha = self.__alpha0
+        self.delta = self.__delta0
 
     def init_param(self, alpha0, delta0, parallax, mu_alpha, mu_delta, mu_radial):
-        self.alpha0= alpha0
-        self.delta0= delta0
+        self.__alpha0= np.radians(alpha0)
+        self.__delta0=  np.radians(delta0)
         self.parallax = parallax
-        self.mu_alpha_dx = mu_alpha*np.cos(delta0)
-        self.mu_delta = mu_delta
-        self.mu_radial = mu_radial
+        self.mu_alpha_dx = mu_alpha*np.cos(delta0)*(0.048473097/365)*10**(-7) #rad/day
+        self.mu_delta = mu_delta*(0.048473097/365)*10**(-7) #rad/day
+        self.mu_radial = self.parallax*mu_radial*60*60*24*6.6845*10**(-9)     #AU/day
 
     def reset(self):
-        self.alpha = self.alpha0
-        self.delta = self.delta0
+        self.alpha = self.__alpha0
+        self.delta = self.__delta0
 
     def update(self, t): #implement here relativistic effects
-        self.alpha = self.alpha0 + self.mu_alpha_dx*t
-        self.delta = self.delta0 + self.mu_delta*t
+        self.alpha = self.__alpha0 + self.mu_alpha_dx*t
+        self.delta = self.__delta0 + self.mu_delta*t
 
-    def coor_bcrs(self, t):
+    def barycentric_direction(self, t):
         self.update(t)
         u_bcrs = ft.cartesian_coord(self.alpha, self.delta, self.parallax)
-        return u_bcrs
+        alpha, delta, radius = ft.alpha_delta_radius(u_bcrs)
+        return alpha, delta, radius
 
-    def coor_xyz(self, satellite, t):
+    def topocentric_direction(self, satellite, t):
         self.update(t)
         p, q, r = ft.pqr(self.alpha, self.delta)
-        u = self.coor_bcrs(t) + t*(p*self.mu_alpha_dx + q*self.mu_delta + r*self.mu_radial)
-        u_xyz = u - (self.parallax/satellite.orbital_radius) * satellite.ephemeris_bcrs(t)
-        return u_xyz
+        u_srs = self.barycentric_direction(t) + t*(p * self.mu_alpha_dx + q * self.mu_delta + r * self.mu_radial) - self.parallax*satellite.ephemeris_bcrs(t)
+
+        alpha_obs= np.arctan2(u_srs[1], u_srs[0])
+        if alpha_obs < 0:
+            alpha_obs = alpha_obs + 2*np.pi
+        delta_obs = np.arcsin(u_srs[2]/np.linalg.norm(u_srs))
+
+        delta_alpha = (alpha_obs - self.__alpha0)*np.cos(self.__delta0)
+        delta_delta = (delta_obs - self.__delta0)
+
+        return delta_alpha, delta_delta
 
 
 class Satellite:
+
     def __init__(self, *args):
         self.init_parameters(*args)
+        self.orbital_period = 365
+        self.orbital_radius = 1.0
 
     def init_parameters(self, S=4.036, epsilon=np.radians(23.26), xi=np.radians(45), wz=120):
         """
         Sets satellite to initialization status.
         Args:
             S (float): -> dz/dlambda; change in z-axis of satellite with respect to solar longitudinal angle.
-            epsilon (float): ecliptical angle [rad].
+            epsilon (float): ecliptic angle [rad].
             xi (float): revolving angle [rad].
             wz (float): z component of inertial spin vector [arcsec/s].
         """
@@ -104,43 +120,24 @@ class Satellite:
         :param t: float, time in days
         :return: 3d np.array
         """
-        self.orbital_period = 365
-        self.orbital_radius = 1.0
-
-        b_x_bcrs = self.orbital_radius*np.cos(2*np.pi/self.orbital_period*t)
-        b_y_bcrs = self.orbital_radius*np.sin(2*np.pi/self.orbital_period*t)
-        b_z_bcrs = t*0
+        b_x_bcrs = self.orbital_radius*np.cos(2*np.pi/self.orbital_period*t)*np.cos(self.epsilon)
+        b_y_bcrs = self.orbital_radius*np.sin(2*np.pi/self.orbital_period*t)*np.cos(self.epsilon)
+        b_z_bcrs = self.orbital_radius*np.sin(2*np.pi/self.orbital_period*t)*np.sin(self.epsilon)
 
         bcrs_ephemeris_satellite = np.array([b_x_bcrs, b_y_bcrs, b_z_bcrs])
 
         return bcrs_ephemeris_satellite
 
-    def srs_to_bcrs(self, vector_srs, t):
-        """
-        Change frame of reference from a vector in lmn to barycentric frame.
-        :param vector_srs: 3d vector in SRS frame
-        :param t: float, time in days
-        :return: 3d np.array
-        """
-        l = np.array([1, 0, 0])
-        j = np.array([0, np.cos(self.epsilon), -np.sin(self.epsilon)])
-        k = np.array([0, np.sin(self.epsilon), np.cos(self.epsilon)])
-
-        A = np.vstack([l, j, k])
-        A_matrix = A.reshape(3, 3)
-
-        vector_bcrs = np.dot(A_matrix, vector_srs) + self.ephemeris_bcrs(t)
-        return vector_bcrs
-
-
 class Attitude(Satellite):
     """
     Child class to Satellite.
     """
-    def __init__(self):
+    def __init__(self, ti, tf, dt):
         Satellite.__init__(self)
         self.init_state()
         self.storage = []
+        self.__create_storage(ti, tf, dt)
+        self.__attitude_spline()
 
     def init_state(self):
         """
@@ -175,12 +172,13 @@ class Attitude(Satellite):
         q_total = q1*q2*q3*q4*q5
         return q_total
 
-    def reset(self):
+    def reset(self, ti, tf, dt):
         """
         :return: reset satellite to initialization status
         """
         self.init_state()
         self.storage.clear()
+        self.__create_storage(ti, tf, dt)
 
     def update(self, dt):
         """
@@ -223,6 +221,31 @@ class Attitude(Satellite):
         x_quat = delta_quat* x_quat* delta_quat.conjugate()
         self.x = x_quat.to_vector()
 
+    def __attitude_spline(self):
+        w_list = []
+        x_list = []
+        y_list = []
+        z_list = []
+        t_list = []
+        for obj in self.storage:
+            t_list.append(obj[0])
+            w_list.append(obj[4].w)
+            x_list.append(obj[4].x)
+            y_list.append(obj[4].y)
+            z_list.append(obj[4].z)
+
+        self.s_x= interpolate.InterpolatedUnivariateSpline(t_list, x_list)
+        self.s_y = interpolate.InterpolatedUnivariateSpline(t_list, y_list)
+        self.s_z = interpolate.InterpolatedUnivariateSpline(t_list, z_list)
+        self.s_w = interpolate.InterpolatedUnivariateSpline(t_list, w_list)
+
+    def get_attitude(self, t):
+        attitudes_list = []
+        for i in t:
+            attitudes_list.append(Quaternion(float(self.s_w(i)), float(self.s_x(i)), float(self.s_y(i)),
+                                             float(self.s_z(i))))
+        return attitudes_list
+
     def long_reset_to_time(self, t, dt):
         # this is slowing down create_storage but it is very exact.
         # Another way to do it would be if functions in attitude.update where analytical.
@@ -249,7 +272,7 @@ class Attitude(Satellite):
         self.beta_z = list_element[6]
         self.s = list_element[7]
 
-    def create_storage(self, ti, tf, dt):
+    def __create_storage(self, ti, tf, dt):
         '''
         Creates data necessary for step numerical methods performed in builtin method .update()
         Args:
@@ -260,9 +283,12 @@ class Attitude(Satellite):
             stored in: attitude.storage
         '''
         if len(self.storage) == 0:
-            ti = ti
+            self.long_reset_to_time(ti, dt)
+
         if len(self.storage) > 0:
+            raise Warning('storage is not empty')
             self.short_reset_to_time(ti)
+
         n_steps = (tf - ti) / dt
         for i in np.arange(n_steps):
             self.update(dt)

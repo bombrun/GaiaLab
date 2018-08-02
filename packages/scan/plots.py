@@ -5,7 +5,7 @@ import matplotlib as mpl
 import numpy as np
 import matplotlib.pyplot as plt
 from quaternion import Quaternion
-
+import frame_transformations as ft
 
 def plot_longalt(att, ti, tf, dt):
     att.reset()
@@ -23,7 +23,8 @@ def plot_longalt(att, ti, tf, dt):
     plt.rcParams.update({'font.size': 22})
     plt.title('Revolving scanning')
     plt.show()
-                          
+
+
 def plot_3DX(att, ti, tf, dt):
 
     att.reset()
@@ -39,7 +40,7 @@ def plot_3DX(att, ti, tf, dt):
     fig = plt.figure()
     ax = fig.gca(projection='3d')
 
-    ax.plot(x_listx, x_listy, x_listz, '--', label='X vector rotation')
+    ax.plot(x_listx, x_listy, x_listz, 'bo', label='X vector rotation')
     ax.legend()
     ax.set_xlabel('l')
     ax.set_ylabel('m')
@@ -70,6 +71,7 @@ def plot_3DZ(att, ti, tf, dt):
 
     plt.show()
 
+
 def plot_3DW(att, ti, tf, dt):
     att.reset()
     att.create_storage(ti, tf, dt)
@@ -92,10 +94,13 @@ def plot_3DW(att, ti, tf, dt):
 
     plt.show()
 
+
 def plot_3Dsun(att, ti, tf, dt):
     att.reset()
     att.create_storage(ti, tf, dt)
+
     sun_list = [obj[7] for obj in att.storage]
+
     x_srs_ecliptical = [i[0] for i in sun_list]
     y_srs_ecliptical = [i[1] for i in sun_list]
     z_srs_ecliptical = [i[2] for i in sun_list]
@@ -111,9 +116,22 @@ def plot_3Dsun(att, ti, tf, dt):
     ax.set_ylabel('m')
     ax.set_zlabel('n')
 
+    ax.set_xlim(-1, 1)
+    ax.set_ylim(-1, 1)
+    ax.set_zlim(-1, 1)
+
     plt.show()
 
+def plot_general_3d(lista_3d):
+    x = [i[0] for i in lista_3d]
+    y  = [i[1] for i in lista_3d]
+    z = [i[2] for i in lista_3d]
 
+    fig = plt.figure()
+    ax = fig.gca(projection='3d')
+
+    ax.plot(x,y,z, 'bo--')
+    plt.show()
 def plot_attitude(att, ti, tf, dt):
     '''
     Args
@@ -159,11 +177,12 @@ def plot_attitude(att, ti, tf, dt):
 
     plt.show()
 
+
 def plot_observations(scanner, sky):
 
-    x = [i[0] for i in scanner.stars_positions]
-    y = [i[1] for i in scanner.stars_positions]
-    z = [i[2] for i in scanner.stars_positions]
+    x = [i[0] for i in scanner.telescope_positions]
+    y = [i[1] for i in scanner.telescope_positions]
+    z = [i[2] for i in scanner.telescope_positions]
     
     x_star = [i.coor[0] for i in sky.elements]
     y_star = [i.coor[1] for i in sky.elements]
@@ -177,11 +196,11 @@ def plot_observations(scanner, sky):
     ax1.set(title='XY PLANE')
 
     ax2.plot(y, z, 'ko')
-    ax2.plot(y_star, z_star, 'b*', ms = 10)
+    ax2.plot(y_star, z_star, 'b*', ms=10)
     ax2.set(title='YZ PLANE')
 
     ax3.plot(x, z, 'go')
-    ax3.plot(xstar, zstar, 'b*', ms = 10)
+    ax3.plot(x_star, z_star, 'b*', ms=10)
     ax3.set(title='XZ PLANE')
 
 
@@ -190,7 +209,7 @@ def plot_observations(scanner, sky):
     fig2 = plt.figure()
     ax = fig2.gca(projection='3d')
 
-    ax.plot(x, y, z, '--', label='observation measurements')
+    ax.plot(x, y, z, 'b*', label='observation measurements')
     ax.legend()
     ax.set_xlabel('l')
     ax.set_ylabel('m')
@@ -202,15 +221,65 @@ def plot_observations(scanner, sky):
 
     plt.show()
 
+
+def plot_sky(sky):
+
+    x_list = [star.coor[0] for star in sky.elements]
+    y_list = [star.coor[1] for star in sky.elements]
+    z_list = [star.coor[2] for star in sky.elements]
+
+    mpl.rcParams['legend.fontsize'] = 10
+
+    fig2 = plt.figure()
+    ax = fig2.gca(projection='3d')
+
+    ax.plot(x_list, y_list, z_list, 'b*', label='observation measurements')
+    ax.legend()
+    ax.set_xlabel('l')
+    ax.set_ylabel('m')
+    ax.set_zlabel('n')
+    plt.show()
+
+def plot_wiggle(satellite, source, t):
+
+    deltas_alpha = []
+    deltas_delta = []
+    for i in np.arange(0, t, 1):
+        delta_alpha, delta_delta = source.topocentric_angledirection(satellite, i)
+        deltas_alpha.append(delta_alpha)
+        deltas_delta.append(delta_delta)
+
+
+    plt.figure()
+    plt.plot(deltas_alpha, deltas_delta, 'bo--')
+    plt.show()
+
 def plot_diff(satellite, sky):
     diff_list = []
     for star in sky.elements:
         for obj in satellite.storinglist:
             diff_ = np.abs(obj[8] - star.coor)
-            diff_list.append(mag(diff_))
+            diff_list.append(np.linalg.norm(diff_))
     plt.figure()
     plt.plot(diff_list, 'bo--')
     plt.show()
     
-    
+def plot_angles(source, satellite, t):
+    alphas = []
+    deltas = []
+    for i in np.arange(0, t, 1):
+        alpha, delta = source.topocentric_direction(satellite, i)
+        alphas.append(alpha)
+        deltas.append(delta)
+
+    plt.figure()
+    plt.title("Alpha vs Delta")
+    plt.xlabel('Alpha (rad)')
+    plt.ylabel('Delta (rad)')
+    plt.plot(alphas, deltas, 'bo--')
+    plt.show()
+
+    return alphas, deltas
+
+
 

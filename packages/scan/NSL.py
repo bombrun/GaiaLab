@@ -49,12 +49,13 @@ class Source:
         velocity (np.dnarray): (mualpha, mudelta, parallax) velocity and position parameters.
     """
 
-    def __init__(self, alpha, delta, mualpha=0, mudelta=0, parallax=1):
+    def __init__(self, alpha, delta, mualpha=0, mudelta=0):
         # make alpha delta attributes
         # time dependence, get direction at time __t. Create a function coor that does all of this and
         # is able to implement relativistic effects.
         self.coor = ft.xyz(alpha, delta)
-        self.velocity = np.array([mualpha, mudelta, parallax])
+        self.velocity = np.array([mualpha, mudelta])
+
 
 class Satellite:
 
@@ -97,6 +98,7 @@ class Attitude(Satellite):
         self.omega = 0
 
         self.l, self.j, self.k = ft.ljk(self.epsilon)
+
         self.s = self.l*np.cos(self._lambda) + self.j*np.sin(self._lambda)
 
         self.attitude = self.init_attitude()
@@ -125,7 +127,6 @@ class Attitude(Satellite):
         self.init_state()
         self.storage.clear()
 
-    @jit
     def update(self, dt):
         """
         :param dt: time step to calculate derivatibles of functions
@@ -156,17 +157,17 @@ class Attitude(Satellite):
 
         self.w = self.k * self.ldot + self.s * nu_dot + self.z * omega_dot
 
+        #change attitude by deltaquat
         w_magnitude = np.linalg.norm(self.w)
         d_zheta = w_magnitude * dt
         delta_quat = ft.rotation_to_quat(self.w, d_zheta/2.) # w is not in bcrs frame.
         self.attitude = delta_quat * self.attitude
 
-        # x axis
+        # x axis rotates through quaternion multiplication
         x_quat = Quaternion(0, self.x[0], self.x[1], self.x[2])
         x_quat = delta_quat* x_quat* delta_quat.conjugate()
         self.x = x_quat.to_vector()
 
-    @jit
     def long_reset_to_time(self, t, dt):
         # this is slowing down create_storage but it is very exact.
         # Another way to do it would be if functions in attitude.update where analytical.
@@ -206,7 +207,7 @@ class Attitude(Satellite):
         '''
         if len(self.storage) == 0:
             ti = ti
-        if len(self.storage) > 0:
+        if len(self.storage) != 0:
             self.short_reset_to_time(ti)
         n_steps = (tf - ti) / dt
         for i in np.arange(n_steps):
@@ -231,14 +232,14 @@ class Scanner:
         stars_positions (list of arrays): positions calculated from obs_times of transits using satellite's attitude.
     """
 
-    def __init__(self, ccd=0.3, delta_z=0.2, delta_y=0.1):
+    def __init__(self, ccd, delta_z, delta_y):
         self.delta_z = delta_z
         self.delta_y = delta_y
         self.ccd = ccd
 
         #create storage
         self.obs_times = []
-        self.stars_positions = []
+        self.telescope_positions = []
         self.times_deep_scan = []
 
     def reset_memory(self):
@@ -246,17 +247,15 @@ class Scanner:
         :return: empty all attribute lists from scanner before beginning new scanning period.
         """
         self.obs_times.clear()
-        self.stars_positions.clear()
+        self.telescope_positions.clear()
         self.times_deep_scan.clear()
 
-    @jit
     def intercept(self, att, star, line = False):
         """
         :param star: source object.
         :param attitude: contains storage list.
         :return: populates scanner.times_to_scan list, before deep_scan is executed.
         """
-        print ('intercepting')
         for obj in att.storage:
             t = obj[0]
             x_telescope1 = obj[3]
@@ -279,15 +278,15 @@ class Scanner:
                     if line == True:
                         if np.abs(star_coor_srs[1] - x_srs_telescope1[1]) < self.delta_y:
                             self.obs_times.append(t)
-                            self.stars_positions.append(ft.bcrs(attitude, x_srs_telescope1))
+                            self.telescope_positions.append(ft.bcrs(attitude, x_srs_telescope1))
                     else:
                         self.times_deep_scan.append(t)
                         self.times_deep_scan.sort()
-                        self.stars_positions.append(ft.bcrs(attitude, x_srs_telescope1))
 
         print('times intercepted:', len(self.times_deep_scan))
 
     def deep_scan(self, att, star, deep_dt=0.001):
+
         """
         Increases precision of satellite at points where source is intercept by scanner in the CCD.
         :param: attitude: attitude class.
@@ -313,14 +312,14 @@ def star_finder(att, sky, scanner):
     :param scanner: object
     :return: scanner.star_positions, scanner.obs_times.
     """
-    scanner.reset_memory()
 
     for star in sky.elements:
+        scanner.reset_memory()
         scanner.intercept(att, star)
         if len(scanner.times_deep_scan) != 0:
             scanner.deep_scan(att, star)
 
-def run(days, dt):
+def run(days = 1825, dt = 0.2, n=1):
     """
 
     :param days: number of days to run
@@ -329,8 +328,8 @@ def run(days, dt):
     """
     start_time = time.time()
 
-    sky = Sky(1)
-    scan = Scanner()
+    sky = Sky(n)
+    scan = Scanner(0.3,0.5,0.05)
     att = Attitude()
     att.create_storage(0, days, dt)
     star_finder(att, sky, scan)
@@ -338,6 +337,6 @@ def run(days, dt):
     seconds = time.time() - start_time
     
     print('seconds:', seconds)
-    print('star measurements:', len(scan.stars_positions))
+    print('star measurements:', len(scan.telescope_positions))
     
-    return sky, scan, att
+    return att, sky, scan
