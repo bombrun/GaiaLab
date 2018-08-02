@@ -15,3 +15,12 @@ def sort_data(func):
         sorted_df = df.sort_values('obmt')
         return func(sorted_df, *args, **kwargs)
     return sort
+
+def s2o(secs):
+    """Convert seconds to obmt."""
+    return secs/21600
+
+def o2s(obmt):
+    """Convert obmt to seconds."""
+    return obmt*21600
+    

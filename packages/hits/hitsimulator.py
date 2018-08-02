@@ -14,6 +14,8 @@ import pandas as pd
 import configparser
 from numba import jit # Compiles python - speeds up iteration.
 
+from .misc import s2o, o2s
+
 # Use hits.ini to decide which variables to use--------------------------------
 config = configparser.ConfigParser()
 config.read(__file__[:-15] + 'hits.ini')
@@ -61,6 +63,19 @@ if _use_defaults:
     t_c_loc = 0.004
     t_c_scale = 0.0001
 #------------------------------------------------------------------------------
+
+# Functions and classes     test implemented?
+#
+# hit_distribution          yes
+# flux                      yes
+# p_distribution            no
+# freq                      yes
+# tp_distribution           no
+# time_distribution         no
+# AOCSResponse              no
+# generate_event            yes
+# generate_data             no
+
 
 # Function definitions.
 # First functions use @jit decorators for speed.
@@ -234,9 +249,9 @@ class AOCSResponse:
         tps = tp_distribution(amplitude)
         time = time_distribution(amplitude)
 
-        d_omegas = [amplitude*(np.e**(-2*t/(time*21600))) \
-        * np.cos((2*int(tps +1)+1 )*t*np.pi/(2*time*21600)) \
-        for t in range(int(time*21600))]
+        d_omegas = [amplitude*(np.e**(-2*t/(o2s(time)))) \
+        * np.cos((2*int(tps +1)+1 )*t*np.pi/(2*o2s(time))) \
+        for t in range(int(o2s(time)))]
         
         return d_omegas
 #------------------------------------------------------------------------------
@@ -299,7 +314,7 @@ def generate_event(masses, frequencies, sigma=False):
     else:
         return (0,0)
 
-def generate_data(length, masses=masses, sigma=False, **kwargs):
+def generate_data(length, masses=masses, sigma=False):
     """
     Accepts:
         
@@ -323,9 +338,6 @@ def generate_data(length, masses=masses, sigma=False, **kwargs):
             
         sigma (bool, default=True):
             passes this to generateEvent.
-
-        **kwargs:
-            passes these to plt.errorbar() when this is called.
 
     Returns:
         
@@ -356,7 +368,7 @@ def generate_data(length, masses=masses, sigma=False, **kwargs):
         omega.append(d_omega)
         sigmas.append(_omega[1])
 
-    df = pd.DataFrame({"obmt" : obmt/21600,
+    df = pd.DataFrame({"obmt" : s2o(obmt),
                        "rate" : omega,
                        "error" : sigmas})
     df = df[['obmt','rate','error']]

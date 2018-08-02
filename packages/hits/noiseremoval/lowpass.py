@@ -17,9 +17,10 @@ where dt is the time step used.
 import numpy as np
 try:
     import filters
+    from ..misc import s2o, o2s
 except(ImportError):
     import hits.noiseremoval.filters as filters
-
+    from hits.misc import s2o, o2s
 class LowPassData(filters.FilterData):
     """
     Low pass filter implementation.
@@ -31,7 +32,7 @@ class LowPassData(filters.FilterData):
 
         # Set up private variables.
         if self._obmt is not None:
-            self._dt = (self._obmt[1] - self._obmt[0]) * 21600 #convert to seconds
+            self._dt = o2s(self._obmt[1] - self._obmt[0])
         else:
             self._dt = 1
         # 0.05Hz is a reasonable cutoff frequency to default to.
