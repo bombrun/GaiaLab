@@ -1,17 +1,16 @@
-# Standard imports. Requires identify_noise() from hitdetector.py.
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 try:
-    from hits.hitdetector import identify_noise, identify_through_magnitude
+    import hits.hitdetector as hd
     from hits.misc import sort_data
 except(ImportError):
-    from hitdetector import identify_noise, identify_through_magnitude
+    import hits.hitdetector as hd
     from misc import sort_data
 from scipy.interpolate import UnivariateSpline, BSpline
 
 @sort_data
-def isolate_anomaly(df, time_res=0.01, hits=True):
+def isolate_anomaly(df, method, time_res=0.01):
     """
     Accepts:
         
@@ -22,19 +21,12 @@ def isolate_anomaly(df, time_res=0.01, hits=True):
 
         or equivalent.
 
-    Passes this dataframe to hits.hitdetector.identify_noise() to 
-    identify the hits.
-
-    Isolates these data.
+    Isolates detected hits.
 
     Kwargs:
         
         time_res (float, default=0.01):
             half the width of the neighbourhoods to be generated.
-
-        hits (bool, default=False):
-            if True, only return the neighbourhoods of hits rather than
-            any anomaly.
 
     Returns:
 
@@ -47,20 +39,16 @@ def isolate_anomaly(df, time_res=0.01, hits=True):
     """
     
     working_df = df.copy()
+    
+    identify = hd.method_dict[method]
 
-    if hits:
-        # Call hitdetector.identify_noise() to identify noise and hits.
-        working_df = identify_noise(working_df)[0]
-        hit_df = working_df[working_df['hits']] # Isolate the hits.
+    working_df = identify(working_df)[0]
 
-    else:
-        # Call hitdetector.identify_through_magnitude() to identify anomalies.
-        working_df = identify_through_magnitude(working_df)[0]
-        print("Data obtained\n")
-        hit_df = working_df[working_df['anomaly'] == True]
-        print("...and processed")
+    hit_df = working_df[working_df['anomaly']] # Isolate the hits.
+
     # Generate neighbourhoods around the hits with width 2*time_res.
-    hit_neighbourhoods = [working_df[abs(working_df['obmt'] - time) < time_res] for time in hit_df['obmt']]
+    hit_neighbourhoods = [working_df[abs(working_df['obmt'] - time) \
+                          < time_res] for time in hit_df['obmt']]
 
     return tuple(hit_neighbourhoods)
 
