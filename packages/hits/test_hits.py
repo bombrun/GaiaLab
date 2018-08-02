@@ -15,7 +15,7 @@ import math
 #functions to run tests on
 #equivalent to from . import * but more verbose
 try:
-    from hits.hitdetector import identify_through_magnitude, identify_noise, \
+    from hits.hitdetector import identify_through_magnitude,\
                                  plot_anomaly, identify_through_gradient, \
                                  Abuelmaatti, point_density
     from hits.hitsimulator import hit_distribution, flux, p_distribution, \
@@ -24,7 +24,7 @@ try:
     from hits.response.characteristics import get_turning_points, \
                                               filter_turning_points
 except(ImportError):
-    from .hitdetector import identify_through_magnitude, identify_noise, plot_anomaly, \
+    from .hitdetector import identify_through_magnitude, plot_anomaly, \
                              identify_through_gradient, Abuelmaatti, \
                              point_density
     from .hitsimulator import hit_distribution, flux, p_distribution, freq, \
@@ -42,8 +42,6 @@ class TestHitDetectorIdentifyFuncs(unittest.TestCase):
         obmt = np.linspace(0,10,1000)
         rate = np.zeros(1000)
         # Generate a random number of hits between 4 and 25.
-        # Needs to be > 3 or identify_noise will mark them correct
-        # despite periodicity (this is intended behaviour).
         self.hits = np.random.randint(4,25)
         
         hit_loc = np.linspace(2,900, self.hits)
@@ -72,29 +70,11 @@ class TestHitDetectorIdentifyFuncs(unittest.TestCase):
         identify_through_magnitude(self.df)[0].columns.values)
 
     def test_identify_through_gradient_correctly_identifies(self):
-        try:
-            self.assertTrue(len(identify_through_gradient(self.df)[1]) == \
-                                                                 self.hits)
-        except(AssertionError):
-            raise(AssertionError("Detected %r hits. Expected to detect %r." %\
-                 (len(identify_through_gradient(self.df)[1]), self.hits)))
-"""
-    def test_identify_noise_correctly_identifies_periodic_noise(self):
-        noise_df = identify_noise(self.df)[0]
-        try:
-            self.assertNotEqual(len(noise_df[noise_df['anomaly']]), 0)
-        except(AssertionError):
-            raise(AssertionError("Expected to detect anomalies and reject " \
-                              "but detected no anomalies."))
-    def test_identify_noise_correctly_rejects_periodic_noise(self): 
-        noise_df = identify_noise(self.df)[0]
-        try:
-            self.assertTrue(len(noise_df[noise_df['hits']]) ==0)
-        except(AssertionError):
-            raise(AssertionError("Expected to detect 0 hits. Detected %r " \
-                                 " hits. %r hits generated." % \
-                                 (len(noise_df[noise_df['hits']]), self.hits)))
-"""
+        
+        self.assertEqual(len(identify_through_gradient(self.df)[1]), self.hits,
+                        msg="Detected %r hits. Expected to detect %r." %\
+                        (len(identify_through_gradient(self.df)[1]),self.hits))
+
 class TestHitDetectorAbuelmaattiFuncs(unittest.TestCase):
     """
     The tests implemented here are based on the examples given in 
@@ -118,41 +98,32 @@ class TestHitDetectorAbuelmaattiFuncs(unittest.TestCase):
         self.a = Abuelmaatti(self.time_array, self.samples)
 
     def test_abuelmaatti_gamma_function_returns_05(self):
-        try:
-            self.assertAlmostEqual(self.a.gamma(1), 0.5, places=3)
-        except(AssertionError):
-            raise(AssertionError("Calculated value for gamma(1) is 0.5. "\
-                                 "Value returned was %r." % self.a.gamma(1)))
+     
+        self.assertAlmostEqual(self.a.gamma(1), 0.5, places=3,
+                               msg="Calculated value for gamma(1) is 0.5. "\
+                                 "Value returned was %r." % self.a.gamma(1))
 
     def test_abuelmaatti_gamma_function_returns_0(self):
         for i in range(1,11):
-            try:
-                self.assertAlmostEqual(self.a.gamma(2), 0, places=3)
-            except(AssertionError):
-                raise(AssertionError("Calculated value for gamma(%r) is 0. "\
+            self.assertAlmostEqual(self.a.gamma(2), 0, places=3,
+                                   msg="Calculated value for gamma(%r) is 0. "\
                                      "Value returned was %r." \
-                                     % (i, self.a.gamma(2))))
+                                     % (i, self.a.gamma(2)))
 
     def test_abuelmaatti_delta_function_returns_expected_values(self):
         expected_deltas = [0, -0.212, 0, -0.042, 0, -0.018,
                            0, -0.0098,0, -0.0064]
         delta_0 = 0.318
 
-        try:
-            self.assertAlmostEqual(self.a.delta_0, delta_0, places=3)
-        except(AssertionError):
-            raise(AssertionError("Calculated value for delta_0 is %r. Value"\
-                                 " returned was %r." % (delta_0, 
-                                                        self.a.delta_0)))
+        self.assertAlmostEqual(self.a.delta_0, delta_0, places=3,
+                               msg="Calculated value for delta_0 is %r. Value"\
+                               " returned was %r." % (delta_0, self.a.delta_0))
         for i in range(1,11):
-            try:
-                self.assertAlmostEqual(self.a.delta(i), expected_deltas[i-1],
-                                       places=3)
-            except(AssertionError):
-                raise(AssertionError("Calculated value for delta(%r) is %r. "\
-                                     "Value returned was %r." % \
-                                     (i, expected_deltas[i-1], 
-                                      self.a.delta(i))))
+            self.assertAlmostEqual(self.a.delta(i), expected_deltas[i-1],
+                                   places=3, 
+                                   msg="Calculated value for delta(%r) is %r."\
+                                   " Value returned was %r." % (i, 
+                                   expected_deltas[i-1], self.a.delta(i)))
 
     def test_abuelmaatti_returns_equal_values_for_regions_of_equal_phase(self):
         func = lambda t: array('d',(max(a,0) for a in np.sin(np.pi*t)))
@@ -163,12 +134,9 @@ class TestHitDetectorAbuelmaattiFuncs(unittest.TestCase):
                         samples[int(len(samples)/2):])
 
         for i in range(1,11):
-            try:
-                self.assertAlmostEqual(a.delta(i), b.delta(i), places=3)
-            except(AssertionError):
-                raise(AssertionError("%r and %r do not match for the %r"
-                                     "th harmonic." % (a.delta(i), b.delta(i),
-                                                       i)))
+            self.assertAlmostEqual(a.delta(i), b.delta(i), places=3,
+                                   msg="%r and %r do not match for the %rth "
+                                   "harmonic." % (a.delta(i), b.delta(i), i))
 
 class TestHitDetectorDensityFuncs(unittest.TestCase):
     def setUp(self):
@@ -196,15 +164,6 @@ class TestHitDetectorDensityFuncs(unittest.TestCase):
             raise(AssertionError("%r and %r are not equal."\
                                  % ((point_density(self.df)[1]),
                                     (self.expected_density))))
-"""
-def test_identify_noise_through_magnitude_correctly_identifies_noise(self):
-    noise_df = identify_noise_through_magnitude(self.df)
-    self.assertTrue(len(noise_df[noise_df['hits']]) == 0)
-
-def test_identify_noise_through_magnitude_correctly_allows_sin(self):
-    noise_df = identify_noise_through_magnitude(self.sin_df)
-    self.asserTrue(len(noise_df[noise_df['hits']]) != 0)
-"""
 #------------hitsimulator.py tests---------------------------------------------
 class TestHitSimulatorNumericalFuncs(unittest.TestCase):
     def test_hit_distribution_returns_correct_values(self):
@@ -235,6 +194,14 @@ class TestHitSimulatorNumericalFuncs(unittest.TestCase):
                                "calculated as %r. Total frequency of " \
                                "10000 mass array calculated as %r." % \
                                (masses2_freq, masses1_freq))
+
+    def test_p_distribution_returns_expected_shape(self):
+        dist = p_distribution(np.linspace(0, 1, 1000))
+        self.assertLessEqual(len(dist[1]), len(dist[0]),
+                             msg="The array of hit indices was not less than"\
+                                  " the array of measured points.")
+
+
 
 class TestHitSimulatorGeneratorFuncs(unittest.TestCase):
     
