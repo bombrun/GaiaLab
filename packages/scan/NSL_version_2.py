@@ -37,59 +37,81 @@ class Sky:
             parallax = np.arctan2(1, solar_radius)
             self.elements.append(Source(alpha, delta, parallax))
 
-#vega = Source(1.23, 0.9, 130.23, 201.03, 286.23, -13.9)
-#barnad = Source(200, 80, 0.4, 1, -2, 40)
+#vega = Source("vega", 279.2333, 38.78, 128.91, 201.03, 286.23, -13.9)
+#proxima = Source("proxima",217.42, -62, 768.7, 3775.40, 769.33, 21.7)
+#sirio = Source("sirio", 101.28, -16.7161, 379.21, -546.05, -1223.14, -7.6)
+
 class Source: #need to take care of units
 
-    def __init__(self, alpha0, delta0, parallax, mu_alpha, mu_delta, mu_radial):
+    def __init__(self, name, alpha0, delta0, parallax, mu_alpha, mu_delta, mu_radial):
         """
         :param alpha0: deg
         :param delta0: deg
         :param parallax: mas
         :param mu_alpha: mas/yr
         :param mu_delta: mas/yr
-        :param mu_radial: mas/yr
+        :param mu_radial: km/s
         """
+        self.name = name
         self.init_param(alpha0, delta0, parallax, mu_alpha, mu_delta, mu_radial)
-        self.alpha = self.__alpha0
-        self.delta = self.__delta0
+        self.alpha = self.__alpha0 #rad
+        self.delta = self.__delta0 #rad
 
     def init_param(self, alpha0, delta0, parallax, mu_alpha, mu_delta, mu_radial):
-        self.__alpha0= np.radians(alpha0)
-        self.__delta0=  np.radians(delta0)
-        self.parallax = parallax
-        self.mu_alpha_dx = mu_alpha*np.cos(delta0)*(0.048473097/365)*10**(-7) #rad/day
-        self.mu_delta = mu_delta*(0.048473097/365)*10**(-7) #rad/day
-        self.mu_radial = self.parallax*mu_radial*60*60*24*6.6845*10**(-9)     #AU/day
+        self.__alpha0= np.radians(alpha0) #rad
+        self.__delta0=  np.radians(delta0) #rad
+        self.parallax = parallax    #mas
+        self.mu_alpha_dx = mu_alpha*np.cos(self.__delta0)   #mas/yr
+        self.mu_delta = mu_delta                       #mas/yr
+        self.mu_radial = mu_radial    #mas*km/s
+
 
     def reset(self):
         self.alpha = self.__alpha0
         self.delta = self.__delta0
 
-    def update(self, t): #implement here relativistic effects
-        self.alpha = self.__alpha0 + self.mu_alpha_dx*t
-        self.delta = self.__delta0 + self.mu_delta*t
+    def set_time(self, t): #implement here relativistic effects
+        mu_alpha_dx = self.mu_alpha_dx * 4.8473097e-9 / 365 #from mas/yr to rad/day
+        mu_delta = self.mu_delta * 4.848136811095e-9 / 365  #from mas/yr to rad/day
+        self.alpha = self.__alpha0 + mu_alpha_dx*t  #rad
+        self.delta = self.__delta0 + mu_delta*t     #rad
 
     def barycentric_direction(self, t):
-        self.update(t)
+        """
+        alpha: rad
+        delta: rad
+        parallax: mas
+        :param t: days
+        :return: vector in parsecs
+        """
+        self.set_time(t)
         u_bcrs = ft.cartesian_coord(self.alpha, self.delta, self.parallax)
-        alpha, delta, radius = ft.alpha_delta_radius(u_bcrs)
-        return alpha, delta, radius
+        return u_bcrs   #in pc
 
     def topocentric_direction(self, satellite, t):
-        self.update(t)
-        p, q, r = ft.pqr(self.alpha, self.delta)
-        u_srs = self.barycentric_direction(t) + t*(p * self.mu_alpha_dx + q * self.mu_delta + r * self.mu_radial) - self.parallax*satellite.ephemeris_bcrs(t)
 
-        alpha_obs= np.arctan2(u_srs[1], u_srs[0])
+        self.set_time(t)
+        p, q, r = ft.pqr(self.alpha, self.delta)
+        mastorad = 2*np.pi/(1000*360*3600)
+        kmtopc = 3.24078e-14
+        sectoday = 3600*24
+
+        mu_alpha_dx = self.mu_alpha_dx*mastorad/365   #mas/yr to rad/day
+        mu_delta = self.mu_delta*mastorad/365  #mas/yr to rad/day
+        mu_radial = self.parallax*mastorad*self.mu_radial*kmtopc*sectoday #km/s to aproximation rad/day
+
+        u_lmn = self.barycentric_direction(0) + t*(p*mu_alpha_dx+ q*mu_delta + r*mu_radial) - satellite.ephemeris_bcrs(t) #pc
+        u_lmn_unit  = u_lmn/np.linalg.norm(u_lmn)
+
+        alpha_obs, delta_obs, radius = ft.cartesian_to_polar(u_lmn_unit) #rad, rad, pc=1
+
         if alpha_obs < 0:
             alpha_obs = alpha_obs + 2*np.pi
-        delta_obs = np.arcsin(u_srs[2]/np.linalg.norm(u_srs))
 
-        delta_alpha = (alpha_obs - self.__alpha0)*np.cos(self.__delta0)
-        delta_delta = (delta_obs - self.__delta0)
+        delta_alpha_dx_mas = (alpha_obs - self.__alpha0)*np.cos(self.__delta0)/mastorad
+        delta_delta_mas = (delta_obs - self.__delta0)/mastorad
 
-        return delta_alpha, delta_delta
+        return delta_alpha_dx_mas, delta_delta_mas
 
 
 class Satellite:
@@ -126,7 +148,7 @@ class Satellite:
 
         bcrs_ephemeris_satellite = np.array([b_x_bcrs, b_y_bcrs, b_z_bcrs])
 
-        return bcrs_ephemeris_satellite
+        return bcrs_ephemeris_satellite*4.8481705933824e-6 #in parsecs
 
 class Attitude(Satellite):
     """
@@ -179,6 +201,7 @@ class Attitude(Satellite):
         self.init_state()
         self.storage.clear()
         self.__create_storage(ti, tf, dt)
+        self.__attitude_spline()
 
     def update(self, dt):
         """
@@ -240,11 +263,11 @@ class Attitude(Satellite):
         self.s_w = interpolate.InterpolatedUnivariateSpline(t_list, w_list)
 
     def get_attitude(self, t):
-        attitudes_list = []
-        for i in t:
-            attitudes_list.append(Quaternion(float(self.s_w(i)), float(self.s_x(i)), float(self.s_y(i)),
-                                             float(self.s_z(i))))
-        return attitudes_list
+        attitude = Quaternion(float(self.s_w(t)), float(self.s_x(t)), float(self.s_y(t)), float(self.s_z(t)))
+        return attitude
+
+    def get_xaxis_lmn(self, t):
+        return None
 
     def long_reset_to_time(self, t, dt):
         # this is slowing down create_storage but it is very exact.
@@ -262,15 +285,13 @@ class Attitude(Satellite):
     def short_reset_to_time(self, t):
 
         temp_list = [obj for obj in self.storage if obj[0] <= t]
-        list_element = temp_list[0]
+        list_element = temp_list[-1]
         self.t = list_element[0]
         self.w = list_element[1]
         self.z = list_element[2]
         self.x = list_element[3]
         self.attitude = list_element[4]
-        self.lamb_z = list_element[5]
-        self.beta_z = list_element[6]
-        self.s = list_element[7]
+        self.s = list_element[5]
 
     def __create_storage(self, ti, tf, dt):
         '''
@@ -285,16 +306,17 @@ class Attitude(Satellite):
         if len(self.storage) == 0:
             self.long_reset_to_time(ti, dt)
 
-        if len(self.storage) > 0:
-            raise Warning('storage is not empty')
-            self.short_reset_to_time(ti)
+        #if len(self.storage) > 0:
+         #   raise Warning('storage is not empty')
+         #   self.short_reset_to_time(ti)
 
         n_steps = (tf - ti) / dt
+        self.storage.append([self.t, self.w, self.z,
+                             self.x, self.attitude, self.s])
         for i in np.arange(n_steps):
             self.update(dt)
             self.storage.append([self.t, self.w, self.z,
-                                 self.x, self.attitude, self.lamb_z,
-                                 self.beta_z, self.s])
+                                 self.x, self.attitude, self.s])
 
         self.storage.sort(key=lambda x: x[0])
 
