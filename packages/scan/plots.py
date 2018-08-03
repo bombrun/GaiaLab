@@ -131,8 +131,26 @@ def plot_general_3d(lista_3d):
     ax = fig.gca(projection='3d')
 
     ax.plot(x,y,z, 'bo--')
+    ax.set_xlim(-1, 1)
+    ax.set_ylim(-1, 1)
+    ax.set_zlim(-1, 1)
+
     plt.show()
-def plot_attitude(att, ti, tf, dt):
+
+def plot_attitude_mag(att, ti, tf, n_points=100):
+
+    times= np.linspace(ti, tf, n_points)
+    attitudes = [att.get_attitude(t) for t in times]
+
+    norm_list = [np.sqrt(obj.w**2 + obj.x**2 + obj.y**2 + obj.z**2) for obj in attitudes]
+
+    plt.figure()
+    plt.plot(times,norm_list, 'bo')
+
+    plt.show()
+
+
+def plot_attitude(att, ti, tf, n_points):
     '''
     Args
     ______
@@ -147,30 +165,27 @@ def plot_attitude(att, ti, tf, dt):
     attitude = (t, x, y, z)
     Each graph plots time in days versus each component evolution wrt time.
     '''
+    times= np.linspace(ti, tf, n_points)
+    attitudes = [att.get_attitude(t) for t in times]
 
-    att.reset()
-    att.create_storage(ti, tf, dt)
-    attitude_list = [obj[4] for obj in att.storage]
-
-    qw_list = [obj.w for obj in attitude_list]
-    qx_list = [obj.x for obj in attitude_list]
-    qy_list = [obj.y for obj in attitude_list]
-    qz_list = [obj.z for obj in attitude_list]
-    times = [obj[0] for obj in att.storage]
+    qw_list = [obj.w for obj in attitudes]
+    qx_list = [obj.x for obj in attitudes]
+    qy_list = [obj.y for obj in attitudes]
+    qz_list = [obj.z for obj in attitudes]
 
     fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2)
     fig.subplots_adjust(left=0.2, wspace=0.6)
 
-    ax1.plot(times, qw_list, 'ro--')
+    ax1.plot(times, qw_list, 'r--')
     ax1.set(title='W', xlabel='days')
 
-    ax2.plot(times, qx_list, 'bo--')
+    ax2.plot(times, qx_list, 'b--')
     ax2.set(title='X', xlabel='days')
 
-    ax3.plot(times, qy_list, 'go--')
+    ax3.plot(times, qy_list, 'g--')
     ax3.set(title='Y', xlabel='days')
 
-    ax4.plot(times, qz_list, 'ko--')
+    ax4.plot(times, qz_list, 'k--')
     ax4.set(title='Z', xlabel='days')
 
     plt.rcParams.update({'font.size': 22})
@@ -240,46 +255,43 @@ def plot_sky(sky):
     ax.set_zlabel('n')
     plt.show()
 
-def plot_wiggle(satellite, source, t):
-
-    deltas_alpha = []
-    deltas_delta = []
-    for i in np.arange(0, t, 1):
-        delta_alpha, delta_delta = source.topocentric_angledirection(satellite, i)
-        deltas_alpha.append(delta_alpha)
-        deltas_delta.append(delta_delta)
-
-
-    plt.figure()
-    plt.plot(deltas_alpha, deltas_delta, 'bo--')
-    plt.show()
-
-def plot_diff(satellite, sky):
-    diff_list = []
-    for star in sky.elements:
-        for obj in satellite.storinglist:
-            diff_ = np.abs(obj[8] - star.coor)
-            diff_list.append(np.linalg.norm(diff_))
-    plt.figure()
-    plt.plot(diff_list, 'bo--')
-    plt.show()
-    
 def plot_angles(source, satellite, t):
     alphas = []
     deltas = []
     for i in np.arange(0, t, 1):
-        alpha, delta = source.topocentric_direction(satellite, i)
+        alpha, delta=  source.topocentric_direction(satellite, i)
         alphas.append(alpha)
         deltas.append(delta)
 
-    plt.figure()
-    plt.title("Alpha vs Delta")
-    plt.xlabel('Alpha (rad)')
-    plt.ylabel('Delta (rad)')
-    plt.plot(alphas, deltas, 'bo--')
+    fig = plt.figure(figsize=(16, 9))
+    ax = fig.add_subplot(121)
+    ax.plot(alphas, deltas,'b-',
+            label=r'%s path' %(source.name), lw=2)
+    ax.set_xlabel(r'$\Delta\alpha*$ [mas]')
+    ax.set_ylabel(r'$\Delta\delta$ [mas]')
+    ax.axhline(y=0, c='gray', lw=1)
+    ax.axvline(x=0, c='gray', lw=1)
+    ax.legend(loc='upper right', fontsize=12, facecolor='#000000', framealpha=0.1)
+    ax.set_title(r'$\varpi={%.2f}$, $\mu_{{\alpha*}}={%.2f}$, $\mu_\delta={%.2f}$'
+              %(source.parallax, source.mu_alpha_dx, source.mu_delta))
+
+    ax1dra = fig.add_subplot(222)
+    ax1dra.axhline(y=0, c='gray', lw=1)
+    ax1dra.set_xlabel(r'Time [days]')
+    ax1dra.plot(alphas, 'b-')
+    ax1dra.set_ylabel(r'$\Delta\alpha*$ [mas]')
+
+    ax1ddec = fig.add_subplot(224)
+    ax1ddec.axhline(y=0, c='gray', lw=1)
+    ax1ddec.plot(deltas, 'b-')
+    ax1ddec.set_xlabel(r'Time [yr]')
+    ax1ddec.set_ylabel(r'$\Delta\delta$ [mas]')
+
+    plt.tight_layout()
+    #plt.savefig('%s_motion.pdf' %(source.name))
     plt.show()
 
-    return alphas, deltas
+
 
 
 
