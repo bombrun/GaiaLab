@@ -12,22 +12,50 @@ def to_quaternion(vector):
     return Quaternion(0, vector[0], vector[1], vector[2])
 
 
-def alpha_delta_radius(vector):
+def cartesian_to_polar(vector):
 
-    solar_radius = np.sqrt(vector[0] ** 2 + vector[1] ** 2 + vector[2] ** 2)
+    radius = np.sqrt(vector[0] ** 2 + vector[1] ** 2 + vector[2] ** 2)
     alpha = np.arctan2(vector[1], vector[0])
-    delta = np.arcsin(vector[2]/solar_radius)
-    return alpha, delta, solar_radius
+    delta = np.arcsin(vector[2]/radius)
+    return alpha, delta, radius
 
 
-def cartesian_coord(azimuth, altitude, parallax = 1):
+def cartesian_coord(alpha, delta, parallax):
+    """
 
-    x = (1/np.tan(parallax))*np.cos(azimuth)*np.cos(altitude)
-    y = (1/np.tan(parallax))*np.sin(azimuth)*np.cos(altitude)
-    z = (1/np.tan(parallax))*np.sin(altitude)
+    :param azimuth: rad
+    :param altitude:rad
+    :param parallax: mas
+    :return:
+    """
+    parallax = parallax/1000 #from mas to arcsec
+
+    x = (1/parallax)*np.cos(alpha)*np.cos(delta)
+    y = (1/parallax)*np.sin(alpha)*np.cos(delta)
+    z = (1/parallax)*np.sin(delta)
 
     return np.array([x, y, z])
 
+def ljk(epsilon):
+    """
+    Calculates ecliptic triad vectors with respect to BCRS-frame.
+    (Lindegren, SAG-LL-35, Eq.1)
+
+    :param epsilon: obliquity of the equator.
+    :return: np.array, np.array, np.array
+    """
+    l = np.array([1,0,0])
+    j = np.array([0, np.cos(epsilon), np.sin(epsilon)])
+    k = np.array([0, -np.sin(epsilon), np.cos(epsilon)])
+    return l, j, k
+
+
+def pqr(alpha, delta):
+    p = np.array([-np.sin(alpha), np.cos(alpha), 0])
+    q = np.array([-np.sin(delta)*np.cos(alpha), -np.sin(delta)*np.sin(alpha), np.cos(delta)])
+    r = np.array([np.cos(delta)*np.cos(alpha), np.cos(delta)*np.sin(alpha), np.sin(delta)])
+
+    return p, q, r
 
 def rotation_to_quat(vector, angle):
     """
@@ -65,28 +93,6 @@ def srs_lmn(vector_srs, epsilon=np.radians(23.27)):
 
     vector_lmn = np.dot(A_matrix, vector_srs)
     return vector_lmn
-
-def ljk(epsilon):
-    """
-    Calculates ecliptic triad vectors with respect to BCRS-frame.
-    (Lindegren, SAG-LL-35, Eq.1)
-
-    :param epsilon: obliquity of the equator.
-    :return: np.array, np.array, np.array
-    """
-    l = np.array([1,0,0])
-    j = np.array([0, np.cos(epsilon), np.sin(epsilon)])
-    k = np.array([0, -np.sin(epsilon), np.cos(epsilon)])
-    return l, j, k
-
-
-def pqr(alpha, delta):
-    p = np.array([-np.sin(alpha), np.cos(alpha), 0])
-    q = np.array([-np.sin(delta)*np.cos(alpha), -np.sin(delta)*np.sin(alpha), np.cos(delta)])
-    r = np.array([np.cos(delta)*np.cos(alpha), np.cos(delta)*np.sin(alpha), np.sin(delta)])
-
-    return p, q, r
-
 
 def xyz(attitude, vector):
     q_vector_srs = to_quaternion(vector)
