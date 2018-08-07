@@ -68,10 +68,10 @@ if _use_defaults:
 #
 # hit_distribution          yes
 # flux                      yes
-# p_distribution            no
+# p_distribution            yes
 # freq                      yes
-# tp_distribution           no
-# time_distribution         no
+# tp_distribution           yes
+# time_distribution         yes
 # AOCSResponse              no
 # generate_event            yes
 # generate_data             no

@@ -19,7 +19,8 @@ try:
                                  plot_anomaly, identify_through_gradient, \
                                  Abuelmaatti, point_density
     from hits.hitsimulator import hit_distribution, flux, p_distribution, \
-        freq, generate_event, generate_data, masses
+        freq, generate_event, generate_data, masses, tp_distribution, \
+        time_distribution
     from hits.response.anomaly import isolate_anomaly, spline_anomaly
     from hits.response.characteristics import get_turning_points, \
         filter_turning_points
@@ -28,7 +29,8 @@ except(ImportError):
                              identify_through_gradient, Abuelmaatti, \
                              point_density
     from .hitsimulator import hit_distribution, flux, p_distribution, freq, \
-        generate_event, generate_data, masses
+        generate_event, generate_data, masses, tp_distribution, \
+        time_distribution
     from .response.anomaly import isolate_anomaly, spline_anomaly
     from .response.characteristics import get_turning_points, \
         filter_turning_points
@@ -210,6 +212,28 @@ class TestHitSimulatorNumericalFuncs(unittest.TestCase):
         self.assertLessEqual(len(dist[1]), len(dist[0]),
                              msg="The array of hit indices was not less than"
                                  " the array of measured points.")
+
+    def test_tp_distribution_returns_realistic_magnitude(self):
+        for i in np.arange(0, 10, 0.05):
+            points = tp_distribution(i)
+            self.assertLess(points, 2*(i + 1),  # Big number
+                            msg="%r turning points predicted for an input of"
+                                "%r." % (points, i))
+            self.assertTrue(points > 0,
+                            msg="%r turning points predicted for an input of"
+                                "%r. This value should be greater than 0,"
+                                % (points, i))
+
+    def test_time_distribution_returns_realistic_magnitude(self):
+        for i in np.arange(0, 10, 0.05):
+            time = time_distribution(i)
+            self.assertLess(time, 0.008,
+                            msg="Response time was predicted to be %r for an "
+                                "input of %r." % (time, i))
+            self.assertTrue(time > 0,
+                            msg="Response time was predicted to be %r for an "
+                                "input of %r. This value should be greater "
+                                "than 0." % (time, i))
 
 
 class TestHitSimulatorGeneratorFuncs(unittest.TestCase):
