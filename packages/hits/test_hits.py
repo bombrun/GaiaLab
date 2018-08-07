@@ -20,7 +20,7 @@ try:
                                  Abuelmaatti, point_density
     from hits.hitsimulator import hit_distribution, flux, p_distribution, \
         freq, generate_event, generate_data, masses, tp_distribution, \
-        time_distribution
+        time_distribution, AOCSResponse
     from hits.response.anomaly import isolate_anomaly, spline_anomaly
     from hits.response.characteristics import get_turning_points, \
         filter_turning_points
@@ -30,7 +30,7 @@ except(ImportError):
                              point_density
     from .hitsimulator import hit_distribution, flux, p_distribution, freq, \
         generate_event, generate_data, masses, tp_distribution, \
-        time_distribution
+        time_distribution, AOCSResponse
     from .response.anomaly import isolate_anomaly, spline_anomaly
     from .response.characteristics import get_turning_points, \
         filter_turning_points
@@ -236,6 +236,62 @@ class TestHitSimulatorNumericalFuncs(unittest.TestCase):
                                 "than 0." % (time, i))
 
 
+class TestHitSimulatorAOCSClass(unittest.TestCase):
+
+    def test_decay_pattern_length_increases_with_amplitude(self):
+        len0p1 = len(AOCSResponse._decay_pattern(0.1))
+        len100 = len(AOCSResponse._decay_pattern(100))
+        self.assertLess(len0p1, len100, msg="AOCSResponse._decay_pattern "
+                                            "returned arrays of length %r and "
+                                            "%r for inputs of 0.1 and 100 "
+                                            "respectively. 100 should yield a "
+                                            "longer output than 0.1."
+                                            % (len0p1, len100))
+
+    def test_getitem_pops_value(self):
+        data = AOCSResponse()
+        data(12)
+        len_before = len(data._data)
+        data[0]
+        len_after = len(data._data)
+
+        self.assertEqual(len_before-1, len_after, msg="Calling __getitem__ "
+                                                      "on a %r length instance"
+                                                      " left the instance with"
+                                                      " length %r. The length "
+                                                      "should have decreased "
+                                                      "by 1." % (len_before,
+                                                                 len_after))
+
+    def test_init_creates_empty_data_array(self):
+        data = AOCSResponse()
+        self.assertEqual(len(data._data), 0, msg="AOCSResponse instance "
+                                                 "created with _data variable "
+                                                 "of length %r. Length should "
+                                                 "be 0." % len(data._data))
+
+    def test_call_populates_data_array(self):
+        data = AOCSResponse()
+        data(12)
+        self.assertNotEqual(len(data._data), 0, msg="AOCSResponse instance "
+                                                    "has _data variable of "
+                                                    "length 0. It should be "
+                                                    "non-zero.")
+
+    def test_call_with_small_amplitude_doesnt_increase_array_len(self):
+        data = AOCSResponse()
+        data(1000)
+        big_len = len(data._data)
+        data(0.5)
+        new_len = len(data._data)
+
+        self.assertEqual(big_len, new_len, msg="Calling an instance with "
+                                               "length %r with value 0.5 "
+                                               "increases the length to %r. "
+                                               "The length shouldn't increase."
+                                               % (big_len, new_len))
+
+
 class TestHitSimulatorGeneratorFuncs(unittest.TestCase):
 
     @staticmethod
@@ -272,6 +328,9 @@ class TestHitSimulatorGeneratorFuncs(unittest.TestCase):
                                "%.2e.\nIf this happens multiple times, use "
                                "your statistical discretion to consider this "
                                "a failure.\n***\n\n" % (count, probability))
+
+    def test_generate_data_returns_expected_length(self):
+        
 
 
 # -----------characteristics.py tests------------------------------------------

@@ -72,7 +72,7 @@ if _use_defaults:
 # freq                      yes
 # tp_distribution           yes
 # time_distribution         yes
-# AOCSResponse              no
+# AOCSResponse              yes
 # generate_event            yes
 # generate_data             no
 
@@ -243,8 +243,9 @@ class AOCSResponse:
         # array not occupied.
         data = self._decay_pattern(amplitude)
         diff = -(len(self._data) - len(data))
-        self._data = [a + b for a, b in zip(self._data + diff*[0],
-                                            data + diff*[0])]
+        old = self._data
+        self._data = [a + b for a, b in zip(old + diff * [0],
+                                            data + (-1) * diff * [0])]
 
     def __getitem__(self, index):
         # self._data will realistically never exceed 200 so holding it
