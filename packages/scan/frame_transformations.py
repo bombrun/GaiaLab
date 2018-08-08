@@ -12,21 +12,27 @@ def to_quaternion(vector):
     return Quaternion(0, vector[0], vector[1], vector[2])
 
 
-def cartesian_to_polar(vector):
+def to_polar(vector):
 
     radius = np.sqrt(vector[0] ** 2 + vector[1] ** 2 + vector[2] ** 2)
     alpha = np.arctan2(vector[1], vector[0])
     delta = np.arcsin(vector[2]/radius)
     return alpha, delta, radius
 
+def to_direction(alpha, delta):
+    x = np.cos(alpha)*np.cos(delta)
+    y = np.sin(alpha)*np.cos(delta)
+    z = np.sin(delta)
 
-def cartesian_coord(alpha, delta, parallax):
+    return np.array([x, y, z])
+
+def to_cartesian(alpha, delta, parallax):
     """
 
     :param azimuth: rad
     :param altitude:rad
     :param parallax: mas
-    :return:
+    :return: array in parsecs.
     """
     parallax = parallax/1000 #from mas to arcsec
 
@@ -99,7 +105,7 @@ def xyz(attitude, vector):
     q_vector_xyz = attitude * q_vector_srs * attitude.conjugate()
     return q_vector_xyz.to_vector()
 
-def srs(attitude, vector):
+def lmn(attitude, vector):
     q_vector_xyz = to_quaternion(vector)
     q_vector_srs = attitude.conjugate() * q_vector_xyz * attitude
     return q_vector_srs.to_vector()
