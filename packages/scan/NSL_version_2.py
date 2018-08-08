@@ -40,6 +40,13 @@ class Sky:
 #vega = Source("vega", 279.2333, 38.78, 128.91, 201.03, 286.23, -13.9)
 #proxima = Source("proxima",217.42, -62, 768.7, 3775.40, 769.33, 21.7)
 #sirio = Source("sirio", 101.28, -16.7161, 379.21, -546.05, -1223.14, -7.6)
+#alphacentauri = Source('alpha centauri', )
+#barnard = Source("Barnard", )
+#wolf = Source('Wolf 359', )
+#lalande = Source("Lalande 21185", )
+#luyten = Source('Luyten 726-8B', )
+#ross154 = Source('
+#demo = Source("demo", 217.42, -62, 1, -1700, -2000, -30)
 
 class Source: #need to take care of units
 
@@ -95,12 +102,15 @@ class Source: #need to take care of units
         mastorad = 2*np.pi/(1000*360*3600)
         kmtopc = 3.24078e-14
         sectoday = 3600*24
+        AUtopc = 4.8481705933824e-6
 
         mu_alpha_dx = self.mu_alpha_dx*mastorad/365   #mas/yr to rad/day
         mu_delta = self.mu_delta*mastorad/365  #mas/yr to rad/day
         mu_radial = self.parallax*mastorad*self.mu_radial*kmtopc*sectoday #km/s to aproximation rad/day
 
-        u_lmn = self.barycentric_direction(0) + t*(p*mu_alpha_dx+ q*mu_delta + r*mu_radial) - satellite.ephemeris_bcrs(t) #pc
+        u_lmn = self.barycentric_direction(0) + t*(p*mu_alpha_dx+ q*mu_delta + r*mu_radial) - \
+                satellite.ephemeris_bcrs(t)*AUtopc
+
         u_lmn_unit  = u_lmn/np.linalg.norm(u_lmn)
 
         alpha_obs, delta_obs, radius = ft.cartesian_to_polar(u_lmn_unit) #rad, rad, pc=1
@@ -146,15 +156,15 @@ class Satellite:
         b_y_bcrs = self.orbital_radius*np.sin(2*np.pi/self.orbital_period*t)*np.cos(self.epsilon)
         b_z_bcrs = self.orbital_radius*np.sin(2*np.pi/self.orbital_period*t)*np.sin(self.epsilon)
 
-        bcrs_ephemeris_satellite = np.array([b_x_bcrs, b_y_bcrs, b_z_bcrs])
+        bcrs_ephemeris_satellite = np.array([b_x_bcrs, b_y_bcrs, b_z_bcrs]) #in AU
 
-        return bcrs_ephemeris_satellite*4.8481705933824e-6 #in parsecs
+        return bcrs_ephemeris_satellite
 
 class Attitude(Satellite):
     """
     Child class to Satellite.
     """
-    def __init__(self, ti, tf, dt):
+    def __init__(self, ti=0, tf=365*5, dt=0.01):
         Satellite.__init__(self)
         self.init_state()
         self.storage = []
@@ -257,13 +267,13 @@ class Attitude(Satellite):
             y_list.append(obj[4].y)
             z_list.append(obj[4].z)
 
-        self.s_x= interpolate.InterpolatedUnivariateSpline(t_list, x_list)
-        self.s_y = interpolate.InterpolatedUnivariateSpline(t_list, y_list)
-        self.s_z = interpolate.InterpolatedUnivariateSpline(t_list, z_list)
-        self.s_w = interpolate.InterpolatedUnivariateSpline(t_list, w_list)
+        self.s_x= interpolate.InterpolatedUnivariateSpline(t_list, x_list, k=4)
+        self.s_y = interpolate.InterpolatedUnivariateSpline(t_list, y_list, k=4)
+        self.s_z = interpolate.InterpolatedUnivariateSpline(t_list, z_list, k=4)
+        self.s_w = interpolate.InterpolatedUnivariateSpline(t_list, w_list, k=4)
 
     def get_attitude(self, t):
-        attitude = Quaternion(float(self.s_w(t)), float(self.s_x(t)), float(self.s_y(t)), float(self.s_z(t)))
+        attitude = Quaternion(float(self.s_w(t)), float(self.s_x(t)), float(self.s_y(t)), float(self.s_z(t))).unit()
         return attitude
 
     def get_xaxis_lmn(self, t):
