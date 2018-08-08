@@ -15,6 +15,8 @@ from hits.misc import sort_data
 from numba import jit
 from array import array
 
+# -----------------------------------------------------------------------------
+#
 # Functions and classes         test implemented?
 #
 # identify_through_magnitude    yes
@@ -24,7 +26,8 @@ from array import array
 # filter_through_response       no
 # anomaly_density               no
 # plot_anomaly                  no (probably unnecessary)
-
+#
+# -----------------------------------------------------------------------------
 
 @sort_data
 @jit

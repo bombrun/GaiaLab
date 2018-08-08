@@ -14,7 +14,24 @@ import pandas as pd
 import configparser
 from numba import jit  # Compiles python - speeds up iteration.
 
-from .misc import s2o, o2s
+from .misc import s2o, o2s  # Conversion functions for obmt and seconds.
+
+# -----------------------------------------------------------------------------
+
+#
+# Functions and classes     test implemented?
+#
+# hit_distribution          yes
+# flux                      yes
+# p_distribution            yes
+# freq                      yes
+# tp_distribution           yes
+# time_distribution         yes
+# AOCSResponse              yes
+# generate_event            yes
+# generate_data             yes
+#
+# -----------------------------------------------------------------------------
 
 # Use hits.ini to decide which variables to use--------------------------------
 config = configparser.ConfigParser()
@@ -62,23 +79,10 @@ if _use_defaults:
     t_m_scale = 0.001
     t_c_loc = 0.004
     t_c_scale = 0.0001
-# -----------------------------------------------------------------------------
-
-# Functions and classes     test implemented?
-#
-# hit_distribution          yes
-# flux                      yes
-# p_distribution            yes
-# freq                      yes
-# tp_distribution           yes
-# time_distribution         yes
-# AOCSResponse              yes
-# generate_event            yes
-# generate_data             no
-
 
 # Function definitions.
 # First functions use @jit decorators for speed.
+
 
 @jit
 def hit_distribution(hits):

@@ -330,7 +330,15 @@ class TestHitSimulatorGeneratorFuncs(unittest.TestCase):
                                "a failure.\n***\n\n" % (count, probability))
 
     def test_generate_data_returns_expected_length(self):
-        
+        data = generate_data(1000)
+        self.assertEqual(len(data), 1000, msg="DataFrame produced was of "
+                                              "length %r. Expected 1000."
+                                              % len(data))
+
+    def test_generate_data_doesnt_return_empty_array(self):
+        data = generate_data(1000)
+        self.assertFalse(all(bool(x) is False for x in data['rate']),
+                         msg="Function generate_data generated no hits.")
 
 
 # -----------characteristics.py tests------------------------------------------
