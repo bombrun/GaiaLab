@@ -255,18 +255,32 @@ def plot_sky(sky):
     ax.set_zlabel('n')
     plt.show()
 
-def plot_angles(source, satellite, t):
+def plot_star_trayectory(source, satellite, scan, t_total):
     alphas = []
     deltas = []
-    for i in np.arange(0, t, 1):
-        alpha, delta=  source.topocentric_direction(satellite, i)
-        alphas.append(alpha)
-        deltas.append(delta)
+    alphas_obs = []
+    deltas_obs = []
 
+    for i in np.arange(0, t_total, 1):
+        delta_alpha, delta_delta=  source.topocentric_direction(satellite, i)
+        alphas.append(delta_alpha)
+        deltas.append(delta_delta)
+
+    #careful, this is giving the exact position of the star at the time where the coarse scan see it, not the scan-axis.
+    times_obs= scan.times_deep_scan
+    for t in times_obs:
+        delta_alpha_obs, delta_delta_obs = source.topocentric_direction(satellite, t)
+        alphas_obs.append(delta_alpha_obs)
+        deltas_obs.append(delta_delta_obs)
+
+    n = len(alphas)
+    times = np.linspace(2000, 2000 + t_total/365, n)
+    times_observations = [2000 + t/365 for t in times_obs]
     fig = plt.figure(figsize=(16, 9))
     ax = fig.add_subplot(121)
     ax.plot(alphas, deltas,'b-',
             label=r'%s path' %(source.name), lw=2)
+    ax.plot(alphas_obs, deltas_obs, 'r*')
     ax.set_xlabel(r'$\Delta\alpha*$ [mas]')
     ax.set_ylabel(r'$\Delta\delta$ [mas]')
     ax.axhline(y=0, c='gray', lw=1)
@@ -277,13 +291,15 @@ def plot_angles(source, satellite, t):
 
     ax1dra = fig.add_subplot(222)
     ax1dra.axhline(y=0, c='gray', lw=1)
-    ax1dra.set_xlabel(r'Time [days]')
-    ax1dra.plot(alphas, 'b-')
+    ax1dra.set_xlabel(r'Time [yr]')
+    ax1dra.plot(times, alphas, 'b-')
+    ax1dra.plot(times_observations,alphas_obs, 'r*')
     ax1dra.set_ylabel(r'$\Delta\alpha*$ [mas]')
 
     ax1ddec = fig.add_subplot(224)
     ax1ddec.axhline(y=0, c='gray', lw=1)
-    ax1ddec.plot(deltas, 'b-')
+    ax1ddec.plot(times, deltas, 'b-')
+    ax1ddec.plot(times_observations, deltas_obs, 'r*')
     ax1ddec.set_xlabel(r'Time [yr]')
     ax1ddec.set_ylabel(r'$\Delta\delta$ [mas]')
 
