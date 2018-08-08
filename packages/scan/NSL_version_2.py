@@ -45,7 +45,7 @@ class Sky:
 #wolf = Source('Wolf 359', )
 #lalande = Source("Lalande 21185", )
 #luyten = Source('Luyten 726-8B', )
-#ross154 = Source('
+#ross154 = Source(
 #demo = Source("demo", 217.42, -62, 1, -1700, -2000, -30)
 
 class Source: #need to take care of units
@@ -72,6 +72,8 @@ class Source: #need to take care of units
         self.mu_delta = mu_delta                       #mas/yr
         self.mu_radial = mu_radial    #mas*km/s
 
+        self.direction_bcrs= ft.to_direction(self.__alpha0, self.__delta0)
+        self.coor_bcrs = ft.to_cartesian(self.__alpha0, self.__delta0, self.parallax)
 
     def reset(self):
         self.alpha = self.__alpha0
@@ -92,10 +94,16 @@ class Source: #need to take care of units
         :return: vector in parsecs
         """
         self.set_time(t)
-        u_bcrs = ft.cartesian_coord(self.alpha, self.delta, self.parallax)
+        u_bcrs = ft.to_cartesian(self.alpha, self.delta, self.parallax)
         return u_bcrs   #in pc
 
     def topocentric_direction(self, satellite, t):
+        """
+
+        :param satellite:
+        :param t:
+        :return: alpha and delta angles from satellite in radians
+        """
 
         self.set_time(t)
         p, q, r = ft.pqr(self.alpha, self.delta)
@@ -113,15 +121,16 @@ class Source: #need to take care of units
 
         u_lmn_unit  = u_lmn/np.linalg.norm(u_lmn)
 
-        alpha_obs, delta_obs, radius = ft.cartesian_to_polar(u_lmn_unit) #rad, rad, pc=1
+        alpha_obs, delta_obs, radius = ft.to_polar(u_lmn_unit) #rad, rad, pc=1
 
         if alpha_obs < 0:
             alpha_obs = alpha_obs + 2*np.pi
 
-        delta_alpha_dx_mas = (alpha_obs - self.__alpha0)*np.cos(self.__delta0)/mastorad
-        delta_delta_mas = (delta_obs - self.__delta0)/mastorad
+        #check here if radius is 1, or close to one in unit test.
+        delta_alpha_dx_mas = (alpha_obs - self.__alpha0) * np.cos(self.__delta0) / mastorad
+        delta_delta_mas = (delta_obs - self.__delta0) / mastorad
 
-        return delta_alpha_dx_mas, delta_delta_mas
+        return delta_alpha_dx_mas, delta_delta_mas #in mas
 
 
 class Satellite:
@@ -164,7 +173,7 @@ class Attitude(Satellite):
     """
     Child class to Satellite.
     """
-    def __init__(self, ti=0, tf=365*5, dt=0.01):
+    def __init__(self, ti=0, tf=365*5, dt= 1/24.):
         Satellite.__init__(self)
         self.init_state()
         self.storage = []
@@ -276,8 +285,10 @@ class Attitude(Satellite):
         attitude = Quaternion(float(self.s_w(t)), float(self.s_x(t)), float(self.s_y(t)), float(self.s_z(t))).unit()
         return attitude
 
-    def get_xaxis_lmn(self, t):
-        return None
+    def get_x_axis_lmn(self, t):
+        attitude = self.get_attitude(t)
+        x_axis_lmn = ft.xyz(attitude, self.x)
+        return x_axis_lmn
 
     def long_reset_to_time(self, t, dt):
         # this is slowing down create_storage but it is very exact.
@@ -343,10 +354,11 @@ class Scanner:
         stars_positions (list of arrays): positions calculated from obs_times of transits using satellite's attitude.
     """
 
-    def __init__(self, ccd, delta_z, delta_y):
+    def __init__(self, ccd, delta_z, delta_y, circle_ang = np.radians(5)):
         self.delta_z = delta_z
         self.delta_y = delta_y
         self.ccd = ccd
+        self.circle_ang = circle_ang
 
         #create storage
         self.obs_times = []
@@ -361,12 +373,30 @@ class Scanner:
         self.telescope_positions.clear()
         self.times_deep_scan.clear()
 
+    def coarse_scan(self, satellite, att, source, ti, tf, step = 0.2):
+        """
+        Scans sky with a dot product technique to get rough times of observation.
+        :return: None
+        :action: self.times_deep_scan list filled with observation time windows.
+        """
+        self.reset_memory()
+        for t in np.arange(ti, tf, step):
+            alpha_lmn, delta_lmn = source.topocentric_direction(satellite, t)
+            star_lmn_vector = ft.to_direction(alpha_lmn, delta_lmn)
+            x_axis_lmn = att.get_x_axis_lmn(t)
+            if np.arccos(np.dot(star_lmn_vector, x_axis_lmn)) < self.circle_ang:
+                self.times_deep_scan.append(t)
+        print('Star crossing field of view %i times' %(len(self.times_deep_scan)))
+
+
     def intercept(self, att, star, line = False):
         """
         :param star: source object.
         :param attitude: contains storage list.
         :return: populates scanner.times_to_scan list, before deep_scan is executed.
         """
+        print ('Intercepting')
+
         for obj in att.storage:
             t = obj[0]
             x_telescope1 = obj[3]
@@ -393,8 +423,6 @@ class Scanner:
                     else:
                         self.times_deep_scan.append(t)
                         self.times_deep_scan.sort()
-
-        print('times intercepted:', len(self.times_deep_scan))
 
     def deep_scan(self, att, star, deep_dt=0.001):
 
