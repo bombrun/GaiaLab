@@ -23,11 +23,12 @@ from array import array
 # identify_through_gradient     yes
 # Abuelmaatti                   yes
 # point_density                 yes
-# filter_through_response       no
-# anomaly_density               no
+# filter_through_response       yes
+# anomaly_density               yes
 # plot_anomaly                  no (probably unnecessary)
 #
 # -----------------------------------------------------------------------------
+
 
 @sort_data
 @jit
@@ -343,7 +344,7 @@ def filter_through_response(df, threshold=2):
     return df
 
 
-def anomaly_density(df, method='response', window_size=3600, **kwargs):
+def anomaly_density(df, method='magnitude', window_size=3600, **kwargs):
     """
     Accepts:
 

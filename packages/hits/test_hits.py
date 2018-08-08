@@ -16,8 +16,8 @@ import math
 # Equivalent to from . import * but more verbose
 try:
     from hits.hitdetector import identify_through_magnitude,\
-                                 plot_anomaly, identify_through_gradient, \
-                                 Abuelmaatti, point_density
+        plot_anomaly, identify_through_gradient, Abuelmaatti, point_density, \
+        filter_through_response, anomaly_density
     from hits.hitsimulator import hit_distribution, flux, p_distribution, \
         freq, generate_event, generate_data, masses, tp_distribution, \
         time_distribution, AOCSResponse
@@ -26,8 +26,8 @@ try:
         filter_turning_points
 except(ImportError):
     from .hitdetector import identify_through_magnitude, plot_anomaly, \
-                             identify_through_gradient, Abuelmaatti, \
-                             point_density
+        identify_through_gradient, Abuelmaatti, point_density, \
+        filter_through_response, anomaly_density
     from .hitsimulator import hit_distribution, flux, p_distribution, freq, \
         generate_event, generate_data, masses, tp_distribution, \
         time_distribution, AOCSResponse
@@ -54,10 +54,6 @@ class TestHitDetectorIdentifyFuncs(unittest.TestCase):
         self.df = pd.DataFrame(data=dict(obmt=obmt,
                                          rate=rate,
                                          w1_rate=w1_rate))
-        sin_data = 3*np.sin(2*np.pi * obmt)
-        self.sin_df = pd.DataFrame(data=dict(obmt=obmt,
-                                             rate=sin_data,
-                                             w1_rate=w1_rate))
 
     def test_identify_through_magnitude_correctly_identifies(self):
         # Should identify 3 anomalies in the generated data.
@@ -77,6 +73,18 @@ class TestHitDetectorIdentifyFuncs(unittest.TestCase):
                          msg="Detected %r hits. Expected to detect %r." %
                          (len(identify_through_gradient(self.df)[1]),
                           self.hits))
+
+    def test_filter_through_anomaly_removes_all_anomalies(self):
+        self.assertTrue(all(not x for x in
+                            filter_through_response(self.df)['rate']),
+                        msg="Anomalous data not filtered by "
+                            "filter_by_response.")
+
+    def test_filter_through_anomaly_doesnt_change_data_above_threshold(self):
+        self.assertFalse(all(not x for x in
+                             filter_through_response(self.df,
+                                                     threshold=5)['rate']),
+                         msg="Acceptable data filtered by filter_by_response.")
 
 
 class TestHitDetectorAbuelmaattiFuncs(unittest.TestCase):
@@ -175,6 +183,20 @@ class TestHitDetectorDensityFuncs(unittest.TestCase):
             raise(AssertionError("%r and %r are not equal."
                                  % ((point_density(self.df)[1]),
                                     (self.expected_density))))
+
+    def test_anomaly_density_returns_correct_density(self):
+        data = [0, 0, 3] * 100
+        df = pd.DataFrame(data=dict(obmt=np.linspace(0, 100, 300),
+                                    rate=data,
+                                    w1_rate=[0] * 300))
+        density = anomaly_density(df, window_size=3)
+        try:
+            np.testing.assert_array_almost_equal(density['density'],
+                                                 [0] * 2 + [0.3333333] * 298,
+                                                 decimal=3)
+        except(AssertionError):
+            raise(AssertionError("Density incorrectly calculated as %r."
+                                 % density['density']))
 
 
 # -----------hitsimulator.py tests---------------------------------------------
