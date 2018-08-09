@@ -21,9 +21,6 @@ try:
     from hits.hitsimulator import hit_distribution, flux, p_distribution, \
         freq, generate_event, generate_data, masses, tp_distribution, \
         time_distribution, AOCSResponse
-    from hits.response.anomaly import isolate_anomaly, spline_anomaly
-    from hits.response.characteristics import get_turning_points, \
-        filter_turning_points
 except(ImportError):
     from .hitdetector import identify_through_magnitude, plot_anomaly, \
         identify_through_gradient, Abuelmaatti, point_density, \
@@ -31,9 +28,6 @@ except(ImportError):
     from .hitsimulator import hit_distribution, flux, p_distribution, freq, \
         generate_event, generate_data, masses, tp_distribution, \
         time_distribution, AOCSResponse
-    from .response.anomaly import isolate_anomaly, spline_anomaly
-    from .response.characteristics import get_turning_points, \
-        filter_turning_points
 
 
 # -----------hitdetector.py tests----------------------------------------------
@@ -361,32 +355,6 @@ class TestHitSimulatorGeneratorFuncs(unittest.TestCase):
         data = generate_data(1000)
         self.assertFalse(all(bool(x) is False for x in data['rate']),
                          msg="Function generate_data generated no hits.")
-
-
-# -----------characteristics.py tests------------------------------------------
-class TestResponseTurningPointFuncs(unittest.TestCase):
-
-    def setUp(self):
-        # Set up dummy polynomial data with known number of turning
-        # points.
-        obmt = np.linspace(0, 100, 1000)
-        # Random number of turning points between 0 and 20.
-        self.points = np.random.randint(1, 20)
-
-        # Set up rate as a sin function over obmt with the expected
-        # number of turning points.
-        rate = np.sin(self.points*np.pi*obmt/100)
-        w1_rate = np.zeros(1000)
-        self.df = pd.DataFrame(data=dict(obmt=obmt,
-                                         rate=rate,
-                                         w1_rate=w1_rate))
-
-    def test_get_turning_points(self):
-        self.assertEqual(len(get_turning_points(self.df)), self.points)
-
-    def test_filter_turning_points(self):
-        self.assertTrue(len(filter_turning_points(self.df)) <=
-                        len(get_turning_points(self.df)))
 # -----------------------------------------------------------------------------
 if __name__ == "__main__":
     unittest.main()

@@ -11,7 +11,7 @@ from scipy.interpolate import UnivariateSpline, BSpline
 
 
 @sort_data
-def isolate_anomaly(df, method, time_res=0.01):
+def isolate_anomaly(df, method='magnitude', time_res=0.01):
     """
     Accepts:
 

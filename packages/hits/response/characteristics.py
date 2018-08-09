@@ -2,6 +2,17 @@ import pandas as pd
 import numpy as np
 from hits.misc import sort_data
 
+# -----------------------------------------------------------------------------
+#
+# Functions and classes         test implemented?
+#
+# get_turning_points            yes
+# filter_turning_points         yes
+# count_turning_points          yes
+# response_time                 yes
+#
+# -----------------------------------------------------------------------------
+
 
 @sort_data
 def get_turning_points(df):
@@ -140,7 +151,7 @@ def count_turning_points(df, threshold=1):
 
     peak = max(abs(df['rate'] - df['w1_rate']))
 
-    return (peak, len(turning_points) - 1)
+    return (peak, len(turning_points))
 
 
 @sort_data
@@ -150,8 +161,8 @@ def response_time(df, t=10, window_size=25):
 
         a Pandas dataframe of shape:
 
-                obmt    rate    w1_rate
-            1.  float   float   float
+                obmt    rate    w1_rate hits
+            1.  float   float   float   bool
         or equivalent.
 
     This should be a hit detected using
