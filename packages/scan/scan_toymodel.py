@@ -18,25 +18,6 @@ from astropy import constants
 from astropy import units
 
 
-class Sky:
-    """
-    Creates n source objects from random numbers.
-    Args:
-        n (int): number of sources to be created.
-    Attributes:
-        elements (list of obj): list of source objects.
-    """
-
-    def __init__(self, n):
-        self.elements = []
-        for i in range(n):
-            alpha = np.random.uniform(0, 2 * np.pi)
-            delta = np.random.uniform(-np.pi / 2, np.pi / 2)
-
-            solar_radius = np.random.uniform(1, 5)
-            parallax = np.arctan2(1, solar_radius)
-            self.elements.append(Source(alpha, delta, parallax))
-
 #vega = Source("vega", 279.2333, 38.78, 128.91, 201.03, 286.23, -13.9)
 #proxima = Source("proxima",217.42, -62, 768.7, 3775.40, 769.33, 21.7)
 #sirio = Source("sirio", 101.28, -16.7161, 379.21, -546.05, -1223.14, -7.6)
@@ -97,13 +78,12 @@ class Source: #need to take care of units
         u_bcrs = ft.to_cartesian(self.alpha, self.delta, self.parallax)
         return u_bcrs   #in pc
 
-    def __topocentric_direction(self, satellite,t):
+    def topocentric_function(self, satellite):
         """
         :param satellite:
         :param t:
         :return: alpha and delta angles from satellite in radians
         """
-        self.set_time(t)
         p, q, r = ft.pqr(self.alpha, self.delta)
         mastorad = 2*np.pi/(1000*360*3600)
         kmtopc = 3.24078e-14
@@ -114,23 +94,22 @@ class Source: #need to take care of units
         mu_delta = self.mu_delta*mastorad/365  #mas/yr to rad/day
         mu_radial = self.parallax*mastorad*self.mu_radial*kmtopc*sectoday #km/s to aproximation rad/day
 
-        self.u_lmn = lambda t: self.barycentric_direction(0) + t*(p*mu_alpha_dx+ q*mu_delta + r*mu_radial) - \
+        func_u_lmn = lambda t: self.barycentric_direction(0) + t*(p*mu_alpha_dx+ q*mu_delta + r*mu_radial) - \
                 satellite.ephemeris_bcrs(t)*AUtopc
+        return func_u_lmn
 
     def topocentric_angles(self, satellite, t):
-        self.__topocentric_direction(satellite, t)
+        func_u_lmn = self.topocentric_function(satellite)
         mastorad = 2 * np.pi / (1000 * 360 * 3600)
-        u_lmn_unit = self.u_lmn(t)/np.linalg.norm(self.u_lmn(t))
+        u_lmn_unit = func_u_lmn(t)/np.linalg.norm(func_u_lmn(t))
         alpha_obs, delta_obs, radius = ft.to_polar(u_lmn_unit) #rad, rad, pc=1
         if alpha_obs < 0:
             alpha_obs = alpha_obs + 2*np.pi
-
         #check here if radius is 1, or close to one in unit test.
         delta_alpha_dx_mas = (alpha_obs - self.__alpha0) * np.cos(self.__delta0) / mastorad
         delta_delta_mas = (delta_obs - self.__delta0) / mastorad
 
         return delta_alpha_dx_mas, delta_delta_mas #in mas
-
 
 class Satellite:
 
@@ -286,9 +265,8 @@ class Attitude(Satellite):
         return attitude
 
     def get_x_axis_lmn(self, t):
-        attitude = self.get_attitude(t)
-        x_axis_lmn = ft.xyz(attitude, self.x)
-        return x_axis_lmn
+        x_axis_lmn  = lambda t: ft.xyz(self.get_attitude(t), self.x)
+        return x_axis_lmn(t)
 
     def long_reset_to_time(self, t, dt):
         # this is slowing down create_storage but it is very exact.
@@ -373,7 +351,7 @@ class Scanner:
         self.telescope_positions.clear()
         self.times_deep_scan.clear()
 
-    def coarse_scan(self, satellite, att, source, ti, tf, step = 0.2):
+    def coarse_scan(self, att, source, ti, tf, step):
         """
         Scans sky with a dot product technique to get rough times of observation.
         :return: None
@@ -381,98 +359,36 @@ class Scanner:
         """
         self.reset_memory()
         for t in np.arange(ti, tf, step):
-            alpha_lmn, delta_lmn = source.topocentric_direction(satellite, t)
+            alpha_lmn, delta_lmn = source.topocentric_angles(att, t)
             star_lmn_vector = ft.to_direction(alpha_lmn, delta_lmn)
             x_axis_lmn = att.get_x_axis_lmn(t)
             if np.arccos(np.dot(star_lmn_vector, x_axis_lmn)) < self.circle_ang:
                 self.times_deep_scan.append(t)
         print('Star crossing field of view %i times' %(len(self.times_deep_scan)))
 
+    def find_solution(self, att, star):
 
-    def intercept(self, att, star, line = False):
-        """
-        :param star: source object.
-        :param attitude: contains storage list.
-        :return: populates scanner.times_to_scan list, before deep_scan is executed.
-        """
-        print ('Intercepting')
-
-        for obj in att.storage:
-            t = obj[0]
-            x_telescope1 = obj[3]
-            attitude = obj[4]
-
-            x_srs_telescope1 = ft.xyz(attitude, x_telescope1)
-            star_coor_srs = ft.xyz(attitude, star.coor)
-
-            xy_proy_star_srs = np.array([star_coor_srs[0], star_coor_srs[1], 0])
-            xz_proy_star_srs = np.array([star_coor_srs[0], 0, star_coor_srs[2]])
-
-            width_angle = 2 * np.arctan2(self.ccd/2, x_srs_telescope1[0])
-            height_angle = 2 * np.arctan2(self.delta_z/2, x_srs_telescope1[0])
-
-            width_star = np.arctan2(xy_proy_star_srs[1], xy_proy_star_srs[0])
-            height_star = np.arctan2(xz_proy_star_srs[2], xz_proy_star_srs[0])
-
-            if np.abs(width_star) < width_angle:
-                if np.abs(height_star) < height_angle:
-                    if line is True:
-                        if np.abs(star_coor_srs[1] - x_srs_telescope1[1]) < self.delta_y:
-                            self.obs_times.append(t)
-                            self.telescope_positions.append(ft.lmn(attitude, x_srs_telescope1))
-                    else:
-                        self.times_deep_scan.append(t)
-                        self.times_deep_scan.sort()
-
-    def deep_scan(self, att, star, deep_dt=0.001):
-        """
-        Increases precision of satellite at points where source is intercept by scanner in the CCD.
-        :param: attitude: attitude class.
-        :param satellite: satellite object.
-        :param deep_dt: new step dt fur higher numerical method precision.
-        """
-        print ('doing deep_scan')
+        func_x_axis_lmn = lambda t: ft.xyz(att.get_attitude(t), att.x)
+        func_u_lmn = star.topocentric_function(att)
+        func_opt = lambda t: np.abs(func_u_lmn(t) - func_x_axis_lmn(t))
 
         for t in self.times_deep_scan:
-            att.short_reset_to_time(t)
-            att.create_storage(t - 0.2, t + 0.2, deep_dt)
-
-        self.intercept(att, star, line = True)
-
-        print('deep_scan done')
-
-
-def star_finder(att, sky, scanner):
-    """
-    Finds times at which source transit CCD line of scanner and estimates their position in the BCRS frame.
-    :param sky: object
-    :param att:object
-    :param scanner: object
-    :return: scanner.star_positions, scanner.obs_times.
-    """
-    for star in sky.elements:
-        scanner.reset_memory()
-        scanner.intercept(att, star)
-        if len(scanner.times_deep_scan) != 0:
-            scanner.deep_scan(att, star)
-
-def run(days = 1825, dt = 0.2, stars=1):
+            
+def run():
     """
     :param days: number of days to run
     :param dt: time step
     :return: sky, scan, att
     """
     start_time = time.time()
-
-    sky = Sky(stars)
-    scan = Scanner(0.15,0.15,0.01)
-    att = Attitude()
-    att.create_storage(0, days, dt)
-    star_finder(att, sky, scan)
+    vega = Source("vega", 279.2333, 38.78, 128.91, 201.03, 286.23, -13.9)
+    scan = Scanner(0,0,0)
+    gaia = Attitude()
+    scan.coarse_scan(gaia, vega, 0, 365*5, 0.2)
+    scan.find_solution(gaia, vega)
 
     seconds = time.time() - start_time
     
     print('seconds:', seconds)
-    print('star measurements:', len(scan.telescope_positions))
     
-    return att, sky, scan
+    return gaia, vega, scan

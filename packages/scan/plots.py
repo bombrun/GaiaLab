@@ -262,7 +262,7 @@ def plot_star_trayectory(source, satellite, scan, t_total):
     deltas_obs = []
 
     for i in np.arange(0, t_total, 1):
-        delta_alpha, delta_delta=  source.topocentric_direction(satellite, i)
+        delta_alpha, delta_delta  =  source.topocentric_angles(satellite, i)
         alphas.append(delta_alpha)
         deltas.append(delta_delta)
 
