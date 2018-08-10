@@ -13,11 +13,16 @@ def to_quaternion(vector):
 
 
 def to_polar(vector):
+    """
 
+    :param vector: [pc]
+    :return: [rad][rad][pc]
+    """
     radius = np.sqrt(vector[0] ** 2 + vector[1] ** 2 + vector[2] ** 2)
     alpha = np.arctan2(vector[1], vector[0])
     delta = np.arcsin(vector[2]/radius)
     return alpha, delta, radius
+
 
 def to_direction(alpha, delta):
     x = np.cos(alpha)*np.cos(delta)
@@ -25,6 +30,7 @@ def to_direction(alpha, delta):
     z = np.sin(delta)
 
     return np.array([x, y, z])
+
 
 def to_cartesian(alpha, delta, parallax):
     """
@@ -78,34 +84,12 @@ def rotation_to_quat(vector, angle):
 
     return Quaternion(t, x, y, z)
 
-def lmn_srs(vector_lmn, epsilon = np.radians(23.27)):
-    l = np.array([1, 0, 0])
-    j = np.array([0, np.cos(epsilon), -np.sin(epsilon)])
-    k = np.array([0, np.sin(epsilon), np.cos(epsilon)])
-
-    A = np.vstack([l, j, k])
-    A_matrix = A.reshape(3, 3)
-
-    vector_srs = np.dot(A_matrix, vector_lmn)
-    return vector_srs
-
-def srs_lmn(vector_srs, epsilon=np.radians(23.27)):
-    l = np.array([1, 0, 0])
-    j = np.array([0, np.cos(epsilon), np.sin(epsilon)])
-    k = np.array([0, -np.sin(epsilon), np.cos(epsilon)])
-
-    A = np.vstack([l, j, k])
-    A_matrix = A.reshape(3, 3)
-
-    vector_lmn = np.dot(A_matrix, vector_srs)
-    return vector_lmn
-
-def xyz(attitude, vector):
+def lmn(attitude, vector):
     q_vector_srs = to_quaternion(vector)
     q_vector_xyz = attitude * q_vector_srs * attitude.conjugate()
     return q_vector_xyz.to_vector()
 
-def lmn(attitude, vector):
+def xyz(attitude, vector):
     q_vector_xyz = to_quaternion(vector)
     q_vector_srs = attitude.conjugate() * q_vector_xyz * attitude
     return q_vector_srs.to_vector()
