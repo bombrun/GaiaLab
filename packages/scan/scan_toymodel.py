@@ -13,9 +13,11 @@ from quaternion import Quaternion
 import numpy as np
 import time
 from scipy import interpolate
+from scipy import optimize
+
+from scipy.optimize import fsolve
 from mpl_toolkits.mplot3d import Axes3D
-from astropy import constants
-from astropy import units
+import matplotlib.pyplot as plt
 
 
 #vega = Source("vega", 279.2333, 38.78, 128.91, 201.03, 286.23, -13.9)
@@ -66,7 +68,7 @@ class Source: #need to take care of units
         self.alpha = self.__alpha0 + mu_alpha_dx*t  #rad
         self.delta = self.__delta0 + mu_delta*t     #rad
 
-    def barycentric_direction(self, t):
+    def barycentric_vector(self, t):
         """
         alpha: rad
         delta: rad
@@ -76,13 +78,12 @@ class Source: #need to take care of units
         """
         self.set_time(t)
         u_bcrs = ft.to_cartesian(self.alpha, self.delta, self.parallax)
-        return u_bcrs   #in pc
+        return u_bcrs
 
     def topocentric_function(self, satellite):
         """
         :param satellite:
-        :param t:
-        :return: alpha and delta angles from satellite in radians
+        :return: lambda function of the position of the star from the satellite´s lmn frame.
         """
         p, q, r = ft.pqr(self.alpha, self.delta)
         mastorad = 2*np.pi/(1000*360*3600)
@@ -94,22 +95,25 @@ class Source: #need to take care of units
         mu_delta = self.mu_delta*mastorad/365  #mas/yr to rad/day
         mu_radial = self.parallax*mastorad*self.mu_radial*kmtopc*sectoday #km/s to aproximation rad/day
 
-        func_u_lmn = lambda t: self.barycentric_direction(0) + t*(p*mu_alpha_dx+ q*mu_delta + r*mu_radial) - \
-                satellite.ephemeris_bcrs(t)*AUtopc
-        return func_u_lmn
+        topocentric_function = lambda t: self.barycentric_vector(0) + t*(p*mu_alpha_dx+ q*mu_delta + r*mu_radial) - satellite.ephemeris_bcrs(t)*AUtopc
+        return topocentric_function
 
     def topocentric_angles(self, satellite, t):
-        func_u_lmn = self.topocentric_function(satellite)
+        """
+
+        :param satellite:
+        :param t: [days]
+        :return: delta alpha, delta delta [mas][mas]
+        """
         mastorad = 2 * np.pi / (1000 * 360 * 3600)
-        u_lmn_unit = func_u_lmn(t)/np.linalg.norm(func_u_lmn(t))
-        alpha_obs, delta_obs, radius = ft.to_polar(u_lmn_unit) #rad, rad, pc=1
+        u_lmn_unit = self.topocentric_function(satellite)(t)/np.linalg.norm(self.topocentric_function(satellite)(t))
+        alpha_obs, delta_obs, radius = ft.to_polar(u_lmn_unit)
         if alpha_obs < 0:
             alpha_obs = alpha_obs + 2*np.pi
-        #check here if radius is 1, or close to one in unit test.
         delta_alpha_dx_mas = (alpha_obs - self.__alpha0) * np.cos(self.__delta0) / mastorad
         delta_delta_mas = (delta_obs - self.__delta0) / mastorad
 
-        return delta_alpha_dx_mas, delta_delta_mas #in mas
+        return delta_alpha_dx_mas, delta_delta_mas
 
 class Satellite:
 
@@ -118,7 +122,7 @@ class Satellite:
         self.orbital_period = 365
         self.orbital_radius = 1.0
 
-    def init_parameters(self, S=4.036, epsilon=np.radians(23.26), xi=np.radians(45), wz=120):
+    def init_parameters(self, S=4.036, epsilon=np.radians(23.26), xi=np.radians(55), wz=120):
         """
         Sets satellite to initialization status.
         Args:
@@ -137,28 +141,31 @@ class Satellite:
         """
         Returns the barycentric ephemeris of the Gaia satellite, bg(t), at time t.
         :param t: float, time in days
-        :return: 3d np.array
+        :return: 3d np.array [AU]
         """
         b_x_bcrs = self.orbital_radius*np.cos(2*np.pi/self.orbital_period*t)*np.cos(self.epsilon)
         b_y_bcrs = self.orbital_radius*np.sin(2*np.pi/self.orbital_period*t)*np.cos(self.epsilon)
         b_z_bcrs = self.orbital_radius*np.sin(2*np.pi/self.orbital_period*t)*np.sin(self.epsilon)
 
-        bcrs_ephemeris_satellite = np.array([b_x_bcrs, b_y_bcrs, b_z_bcrs]) #in AU
+        bcrs_ephemeris_satellite = np.array([b_x_bcrs, b_y_bcrs, b_z_bcrs])
 
         return bcrs_ephemeris_satellite
 
 class Attitude(Satellite):
     """
     Child class to Satellite.
+    Calculates spline from attitude data of each our for 5 years by default.
     """
     def __init__(self, ti=0, tf=365*5, dt= 1/24.):
         Satellite.__init__(self)
-        self.init_state()
+
         self.storage = []
+        self.__init_state()
         self.__create_storage(ti, tf, dt)
+        self.__init_state()
         self.__attitude_spline()
 
-    def init_state(self):
+    def __init_state(self):
         """
         :return: initial status of satellite
         """
@@ -172,13 +179,13 @@ class Attitude(Satellite):
 
         self.s = self.l*np.cos(self._lambda) + self.j*np.sin(self._lambda)
 
-        self.attitude = self.init_attitude()
+        self.attitude = self.__init_attitude()
 
-        self.z = (self.attitude * Quaternion(0,0,0,1)*self.attitude.conjugate()).to_vector()
-        self.x = (self.attitude * Quaternion(0,1,0,0)*self.attitude.conjugate()).to_vector()
+        self.z = ft.lmn(self.attitude, np.array([0,0,1]))
+        self.x = ft.lmn(self.attitude, np.array([1,0,0]))
         self.w = np.cross(np.array([0, 0, 1]), self.z)
 
-    def init_attitude(self):
+    def __init_attitude(self):
         """
         :return: quaternion equivalent to initialization of satellite
         """
@@ -191,16 +198,7 @@ class Attitude(Satellite):
         q_total = q1*q2*q3*q4*q5
         return q_total
 
-    def reset(self, ti, tf, dt):
-        """
-        :return: reset satellite to initialization status
-        """
-        self.init_state()
-        self.storage.clear()
-        self.__create_storage(ti, tf, dt)
-        self.__attitude_spline()
-
-    def update(self, dt):
+    def __update(self, dt):
         """
         :param dt: time step to calculate derivatives of functions
         :return: update value of functions for next moment in time by calculating their infinitesimal change in dt
@@ -254,43 +252,24 @@ class Attitude(Satellite):
             y_list.append(obj[4].y)
             z_list.append(obj[4].z)
 
-        #roots of spline does not work with k bigger than 3.
         self.s_x= interpolate.InterpolatedUnivariateSpline(t_list, x_list, k=4)
         self.s_y = interpolate.InterpolatedUnivariateSpline(t_list, y_list, k=4)
         self.s_z = interpolate.InterpolatedUnivariateSpline(t_list, z_list, k=4)
         self.s_w = interpolate.InterpolatedUnivariateSpline(t_list, w_list, k=4)
 
-    def get_attitude(self, t):
-        attitude = Quaternion(float(self.s_w(t)), float(self.s_x(t)), float(self.s_y(t)), float(self.s_z(t))).unit()
-        return attitude
+        self.func_attitude = lambda t: Quaternion(float(self.s_w(t)), float(self.s_x(t)), float(self.s_y(t)), float(self.s_z(t))).unit()
+        self.func_x_axis_lmn  = lambda t: ft.xyz(self.func_attitude(t), self.x)
 
-    def get_x_axis_lmn(self, t):
-        x_axis_lmn  = lambda t: ft.xyz(self.get_attitude(t), self.x)
-        return x_axis_lmn(t)
-
-    def long_reset_to_time(self, t, dt):
-        # this is slowing down create_storage but it is very exact.
-        # Another way to do it would be if functions in attitude.update where analytical.
+    def __reset_to_time(self, t, dt):
         '''
         Resets satellite to time t, along with all the parameters corresponding to that time.
         Args:
             t (float): time from J2000 [days]
         '''
-        self.init_state()
-        n_steps = t/dt
+        self.__init_state()
+        n_steps = t / dt
         for i in np.arange(n_steps):
-            self.update(dt)
-
-    def short_reset_to_time(self, t):
-
-        temp_list = [obj for obj in self.storage if obj[0] <= t]
-        list_element = temp_list[-1]
-        self.t = list_element[0]
-        self.w = list_element[1]
-        self.z = list_element[2]
-        self.x = list_element[3]
-        self.attitude = list_element[4]
-        self.s = list_element[5]
+            self.__update(dt)
 
     def __create_storage(self, ti, tf, dt):
         '''
@@ -302,22 +281,29 @@ class Attitude(Satellite):
         Notes:
             stored in: attitude.storage
         '''
-        if len(self.storage) == 0:
-            self.long_reset_to_time(ti, dt)
 
-        #if len(self.storage) > 0:
-         #   raise Warning('storage is not empty')
-         #   self.short_reset_to_time(ti)
+        if len(self.storage) == 0:
+            self.__reset_to_time(ti, dt)
 
         n_steps = (tf - ti) / dt
         self.storage.append([self.t, self.w, self.z,
                              self.x, self.attitude, self.s])
         for i in np.arange(n_steps):
-            self.update(dt)
+            self.__update(dt)
             self.storage.append([self.t, self.w, self.z,
                                  self.x, self.attitude, self.s])
 
         self.storage.sort(key=lambda x: x[0])
+
+    def reset(self, ti, tf, dt):
+        """
+        :return: reset satellite to initialization status
+        """
+        self.storage.clear()
+        self.__init_state()
+        self.__create_storage(ti, tf, dt)
+        self.__init_state()   #need to reset self.x to initial state for initialization of spline functions.
+        self.__attitude_spline()
 
 class Scanner:
     """
@@ -332,26 +318,21 @@ class Scanner:
         stars_positions (list of arrays): positions calculated from obs_times of transits using satellite's attitude.
     """
 
-    def __init__(self, ccd, delta_z, delta_y, circle_ang = np.radians(5)):
-        self.delta_z = delta_z
-        self.delta_y = delta_y
-        self.ccd = ccd
-        self.circle_ang = circle_ang
+    def __init__(self, coarse_angle= np.radians(10)):
+        self.coarse_angle = coarse_angle
 
         #create storage
-        self.obs_times = []
-        self.telescope_positions = []
         self.times_deep_scan = []
+        self.obs_times = []
 
     def reset_memory(self):
         """
         :return: empty all attribute lists from scanner before beginning new scanning period.
         """
         self.obs_times.clear()
-        self.telescope_positions.clear()
         self.times_deep_scan.clear()
 
-    def coarse_scan(self, att, source, ti, tf, step):
+    def coarse_scan(self, att, source, ti=0, tf=365*5, step=1):
         """
         Scans sky with a dot product technique to get rough times of observation.
         :return: None
@@ -359,21 +340,21 @@ class Scanner:
         """
         self.reset_memory()
         for t in np.arange(ti, tf, step):
-            alpha_lmn, delta_lmn = source.topocentric_angles(att, t)
-            star_lmn_vector = ft.to_direction(alpha_lmn, delta_lmn)
-            x_axis_lmn = att.get_x_axis_lmn(t)
-            if np.arccos(np.dot(star_lmn_vector, x_axis_lmn)) < self.circle_ang:
+            to_star_unit = source.topocentric_function(att)(t)/np.linalg.norm(source.topocentric_function(att)(t))
+            if np.arccos(np.dot(to_star_unit, att.func_x_axis_lmn(t))) < self.coarse_angle:
                 self.times_deep_scan.append(t)
+
         print('Star crossing field of view %i times' %(len(self.times_deep_scan)))
 
-    def find_solution(self, att, star):
-
-        func_x_axis_lmn = lambda t: ft.xyz(att.get_attitude(t), att.x)
-        func_u_lmn = star.topocentric_function(att)
-        func_opt = lambda t: np.abs(func_u_lmn(t) - func_x_axis_lmn(t))
-
+    def find_solution(self, att, source):
+        def f(t):
+            to_star_unit = source.topocentric_function(att)(t) / np.linalg.norm(source.topocentric_function(att)(t))
+            return to_star_unit - att.func_x_axis_lmn(t)
+        values = []
         for t in self.times_deep_scan:
-            
+            values.append(f(t))
+        return values
+
 def run():
     """
     :param days: number of days to run
@@ -384,7 +365,7 @@ def run():
     vega = Source("vega", 279.2333, 38.78, 128.91, 201.03, 286.23, -13.9)
     scan = Scanner(0,0,0)
     gaia = Attitude()
-    scan.coarse_scan(gaia, vega, 0, 365*5, 0.2)
+    scan.coarse_scan(gaia, vega, 0, 365*5, 0.5)
     scan.find_solution(gaia, vega)
 
     seconds = time.time() - start_time
