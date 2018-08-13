@@ -166,7 +166,7 @@ def plot_attitude(att, ti, tf, n_points):
     Each graph plots time in days versus each component evolution wrt time.
     '''
     times= np.linspace(ti, tf, n_points)
-    attitudes = [att.get_attitude(t) for t in times]
+    attitudes = [att.func_attitude(t) for t in times]
 
     qw_list = [obj.w for obj in attitudes]
     qx_list = [obj.x for obj in attitudes]
@@ -254,6 +254,19 @@ def plot_sky(sky):
     ax.set_ylabel('m')
     ax.set_zlabel('n')
     plt.show()
+def plot_observatio_spread(source, satellite, scan):
+    alphas_obs = []
+    deltas_obs = []
+    for t in scan.obs_times:
+        alpha, delta, radius = ft.to_polar(satellite.func_x_axis_lmn(t))
+        alphas_obs.append(alpha)
+        deltas_obs.append(delta)
+    plt.figure()
+    plt.plot(alphas_obs, deltas_obs, 'ro')
+    plt.legend(loc='upper right', fontsize=12, facecolor='#000000', framealpha=0.1)
+    plt.set_title(r'$\varpi={%.2f}$, $\mu_{{\alpha*}}={%.2f}$, $\mu_\delta={%.2f}$'
+                 % (source.parallax, source.mu_alpha_dx, source.mu_delta))
+    plt.show()
 
 def plot_star_trayectory(source, satellite, scan, t_total):
     alphas = []
@@ -267,15 +280,14 @@ def plot_star_trayectory(source, satellite, scan, t_total):
         deltas.append(delta_delta)
 
     #careful, this is giving the exact position of the star at the time where the coarse scan see it, not the scan-axis.
-    times_obs= scan.times_deep_scan
-    for t in times_obs:
-        delta_alpha_obs, delta_delta_obs = source.topocentric_direction(satellite, t)
+    for t in scan.obs_times:
+        delta_alpha_obs, delta_delta_obs = source.topocentric_angles(satellite, t)
         alphas_obs.append(delta_alpha_obs)
         deltas_obs.append(delta_delta_obs)
 
     n = len(alphas)
     times = np.linspace(2000, 2000 + t_total/365, n)
-    times_observations = [2000 + t/365 for t in times_obs]
+    times_observations = [2000 + t/365 for t in scan.obs_times]
     fig = plt.figure(figsize=(16, 9))
     ax = fig.add_subplot(121)
     ax.plot(alphas, deltas,'b-',
@@ -304,7 +316,6 @@ def plot_star_trayectory(source, satellite, scan, t_total):
     ax1ddec.set_ylabel(r'$\Delta\delta$ [mas]')
 
     plt.tight_layout()
-    #plt.savefig('%s_motion.pdf' %(source.name))
     plt.show()
 
 
