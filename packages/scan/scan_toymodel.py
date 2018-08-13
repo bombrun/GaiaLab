@@ -318,7 +318,7 @@ class Scanner:
         stars_positions (list of arrays): positions calculated from obs_times of transits using satellite's attitude.
     """
 
-    def __init__(self, coarse_angle= np.radians(5)):
+    def __init__(self, coarse_angle= np.radians(1)):
         self.coarse_angle = coarse_angle
 
         #create storage
@@ -346,27 +346,29 @@ class Scanner:
 
         print('Star crossing field of view %i times' %(len(self.times_deep_scan)))
 
-    def fine_scan(self, att, source):
+    def fine_scan(self, att, source, step=1/24):
 
         def f(t):
             to_star_unit = source.topocentric_function(att)(t) / np.linalg.norm(source.topocentric_function(att)(t))
-            diff_vector = to_star_unit - att.func_x_axis_lmn(t)
-            return diff_vector
-        all_roots = []
-        for t in self.times_deep_scan:
-            t_times= np.linspace(t - 1 / 24, t + 1 / 24)
-            roots = root(f, t_times)
-            all_roots.append(roots)
-        return all_roots
+            star_syx_unit = ft.xyz(att.func_attitude(t), to_star_unit)
+            diff_vector_xyz = star_syx_unit - ft.xyz(att.func_attitude(t), att.func_x_axis_lmn(t))
+            return diff_vector_xyz
 
-def root(f, range):
-    roots = []
-    for idx, t in enumerate(range):
-        if np.abs(f(t)[0]) < 0.01:
-            if np.abs(f(t)[1]) < 0.01:
-                if np.abs(f(t)[2]) < 0.01:
-                    roots.append(range[idx])
-    return roots
+
+        for t in self.times_deep_scan:
+            t_times= np.linspace(t - step, t + step, 1000)
+            roots = self.root(f, t_times)
+            if len(roots) != 0:
+                self.obs_times.append(roots[0])
+
+    def root(self, f, times_range):
+        roots = []
+        for idx, t in enumerate(times_range):
+            if np.abs(f(t)[0]) < 0.01:
+                if np.abs(f(t)[1]) < np.sin(np.radians(0.5)):
+                    if np.abs(f(t)[2]) < np.sin(np.radians(1)):
+                        roots.append(times_range[idx])
+        return roots
 
 
 def run():
@@ -380,9 +382,9 @@ def run():
     scan = Scanner()
     gaia = Attitude()
     scan.coarse_scan(gaia, vega)
-    all_roots = scan.fine_scan(gaia, vega)
+    scan.fine_scan(gaia, vega)
 
     seconds = time.time() - start_time
     
     print('seconds:', seconds)
-    return gaia, vega, scan, all_roots
+    return gaia, vega, scan
