@@ -32,7 +32,7 @@ from array import array
 
 @sort_data
 @jit
-def identify_through_magnitude(df, anomaly_threshold=2):
+def identify_through_magnitude(df, threshold=2):
     """
     Accepts:
 
@@ -44,11 +44,11 @@ def identify_through_magnitude(df, anomaly_threshold=2):
         or equivalent.
 
     Anomalies are defined as locations where the instantaneous rate is
-    more than anomaly_threshold (default is 2 mas/s) more than the
+    more than threshold (default is 2 mas/s) more than the
     windowed rate for that region.
 
     By inspection, this definition catches most hits in real data, for
-    suitable values of anomaly_threshold, but is also sensitive to
+    suitable values of threshold, but is also sensitive to
     noise.
 
     Therefore, this function suffices for basic hit detection but
@@ -57,7 +57,7 @@ def identify_through_magnitude(df, anomaly_threshold=2):
 
     Kwargs:
 
-        anomaly_threshold (float, default=2):
+        threshold (float, default=2):
             difference between rate and w1_rate (in mas/s) above which a
             region is identified as anomalous.
 
@@ -84,7 +84,7 @@ def identify_through_magnitude(df, anomaly_threshold=2):
     # Add a column to the dataframe with truth values for anomalies.
     working_df['anomaly'] = (abs(working_df['rate'] -
                              working_df['w1_rate']) >=
-                             anomaly_threshold)
+                             threshold)
 
     times = np.array(working_df['obmt'][working_df['anomaly']])
     indices = np.array(working_df.index[working_df['anomaly']])
@@ -100,7 +100,7 @@ def identify_through_magnitude(df, anomaly_threshold=2):
 
 
 @sort_data
-def identify_through_gradient(df, gradient_threshold=1):
+def identify_through_gradient(df, gradient_threshold=0.3):
     """
     Accepts:
 
@@ -462,7 +462,37 @@ def plot_anomaly(*dfs, method='magnitude', highlight=False, highlights=False,
     if show:
         plt.show()
 
+
+def identify_hits(df):
+    old_values = np.ones(len(df['obmt']))
+    for key in method_dict.keys():
+        working_df = method_dict[key](df)[0]
+
+        hit_series = array('d', working_df['anomaly'])[::-1]
+        new_series = array('d', [])
+
+        for i in range(len(hit_series)):
+            try:
+                if hit_series[i+1]:
+                    new_series.append(False)
+                else:
+                    new_series.append(hit_series[i])
+            except(IndexError):
+                new_series.append(False)
+                break
+        working_df['hits'] = new_series[::-1]
+        new_values = [a and b for a, b in zip(old_values, new_series[::-1])]
+        old_values = new_values
+
+    return new_values
+
+
+def filter_and_identify(df):
+    working_df = filter_through_response(df, threshold=2)
+    return identify_through_magnitude(df, threshold=1)
+
 # Dictionary to allow hit detection method selection.
 method_dict = dict(magnitude=identify_through_magnitude,
-                   gradient=identify_through_gradient)
+                   gradient=identify_through_gradient,
+                   filtered=filter_and_identify)
 #                   abuelmaatti = identify_through_abuelmaatti,
