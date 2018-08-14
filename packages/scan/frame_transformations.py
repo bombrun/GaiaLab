@@ -55,6 +55,7 @@ def ljk(epsilon):
 
     :param epsilon: obliquity of the equator.
     :return: np.array, np.array, np.array
+
     """
     l = np.array([1,0,0])
     j = np.array([0, np.cos(epsilon), np.sin(epsilon)])
@@ -84,14 +85,14 @@ def rotation_to_quat(vector, angle):
 
     return Quaternion(t, x, y, z)
 
-def lmn(attitude, vector):
-    q_vector_srs = to_quaternion(vector)
-    q_vector_xyz = attitude * q_vector_srs * attitude.conjugate()
-    return q_vector_xyz.to_vector()
-
-def xyz(attitude, vector):
+def to_lmn(attitude, vector):
     q_vector_xyz = to_quaternion(vector)
-    q_vector_srs = attitude.conjugate() * q_vector_xyz * attitude
-    return q_vector_srs.to_vector()
+    q_vector_lmn = attitude * q_vector_xyz * attitude.conjugate()
+    return q_vector_lmn.to_vector()
+
+def to_xyz(attitude, vector):
+    q_vector_lmn = to_quaternion(vector)
+    q_vector_xyz = attitude.conjugate() * q_vector_lmn * attitude
+    return q_vector_xyz.to_vector()
 
 
