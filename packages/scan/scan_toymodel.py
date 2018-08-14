@@ -181,8 +181,8 @@ class Attitude(Satellite):
 
         self.attitude = self.__init_attitude()
 
-        self.z = ft.lmn(self.attitude, np.array([0,0,1]))
-        self.x = ft.lmn(self.attitude, np.array([1,0,0]))
+        self.z = ft.to_lmn(self.attitude, np.array([0,0,1]))
+        self.x = ft.to_lmn(self.attitude, np.array([1,0,0]))
         self.w = np.cross(np.array([0, 0, 1]), self.z)
 
     def __init_attitude(self):
@@ -258,7 +258,9 @@ class Attitude(Satellite):
         self.s_w = interpolate.InterpolatedUnivariateSpline(t_list, w_list, k=4)
 
         self.func_attitude = lambda t: Quaternion(float(self.s_w(t)), float(self.s_x(t)), float(self.s_y(t)), float(self.s_z(t))).unit()
-        self.func_x_axis_lmn  = lambda t: ft.xyz(self.func_attitude(t), self.x)
+        self.func_x_axis_lmn  = lambda t: ft.to_lmn(self.func_attitude(t), np.array([1,0,0]))
+        self.func_z_axis_lmn = lambda t: ft.to_lmn(self.func_attitude(t), np.array([0,0,1]))
+
 
     def __reset_to_time(self, t, dt):
         '''
@@ -318,12 +320,13 @@ class Scanner:
         stars_positions (list of arrays): positions calculated from obs_times of transits using satellite's attitude.
     """
 
-    def __init__(self, coarse_angle= np.radians(1)):
+    def __init__(self, coarse_angle= np.radians(2)):
         self.coarse_angle = coarse_angle
 
         #create storage
         self.times_deep_scan = []
         self.obs_times = []
+        self.distances =[]
 
     def reset_memory(self):
         """
@@ -344,31 +347,19 @@ class Scanner:
             if np.arccos(np.dot(to_star_unit, att.func_x_axis_lmn(t))) < self.coarse_angle:
                 self.times_deep_scan.append(t)
 
-        print('Star crossing field of view %i times' %(len(self.times_deep_scan)))
-
-    def fine_scan(self, att, source, step=1/24):
+    def fine_scan(self, att, source):
 
         def f(t):
-            to_star_unit = source.topocentric_function(att)(t) / np.linalg.norm(source.topocentric_function(att)(t))
-            star_syx_unit = ft.xyz(att.func_attitude(t), to_star_unit)
-            diff_vector_xyz = star_syx_unit - ft.xyz(att.func_attitude(t), att.func_x_axis_lmn(t))
-            return diff_vector_xyz
-
+            t = float(t)
+            to_star_unit_lmn = source.topocentric_function(att)(t) / np.linalg.norm(source.topocentric_function(att)(t))
+            diff_vector = to_star_unit_lmn - att.func_x_axis_lmn(t)
+            diff_vector_xyz = ft.to_xyz(att.func_attitude(t), diff_vector)
+            return np.abs(diff_vector_xyz[1])
 
         for t in self.times_deep_scan:
-            t_times= np.linspace(t - step, t + step, 1000)
-            roots = self.root(f, t_times)
-            if len(roots) != 0:
-                self.obs_times.append(roots[0])
-
-    def root(self, f, times_range):
-        roots = []
-        for idx, t in enumerate(times_range):
-            if np.abs(f(t)[0]) < 0.01:
-                if np.abs(f(t)[1]) < np.sin(np.radians(0.5)):
-                    if np.abs(f(t)[2]) < np.sin(np.radians(1)):
-                        roots.append(times_range[idx])
-        return roots
+            root = optimize.minimize(f, t, bounds = [(t-1/24, t+ 1/24)])
+            self.obs_times.append(root.x[0])
+            self.distances.append(f(root.x[0]))
 
 
 def run():
@@ -381,9 +372,12 @@ def run():
     vega = Source("vega", 279.2333, 38.78, 128.91, 201.03, 286.23, -13.9)
     scan = Scanner()
     gaia = Attitude()
+
     scan.coarse_scan(gaia, vega)
     scan.fine_scan(gaia, vega)
 
+    print('Star crossing field of view %i times' % (len(scan.times_deep_scan)))
+    print('Star detected %i times' % (len(scan.obs_times)))
     seconds = time.time() - start_time
     
     print('seconds:', seconds)
