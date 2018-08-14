@@ -320,8 +320,9 @@ class Scanner:
         stars_positions (list of arrays): positions calculated from obs_times of transits using satellite's attitude.
     """
 
-    def __init__(self, coarse_angle= np.radians(2)):
+    def __init__(self, coarse_angle= np.radians(20), scan_line_height = np.radians(2)):
         self.coarse_angle = coarse_angle
+        self.scan_line_height = scan_line_height
 
         #create storage
         self.times_deep_scan = []
@@ -335,14 +336,15 @@ class Scanner:
         self.obs_times.clear()
         self.times_deep_scan.clear()
 
-    def coarse_scan(self, att, source, ti=0, tf=365*5, step=1/24):
+    def coarse_scan(self, att, source, ti=0, tf=365*5):
         """
         Scans sky with a dot product technique to get rough times of observation.
         :return: None
         :action: self.times_deep_scan list filled with observation time windows.
         """
+        self.step = self.coarse_angle / (2 * np.pi * 4)
         self.reset_memory()
-        for t in np.arange(ti, tf, step):
+        for t in np.arange(ti, tf, self.step):
             to_star_unit = source.topocentric_function(att)(t)/np.linalg.norm(source.topocentric_function(att)(t))
             if np.arccos(np.dot(to_star_unit, att.func_x_axis_lmn(t))) < self.coarse_angle:
                 self.times_deep_scan.append(t)
@@ -356,11 +358,33 @@ class Scanner:
             diff_vector_xyz = ft.to_xyz(att.func_attitude(t), diff_vector)
             return np.abs(diff_vector_xyz[1])
 
-        for t in self.times_deep_scan:
-            root = optimize.minimize(f, t, bounds = [(t-1/24, t+ 1/24)])
-            self.obs_times.append(root.x[0])
-            self.distances.append(f(root.x[0]))
+        def z_condition(t):
+            t = float(t)
+            to_star_unit_lmn = source.topocentric_function(att)(t) / np.linalg.norm(source.topocentric_function(att)(t))
+            diff_vector = to_star_unit_lmn - att.func_x_axis_lmn(t)
+            diff_vector_xyz = ft.to_xyz(att.func_attitude(t), diff_vector)
+            z_threshold = np.sin(self.scan_line_height)
+            return z_threshold-np.abs(diff_vector_xyz[2])
 
+        def y_condition(t):
+            t = float(t)
+            to_star_unit_lmn = source.topocentric_function(att)(t) / np.linalg.norm(source.topocentric_function(att)(t))
+            diff_vector = to_star_unit_lmn - att.func_x_axis_lmn(t)
+            diff_vector_xyz = ft.to_xyz(att.func_attitude(t), diff_vector)
+            y_threshold = np.sin(self.scan_line_height/5)
+            return y_threshold-np.abs(diff_vector_xyz[1])
+
+        con1 = {'type': 'ineq', 'fun': z_condition}
+        con2 = {'type': 'ineq', 'fun': y_condition}
+        roots = []
+        self.roots = []
+        for t in self.times_deep_scan:
+            root = optimize.minimize(f, t,method='Powell', bounds = [(t-self.step, t+ self.step)], constraints=[con1, con2])
+            if root.success == True:
+                self.roots.append(root)
+                #self.obs_times.append(root.x[0])
+                #self.distances.append(f(root.x[0]))
+        #return roots
 
 def run():
     """
@@ -381,4 +405,4 @@ def run():
     seconds = time.time() - start_time
     
     print('seconds:', seconds)
-    return gaia, vega, scan
+    return gaia, vega, scan#, roots
