@@ -84,10 +84,17 @@ class KalmanData(filters.FilterData):
 
     name = "KalmanData"
 
-    def __init__(self, *args):
+    def __init__(self, *args, q=None, r=None):
         filters.FilterData.__init__(self, *args)
-        self._q = None
-        self._r = None
+
+        if isinstance(q, (float, int)):
+            self._q = q
+        else:
+            self._q = None
+        if isinstance(r, (float, int)):
+            self._r = r
+        else:
+            self._r = None
 
 # Public methods---------------------------------------------------------------
     def tweak_q(self, q):
