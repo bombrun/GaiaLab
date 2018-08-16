@@ -1,5 +1,8 @@
 import numpy as np
 from functools import wraps
+import pandas as pd
+from numba import jit
+from array import array
 """
 Miscellaneous functions.
 """
@@ -13,7 +16,10 @@ def sort_data(func):
     """
     @wraps(func)
     def sort(df, *args, **kwargs):
-        sorted_df = df.sort_values('obmt')
+        if isinstance(df, pd.DataFrame) and 'obmt' in df.columns.values:
+            sorted_df = df.sort_values('obmt')
+        else:
+            sorted_df = df
         return func(sorted_df, *args, **kwargs)
     return sort
 
@@ -26,3 +32,22 @@ def s2o(secs):
 def o2s(obmt):
     """Convert obmt to seconds."""
     return obmt*21600
+
+
+@jit(nopython=True)
+def isolate_true(data):
+    data_backwards = data[::-1]
+    x = []
+    for i in range(len(data) - 1):
+        if data_backwards[i] and data_backwards[i+1]:
+            x.append(0)
+        else:
+            x.append(data_backwards[i])
+    x.append(data[0])
+    return x[::-1]
+
+
+def isolate_hit_df(df):
+    df['hits'] = isolate_true(list(df['anomaly']))
+    df['hits'] = df['hits'].astype('bool')
+    return df
