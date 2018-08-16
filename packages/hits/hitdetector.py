@@ -11,9 +11,13 @@ import matplotlib.pyplot as plt
 import sys
 import pandas as pd
 import warnings
-from hits.misc import sort_data
+from hits.misc import sort_data, isolate_hit_df
 from numba import jit
 from array import array
+try:
+    import noiseremoval.kalman as nr
+except(ImportError):
+    import hits.noiseremoval.kalman as nr
 
 # -----------------------------------------------------------------------------
 #
@@ -24,8 +28,12 @@ from array import array
 # Abuelmaatti                   yes
 # point_density                 yes
 # filter_through_response       yes
+# rms_diff                      yes
+# stdev_diff                    yes
 # anomaly_density               yes
 # plot_anomaly                  no (probably unnecessary)
+# identify_hits                 no
+# filter_and_identify           no#
 #
 # -----------------------------------------------------------------------------
 
@@ -100,7 +108,7 @@ def identify_through_magnitude(df, threshold=2):
 
 
 @sort_data
-def identify_through_gradient(df, gradient_threshold=0.3):
+def identify_through_gradient(df, threshold=0.3):
     """
     Accepts:
 
@@ -112,13 +120,13 @@ def identify_through_gradient(df, gradient_threshold=0.3):
         or equivalent.
 
     Identifies anomalies in the data by identifying regions where the
-    instantaneous change in hit rate is larger than gradient_threshold.
+    instantaneous change in hit rate is larger than threshold.
     Sensitive to smaller amplitude hits than identify_through_magnitude,
-    but highly sensitive to noise for low values of gradient_threshold.
+    but highly sensitive to noise for low values of threshold.
 
     Kwargs:
 
-        gradient_threshold (float, default=0.3):
+        threshold (float, default=0.3):
             the threshold for rate change above which a region is
             identified as anomalous.
 
@@ -147,7 +155,7 @@ def identify_through_gradient(df, gradient_threshold=0.3):
     working_df['grad'] = [0, *np.diff(working_df['rate'] -
                           working_df['w1_rate'])]
 
-    working_df['anomaly'] = (abs(working_df['grad'] >= gradient_threshold))
+    working_df['anomaly'] = (abs(working_df['grad'] >= threshold))
 
     times = np.array(working_df['obmt'][working_df['anomaly']])
     indices = np.array(working_df.index[working_df['anomaly']])
@@ -344,6 +352,20 @@ def filter_through_response(df, threshold=2):
     return df
 
 
+@sort_data
+def rms_diff(df):  # Bizarrely, this is slower if @jit compiled.
+    s = 0
+    for diff in np.diff(df['rate'] - df['w1_rate']):
+        s += diff**2
+
+    return np.sqrt(s/(len(df['rate']) - 1))
+
+
+@sort_data
+def stdev_diff(df):
+    return np.std([abs(x)for x in np.diff(df['rate'] - df['w1_rate'])])
+
+
 def anomaly_density(df, method='magnitude', window_size=3600, **kwargs):
     """
     Accepts:
@@ -386,7 +408,7 @@ def anomaly_density(df, method='magnitude', window_size=3600, **kwargs):
 
 
 def plot_anomaly(*dfs, method='magnitude', highlight=False, highlights=False,
-                 show=True, **kwargs):
+                 show=True, line=False, **kwargs):
     """
     Accepts:
 
@@ -439,7 +461,7 @@ def plot_anomaly(*dfs, method='magnitude', highlight=False, highlights=False,
 
     for df in dfs:
 
-        data, t = identify(df)
+        data, t = identify(df, **kwargs)
         # Create dummy colour array where all are red.
         colors = pd.DataFrame(index=t.index.values,
                               data=dict(color=['red' for time in t.index]))
@@ -451,6 +473,15 @@ def plot_anomaly(*dfs, method='magnitude', highlight=False, highlights=False,
                 plt.axvspan(time, time+0.05, color=colors['color'][index],
                             alpha=0.5)  # Create coloured bars.
             plt.scatter(df.obmt, df.rate-df.w1_rate, s=1)
+        elif line:
+            i = 0
+            isolated_data = isolate_hit_df(data)
+            for time in isolated_data[isolated_data['hits']]['obmt']:
+                if not i % 100:
+                    print(i, "/", len(isolated_data[isolated_data['hits']]))
+                plt.axvline(time, lw=1)
+                i += 1
+            plt.scatter(data.obmt, data.rate-data.w1_rate, s=1)
         else:
             # Basic plot.
             plt.scatter(df.obmt, df.rate - df.w1_rate, s=2)
@@ -487,9 +518,19 @@ def identify_hits(df):
     return new_values
 
 
-def filter_and_identify(df):
-    working_df = filter_through_response(df, threshold=2)
-    return identify_through_magnitude(df, threshold=1)
+def filter_and_identify(df, filter_threshold=None, identify_threshold=None,
+                        kalman=False):
+
+    if filter_threshold is None:
+        filter_threshold = rms_diff(df) + 2 * stdev_diff(df)
+    if identify_threshold is None:
+        identify_threshold = rms_diff(df) + stdev_diff(df)
+
+    working_df = filter_through_response(df, threshold=filter_threshold)
+    if kalman:
+        working_df = nr.KalmanData(working_df).to_pandas()
+    return identify_through_magnitude(working_df,
+                                      threshold=identify_threshold)
 
 # Dictionary to allow hit detection method selection.
 method_dict = dict(magnitude=identify_through_magnitude,

@@ -17,14 +17,14 @@ import math
 try:
     from hits.hitdetector import identify_through_magnitude,\
         plot_anomaly, identify_through_gradient, Abuelmaatti, point_density, \
-        filter_through_response, anomaly_density
+        filter_through_response, anomaly_density, rms_diff, stdev_diff
     from hits.hitsimulator import hit_distribution, flux, p_distribution, \
         freq, generate_event, generate_data, masses, tp_distribution, \
         time_distribution, AOCSResponse
 except(ImportError):
     from .hitdetector import identify_through_magnitude, plot_anomaly, \
         identify_through_gradient, Abuelmaatti, point_density, \
-        filter_through_response, anomaly_density
+        filter_through_response, anomaly_density, rms_diff, stdev_diff
     from .hitsimulator import hit_distribution, flux, p_distribution, freq, \
         generate_event, generate_data, masses, tp_distribution, \
         time_distribution, AOCSResponse
@@ -79,6 +79,25 @@ class TestHitDetectorIdentifyFuncs(unittest.TestCase):
                              filter_through_response(self.df,
                                                      threshold=5)['rate']),
                          msg="Acceptable data filtered by filter_by_response.")
+
+    def test_rms_diff_correctly_identifies_diff_of_1(self):
+        data = np.zeros(1000)
+        data[::2] += 1
+        df = pd.DataFrame(data=dict(rate=data,
+                                    w1_rate=np.zeros(1000)))
+        diff = rms_diff(df)
+        self.assertEqual(diff, 1,
+                         msg="RMS diff for given data calculated as %r. "
+                             "Expected 1." % diff)
+
+    def test_stdev_diff_correctly_identifies_stdev_of_0(self):
+        data = np.zeros(1000)
+        data[::2] += 1
+        df = pd.DataFrame(data=dict(rate=data,
+                                    w1_rate=np.zeros(1000)))
+        stdev = stdev_diff(df)
+        self.assertEqual(0, stdev,
+                         msg="stdev_diff calculated diff of %r. Expected 0.")
 
 
 class TestHitDetectorAbuelmaattiFuncs(unittest.TestCase):
