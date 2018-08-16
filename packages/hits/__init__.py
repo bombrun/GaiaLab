@@ -4,8 +4,7 @@
 import hits.hitdetector
 import hits.response
 import hits.hitsimulator
-from hits.hitdetector import plot_anomaly
-from hits.hitsimulator import generate_data, masses
+import hits.noiseremoval
 
 """
 Hit detection and simulation programs for Gaia data.
