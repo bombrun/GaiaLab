@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import hits
+from . import kalman
+from . import lowpass
 """
 Noise removal functions for cleaning the datasets used.
 """

@@ -19,7 +19,7 @@ try:
     import filters
     from ..misc import s2o, o2s
 except(ImportError):
-    import hits.noiseremoval.filters as filters
+    from hits.noiseremoval import filters
     from hits.misc import s2o, o2s
 
 
