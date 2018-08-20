@@ -157,7 +157,8 @@ def plot_attitude(att, ti, tf, n_points):
     satellite: object to be calculated and updated.
     dt: step per day, i.e fraction of a day.
     n0: initial day
-    nf: final day
+    nf: final days
+
 
     Returns
     ________
@@ -254,45 +255,82 @@ def plot_sky(sky):
     ax.set_ylabel('m')
     ax.set_zlabel('n')
     plt.show()
-def plot_observatio_spread(source, satellite, scan):
+
+def plot_observations_spread(source, satellite, scan):
     alphas_obs = []
     deltas_obs = []
+
+    #data info
     for t in scan.obs_times:
         alpha, delta, radius = ft.to_polar(satellite.func_x_axis_lmn(t))
         alphas_obs.append(alpha)
         deltas_obs.append(delta)
+    #data arrows
+    zalphas = []
+    zdeltas = []
+    for t in scan.obs_times:
+        z_alpha, z_delta, z_radio  = ft.to_polar(satellite.func_z_axis_lmn(t))
+        zalphas.append(z_alpha)
+        zdeltas.append(z_delta)
+
+
     plt.figure()
     plt.plot(alphas_obs, deltas_obs, 'ro')
-    plt.legend(loc='upper right', fontsize=12, facecolor='#000000', framealpha=0.1)
-    plt.set_title(r'$\varpi={%.2f}$, $\mu_{{\alpha*}}={%.2f}$, $\mu_\delta={%.2f}$'
-                 % (source.parallax, source.mu_alpha_dx, source.mu_delta))
+    plt.quiver(alphas_obs, deltas_obs, zalphas, zdeltas) #headaxislength = 0.1, normalize = True)
+    plt.xlabel('alpha [rad]')
+    plt.ylabel('delta [rad]')
     plt.show()
 
-def plot_star_trayectory(source, satellite, scan, t_total):
+def plot_directions (satellite, scan):
+    points = []
+    for t in scan.obs_times:
+        vector = satellite.func_x_axis_lmn(t)
+        points.append(vector)
+    xvalues = [i[0] for i in arrows]
+    yvalues = [i[1] for i in arrows]
+
+    plt.figure()
+    plt.quiver(xvalues, yvalues, length = 0.1, normalize = True)
+    plt.show()
+
+def plot_star_trajectory(source, satellite, scan, t_total):
+    mastorad = 2 * np.pi / (1000 * 360 * 3600)
     alphas = []
     deltas = []
-    alphas_obs = []
-    deltas_obs = []
 
     for i in np.arange(0, t_total, 1):
         delta_alpha, delta_delta  =  source.topocentric_angles(satellite, i)
         alphas.append(delta_alpha)
         deltas.append(delta_delta)
 
-    #careful, this is giving the exact position of the star at the time where the coarse scan see it, not the scan-axis.
+    alphas_obs = []
+    deltas_obs = []
+    #intercept stars
     for t in scan.obs_times:
         delta_alpha_obs, delta_delta_obs = source.topocentric_angles(satellite, t)
         alphas_obs.append(delta_alpha_obs)
         deltas_obs.append(delta_delta_obs)
 
+    alphas_sat = []
+    deltas_sat = []
+    #from satellite
+    for t in scan.obs_times:
+        alpha, delta, radius = ft.to_polar(satellite.func_x_axis_lmn(t))
+        alphas_sat.append(alpha/mastorad)
+        deltas_sat.append(delta/mastorad)
+
+    #timeline
     n = len(alphas)
     times = np.linspace(2000, 2000 + t_total/365, n)
     times_observations = [2000 + t/365 for t in scan.obs_times]
+
     fig = plt.figure(figsize=(16, 9))
     ax = fig.add_subplot(121)
+
     ax.plot(alphas, deltas,'b-',
             label=r'%s path' %(source.name), lw=2)
     ax.plot(alphas_obs, deltas_obs, 'r*')
+    ax.plot(alphas_sat, deltas_sat, 'g*')
     ax.set_xlabel(r'$\Delta\alpha*$ [mas]')
     ax.set_ylabel(r'$\Delta\delta$ [mas]')
     ax.axhline(y=0, c='gray', lw=1)
@@ -306,18 +344,27 @@ def plot_star_trayectory(source, satellite, scan, t_total):
     ax1dra.set_xlabel(r'Time [yr]')
     ax1dra.plot(times, alphas, 'b-')
     ax1dra.plot(times_observations,alphas_obs, 'r*')
+    ax1dra.plot(times_observations, alphas_sat, 'g*')
     ax1dra.set_ylabel(r'$\Delta\alpha*$ [mas]')
 
     ax1ddec = fig.add_subplot(224)
-    ax1ddec.axhline(y=0, c='gray', lw=1)
+    ax1ddec.axhline(y=0, c='gray', lw=1
     ax1ddec.plot(times, deltas, 'b-')
     ax1ddec.plot(times_observations, deltas_obs, 'r*')
+    ax1ddec.plot(times_observations, deltas_sat, 'g*')
     ax1ddec.set_xlabel(r'Time [yr]')
     ax1ddec.set_ylabel(r'$\Delta\delta$ [mas]')
 
     plt.tight_layout()
     plt.show()
 
+
+
+
+
+
+
+			
 
 
 

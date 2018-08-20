@@ -3,80 +3,80 @@
 """
 Created on Mon Jun 18 14:59:19 2018
 
-@author: vallevaro
-
-http://docs.astropy.org/en/stable/coordinates/index.html#module-astropy.coordinates
+@author: mdelvallevaro
 """
 
 import frame_transformations as ft
 from quaternion import Quaternion
-from numba import jit
 import numpy as np
 import time
-from mpl_toolkits.mplot3d import Axes3D
 
 class Sky:
     """
-    Creates n source objects from random numbers.
-    Args:
-        n (int): number of sources to be created.
-    Attributes:
-        elements (list of obj): list of source objects.
+    Class Object
+    Creates n Source Objects which represent 3D points within the unit sphere
+    centered in (0,0,0).
+    :param n: number of stars in the sky [int]
+    Attributes
+    -------------
+        elements: n Source objects.
     """
-
     def __init__(self, n):
+        if type(n) is not int:
+            raise TypeError('n must be a positive integer')
         self.elements = []
         for i in range(n):
             alpha = np.random.uniform(0, 2 * np.pi)
             delta = np.random.uniform(-np.pi / 2, np.pi / 2)
-            mualpha = np.random.uniform(0, 0.1)
-            mudelta = np.random.uniform(0, 0.1)
-            self.elements.append(Source(alpha, delta, mualpha, mudelta))
-
+            self.elements.append(Source(alpha, delta))
 
 class Source:
     """
     Defines source star by horizontal coordinate system parameters.
-    Args:
-        alpha (float): galactic longitudinal angle [rad].
-        delta (float): galactic altitude angle (rad),
-        mualpha (float): velocity in alpha of source [mas/yr].
-        mudelta (float): velocity in delta of source [mas/yr].
-        parallax (float): stellar parallax angle from annual parallax [mas].
+    :param alpha: (float): galactic longitudinal angle [rad].
+    :param delta: (float): galactic altitude angle (rad),
 
-    Attributes:
-        coor (np.dnarray): (alpha, delta) horizontal coordinate system.
-        velocity (np.dnarray): (mualpha, mudelta, parallax) velocity and position parameters.
+    Attributes
+    -----------
+        coor (np.dnarray): unitary direction to star position.
     """
 
-    def __init__(self, alpha, delta, mualpha=0, mudelta=0):
-        # make alpha delta attributes
-        # time dependence, get direction at time __t. Create a function coor that does all of this and
-        # is able to implement relativistic effects.
-        self.coor = ft.xyz(alpha, delta)
-        self.velocity = np.array([mualpha, mudelta])
-
+    def __init__(self, alpha, delta):
+        self.alpha = alpha
+        self.delta= delta
+        self.coor = ft.to_direction(alpha, delta)
 
 class Satellite:
+    """
+    Class Object, parent to Attitude, that represents Gaia.
 
+    %run: epsilon = np.radians(23.26), xi = np.radians(55).
+
+    :param S: change in the z-axis of satellite wrt solar longitudinal angle. [float]
+    :param epsilon: ecliptical angle [rad]
+    :param xi: revolving angle [rad]
+    :param wz: z component of inertial spin vector [arcsec/s]
+    :action: Sets satellite to initialization status.
+    """
     def __init__(self, *args):
         self.init_parameters(*args)
 
-    def init_parameters(self, S=4.036, epsilon=np.radians(23.26), xi=np.radians(55), wz=120):
-        """
-        Sets satellite to initialization status.
-        Args:
-            S (float): -> dz/dlambda; change in z-axis of satellite with respect to solar longitudinal angle.
-            epsilon (float): ecliptical angle [rad].
-            xi (float): revolving angle [rad].
-            wz (float): z component of inertial spin vector [arcsec/s].
-        """
+    def init_parameters(self, S=4.036, epsilon=0.40596, xi=0.95993, wz=120):
+
+        if type(S) not in [int, float]:
+            raise TypeError('S must be float or int')
+        if type(xi) not in [int, float]:
+            raise TypeError('xi must be float or int')
+        if epsilon > np.pi/2:
+            raise Warning('Value epsilon larger than expected, check units are in radians')
+        if type(wz) not in [int, float]:
+            raise TypeError('wz must be float or int non-negative')
+
         self.S = S
         self.epsilon = epsilon
         self.xi = xi
-        self.wz = wz * 60 * 60 * 24. * 0.0000048481368110954  # to [rad/day]
-        self.ldot = 2 * np.pi / 365 # [rad/day]
-
+        self.wz = wz * 60 * 60 * 24. * 0.0000048481368110954  # to[rad/day]
+        self.ldot = 2 * np.pi / 365     #[rad/day]
 
 class Attitude(Satellite):
     """
@@ -218,7 +218,6 @@ class Attitude(Satellite):
 
         self.storage.sort(key=lambda x: x[0])
 
-
 class Scanner:
     """
     Args:
@@ -229,10 +228,10 @@ class Scanner:
     Attributes:
         times_to_scan_star (list of floats): times where star within CCD field of view.
         obs_times (list of floats): times from J2000 at which the star is inside of the line of intercept.
-        stars_positions (list of arrays): positions calculated from obs_times of transits using satellite's attitude.
+        telescope_positions (list of arrays): positions calculated from obs_times of transits using satellite's attitude.
     """
 
-    def __init__(self, ccd, delta_z, delta_y):
+    def __init__(self, ccd = np.sin(np.radians(3)), delta_z = np.sin(np.radians(2)) , delta_y = np.sin(np.radians(0.5))):
         self.delta_z = delta_z
         self.delta_y = delta_y
         self.ccd = ccd
@@ -261,8 +260,8 @@ class Scanner:
             x_telescope1 = obj[3]
             attitude = obj[4]
 
-            x_srs_telescope1 = ft.srs(attitude, x_telescope1)
-            star_coor_srs = ft.srs(attitude, star.coor)
+            x_srs_telescope1 = ft.to_xyz(attitude, x_telescope1)
+            star_coor_srs = ft.to_xyz(attitude, star.coor)
 
             xy_proy_star_srs = np.array([star_coor_srs[0], star_coor_srs[1], 0])
             xz_proy_star_srs = np.array([star_coor_srs[0], 0, star_coor_srs[2]])
@@ -278,14 +277,14 @@ class Scanner:
                     if line == True:
                         if np.abs(star_coor_srs[1] - x_srs_telescope1[1]) < self.delta_y:
                             self.obs_times.append(t)
-                            self.telescope_positions.append(ft.bcrs(attitude, x_srs_telescope1))
+                            self.telescope_positions.append(ft.to_lmn(attitude, x_srs_telescope1))
                     else:
                         self.times_deep_scan.append(t)
                         self.times_deep_scan.sort()
 
         print('times intercepted:', len(self.times_deep_scan))
 
-    def deep_scan(self, att, star, deep_dt=0.001):
+    def deep_scan(self, att, star, deep_dt=0.0001):
 
         """
         Increases precision of satellite at points where source is intercept by scanner in the CCD.
@@ -303,7 +302,6 @@ class Scanner:
 
         print('deep_scan done')
 
-
 def star_finder(att, sky, scanner):
     """
     Finds times at which source transit CCD line of scanner and estimates their position in the BCRS frame.
@@ -319,19 +317,18 @@ def star_finder(att, sky, scanner):
         if len(scanner.times_deep_scan) != 0:
             scanner.deep_scan(att, star)
 
-def run(days = 1825, dt = 0.2, n=1):
+def run():
     """
-
     :param days: number of days to run
     :param dt: time step
     :return: sky, scan, att
     """
     start_time = time.time()
 
-    sky = Sky(n)
-    scan = Scanner(0.3,0.5,0.05)
+    sky = Sky(1)
+    scan = Scanner()
     att = Attitude()
-    att.create_storage(0, days, dt)
+    att.create_storage(0, 365*5, 0.1)
     star_finder(att, sky, scan)
 
     seconds = time.time() - start_time

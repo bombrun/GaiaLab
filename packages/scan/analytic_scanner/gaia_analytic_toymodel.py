@@ -29,8 +29,10 @@ import matplotlib.pyplot as plt
 #lalande = Source("Lalande 21185", )
 #luyten = Source('Luyten 726-8B', )
 #ross154 = Source(
-#demo = Source("demo", 217.42, -62, 1, -1700, -2000, -30)
-
+#demo = Source("demo", 217.42, -62, 1, 0, 0, 0)
+#vega_bcrs_au = ft.to_cartesian(np.radians(279.23), np.radians(38.78), 128.91)
+#vega_bcrs_au_six = np.array([vega_bcrs_au[0],vega_bcrs_au[1], vega_bcrs_au[2], 0,0,0])
+st_version = 3
 class Source: #need to take care of units
 
     def __init__(self, name, alpha0, delta0, parallax, mu_alpha, mu_delta, mu_radial):
@@ -106,14 +108,16 @@ class Source: #need to take care of units
         :return: delta alpha, delta delta [mas][mas]
         """
         mastorad = 2 * np.pi / (1000 * 360 * 3600)
-        u_lmn_unit = self.topocentric_function(satellite)(t)/np.linalg.norm(self.topocentric_function(satellite)(t))
+        u_lmn = self.topocentric_function(satellite)(t)
+        u_lmn_unit = u_lmn/np.linalg.norm(u_lmn)
         alpha_obs, delta_obs, radius = ft.to_polar(u_lmn_unit)
         if alpha_obs < 0:
             alpha_obs = alpha_obs + 2*np.pi
         delta_alpha_dx_mas = (alpha_obs - self.__alpha0) * np.cos(self.__delta0) / mastorad
         delta_delta_mas = (delta_obs - self.__delta0) / mastorad
 
-        return delta_alpha_dx_mas, delta_delta_mas
+        #return delta_alpha_dx_mas, delta_delta_mas
+        return alpha_obs/mastorad, delta_obs/mastorad
 
 class Satellite:
 
@@ -320,12 +324,16 @@ class Scanner:
         stars_positions (list of arrays): positions calculated from obs_times of transits using satellite's attitude.
     """
 
-    def __init__(self, coarse_angle= np.radians(20), scan_line_height = np.radians(2)):
+    def __init__(self, wide_angle = np.radians(10), coarse_angle= np.radians(0.5), scan_line_height = np.radians(0.5)):
+        self.wide_angle = wide_angle
         self.coarse_angle = coarse_angle
         self.scan_line_height = scan_line_height
 
-        #create storage
-        self.times_deep_scan = []
+        #check which lists need self. or not.
+        self.times_wide_scan = []
+        self.times_coarse_scan = []
+        self.times_fine_scan = []
+        self.fine_roots = []
         self.obs_times = []
         self.distances =[]
 
@@ -334,20 +342,30 @@ class Scanner:
         :return: empty all attribute lists from scanner before beginning new scanning period.
         """
         self.obs_times.clear()
-        self.times_deep_scan.clear()
+        self.times_coarse_scan.clear()
+        self.times_fine_scan.clear()
+        self.times_wide_scan.clear()
+        self.fine_roots.clear()
+        self.distances.clear()
 
-    def coarse_scan(self, att, source, ti=0, tf=365*5):
+    def wide_coarse_double_scan(self, att, source, ti=0, tf=365 * 5):
         """
         Scans sky with a dot product technique to get rough times of observation.
         :return: None
         :action: self.times_deep_scan list filled with observation time windows.
         """
-        self.step = self.coarse_angle / (2 * np.pi * 4)
-        self.reset_memory()
-        for t in np.arange(ti, tf, self.step):
-            to_star_unit = source.topocentric_function(att)(t)/np.linalg.norm(source.topocentric_function(att)(t))
-            if np.arccos(np.dot(to_star_unit, att.func_x_axis_lmn(t))) < self.coarse_angle:
-                self.times_deep_scan.append(t)
+        step_wide = self.wide_angle/(2 * np.pi * 4)
+        for t in np.arange(ti, tf, step_wide):
+            to_star_unit = source.topocentric_function(att)(t) / np.linalg.norm(source.topocentric_function(att)(t))
+            if np.arccos(np.dot(to_star_unit, att.func_x_axis_lmn(t))) < self.wide_angle:
+                self.times_wide_scan.append(t)
+
+        step_coarse = self.coarse_angle / (2 * np.pi * 4)
+        for t_wide in self.times_wide_scan:
+            for t in np.arange(t_wide - step_wide/2, t_wide + step_wide/2, step_coarse):
+                to_star_unit = source.topocentric_function(att)(t) / np.linalg.norm(source.topocentric_function(att)(t))
+                if np.arccos(np.dot(to_star_unit, att.func_x_axis_lmn(t))) < self.coarse_angle:
+                    self.times_coarse_scan.append(t)
 
     def fine_scan(self, att, source):
 
@@ -374,17 +392,78 @@ class Scanner:
             y_threshold = np.sin(self.scan_line_height/5)
             return y_threshold-np.abs(diff_vector_xyz[1])
 
+
+
         con1 = {'type': 'ineq', 'fun': z_condition}
         con2 = {'type': 'ineq', 'fun': y_condition}
-        roots = []
-        self.roots = []
-        for t in self.times_deep_scan:
-            root = optimize.minimize(f, t,method='Powell', bounds = [(t-self.step, t+ self.step)], constraints=[con1, con2])
+
+        time_step = self.coarse_angle / (2 * np.pi * 4)
+        for i in self.times_coarse_scan:
+            def t_condition(t):
+                if i - time_step < t < i + time_step:
+                    return 1.0
+                else:
+                    return -1.0
+            con3 = {'type': 'ineq', 'fun': t_condition}
+
+            root = optimize.minimize(f, i, method='COBYLA', constraints=[con1, con2, con3])
             if root.success == True:
-                self.roots.append(root)
-                #self.obs_times.append(root.x[0])
-                #self.distances.append(f(root.x[0]))
-        #return roots
+                self.fine_roots.append(root)
+                self.times_fine_scan.append(float(root.x))
+
+        # create estimated groups from observations within 3 hours of each other
+        groups = []
+        for root in self.fine_roots:
+            groups.append([idx2 for idx2, time in enumerate(self.times_fine_scan) if abs(time - float(root.x)) < 3/24])
+        groups = [set(group) for group in groups]
+
+        # merge intersecting groups
+        merged_groups = groups.copy()
+        for outer_group in merged_groups:
+            for inner_group in merged_groups:
+                if (inner_group is not outer_group) and (not outer_group.isdisjoint(inner_group)):
+                    outer_group.update(inner_group)
+                    merged_groups.remove(inner_group)
+
+        # find best observation in each group, and discard other observations
+        self.roots = []
+        for g in merged_groups:
+            list_indices = list(g)
+            idx = np.argmin([f(float(self.fine_roots[i].x)) for i in list_indices])
+            min_root = self.fine_roots[list_indices[idx]]
+            self.roots.append(min_root)
+            self.distances.append(f(float(min_root.x)))
+            self.obs_times.append(float(min_root.x))
+
+def least_squares_trajectory(scanner, satellite, initial_guess = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])):
+    rays = []
+
+    for time in scanner.obs_times:
+        direction = satellite.func_x_axis_lmn(time)
+        point = satellite.ephemeris_bcrs(time)
+        ray = np.array([point, direction, time])
+        rays.append(ray)
+
+    def objective(arg_array):
+        star_origin = arg_array[0:3]
+        star_velocity = arg_array[3:6]
+        total_square_error = 0
+
+        for ray in rays:
+            ray_point = ray[0]
+            ray_direction = ray[1]
+            time = ray[2]
+            star_position = star_origin + star_velocity * time
+            relative_star_position = star_position - ray_point
+            #distance= np.linalg.norm(np.cross(ray_direction,relative_star_position))
+            angle = np.arccos(np.dot(ray_direction, relative_star_position/np.linalg.norm(relative_star_position)))
+
+            total_square_error += angle**2
+
+        return total_square_error
+
+    result = optimize.minimize(objective, initial_guess, method="Nelder-Mead", options={'maxiter': 5000})
+    return result
 
 def run():
     """
@@ -394,15 +473,19 @@ def run():
     """
     start_time = time.time()
     vega = Source("vega", 279.2333, 38.78, 128.91, 201.03, 286.23, -13.9)
+    demo = Source("demo", 217.42, -62, 1, 0, 0, 0)
     scan = Scanner()
     gaia = Attitude()
 
-    scan.coarse_scan(gaia, vega)
-    scan.fine_scan(gaia, vega)
+    scan.wide_coarse_double_scan(gaia, vega)
+    t1 = time.time() - start_time
+    print('Star crossing field of view %i times' % (len(scan.times_coarse_scan)), ', seconds:', t1)
 
-    print('Star crossing field of view %i times' % (len(scan.times_deep_scan)))
-    print('Star detected %i times' % (len(scan.obs_times)))
+    scan.fine_scan(gaia, vega)
+    t2 = time.time() - start_time
+    print('Star detected %i times' % (len(scan.obs_times)), ', seconds:', t2-t1)
+
     seconds = time.time() - start_time
-    
-    print('seconds:', seconds)
-    return gaia, vega, scan#, roots
+    print('Total seconds:', seconds)
+    return gaia, vega, scan
+

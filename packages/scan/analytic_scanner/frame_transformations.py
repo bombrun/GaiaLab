@@ -95,4 +95,5 @@ def to_xyz(attitude, vector):
     q_vector_xyz = attitude.conjugate() * q_vector_lmn * attitude
     return q_vector_xyz.to_vector()
 
-
+def parsecs_to_au(vector):
+    return vector * 206265
