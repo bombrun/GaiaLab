@@ -363,7 +363,7 @@ def plot_sky(sky):
     fig2 = plt.figure()
     ax = fig2.gca(projection='3d')
 
-    ax.plot(x_list, y_list, z_list, 'b*', label='position of stars')
+    ax.plot(x_list, y_list, z_list, 'b*', label='Position of stars')
     ax.legend()
     ax.set_xlabel('l')
     ax.set_ylabel('m')
