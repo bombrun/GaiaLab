@@ -39,7 +39,7 @@ class LowPassData(filters.FilterData):
         else:
             self._dt = 1
         if isinstance(cutoff, (float, int)):
-            self.cutoff = cutoff
+            self._cutoff = cutoff
         else:
             # 0.05Hz is a reasonable cutoff frequency to default to.
             self._cutoff = 0.05
