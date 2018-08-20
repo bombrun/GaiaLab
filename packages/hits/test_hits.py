@@ -17,14 +17,16 @@ import math
 try:
     from hits.hitdetector import identify_through_magnitude,\
         plot_anomaly, identify_through_gradient, Abuelmaatti, point_density, \
-        filter_through_response, anomaly_density, rms_diff, stdev_diff
+        filter_through_response, anomaly_density, rms_diff, stdev_diff, rms, \
+        stdev
     from hits.hitsimulator import hit_distribution, flux, p_distribution, \
         freq, generate_event, generate_data, masses, tp_distribution, \
         time_distribution, AOCSResponse
 except(ImportError):
     from .hitdetector import identify_through_magnitude, plot_anomaly, \
         identify_through_gradient, Abuelmaatti, point_density, \
-        filter_through_response, anomaly_density, rms_diff, stdev_diff
+        filter_through_response, anomaly_density, rms_diff, stdev_diff, rms, \
+        stdev
     from .hitsimulator import hit_distribution, flux, p_distribution, freq, \
         generate_event, generate_data, masses, tp_distribution, \
         time_distribution, AOCSResponse
@@ -98,6 +100,25 @@ class TestHitDetectorIdentifyFuncs(unittest.TestCase):
         stdev = stdev_diff(df)
         self.assertEqual(0, stdev,
                          msg="stdev_diff calculated diff of %r. Expected 0.")
+
+    def test_rms_correctly_identifies_rms_of_1(self):
+        value = np.random.uniform(1,20)
+        data = np.ones(100) * value 
+        df = pd.DataFrame(data=dict(rate=data,
+                                    w1_rate=np.zeros(100)))
+        self.assertAlmostEqual(rms(df), value, places=6,
+                               msg="rms identified rms value of %r. "
+                                   "Expected %r." % (rms(df), value))
+
+    def test_stdev_correctly_identifies_stdev_of_0(self):
+        value = np.random.uniform(1,20)
+        data = np.ones(100) * value 
+        df = pd.DataFrame(data=dict(rate=data,
+                                    w1_rate=np.zeros(100)))
+
+        self.assertEqual(stdev(df), 0, msg="stdev identified standard "
+                                             "deviation value of %r. Expected "
+                                             "0." % stdev(df))
 
 
 class TestHitDetectorAbuelmaattiFuncs(unittest.TestCase):

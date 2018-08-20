@@ -15,9 +15,11 @@ from hits.misc import sort_data, isolate_hit_df
 from numba import jit
 from array import array
 try:
-    import noiseremoval.kalman as nr
+    import noiseremoval.kalman as fk
+    import noiseremoval.lowpass as fl
 except(ImportError):
-    import hits.noiseremoval.kalman as nr
+    import hits.noiseremoval.kalman as fk
+    import hits.noiseremoval.lowpass as fl
 
 # -----------------------------------------------------------------------------
 #
@@ -30,10 +32,12 @@ except(ImportError):
 # filter_through_response       yes
 # rms_diff                      yes
 # stdev_diff                    yes
+# rms                           no
+# stdev                         no
 # anomaly_density               yes
-# plot_anomaly                  no (probably unnecessary)
 # identify_hits                 no
-# filter_and_identify           no#
+# filter_and_identify           no
+# plot_anomaly                  no (probably unnecessary)
 #
 # -----------------------------------------------------------------------------
 
@@ -354,6 +358,7 @@ def filter_through_response(df, threshold=2):
 
 @sort_data
 def rms_diff(df):  # Bizarrely, this is slower if @jit compiled.
+    """Calculate the RMS value for the differences between points."""
     s = 0
     for diff in np.diff(df['rate'] - df['w1_rate']):
         s += diff**2
@@ -363,7 +368,22 @@ def rms_diff(df):  # Bizarrely, this is slower if @jit compiled.
 
 @sort_data
 def stdev_diff(df):
+    """
+    Calculate the standard deviation of the differences between
+    points.
+    """
     return np.std([abs(x)for x in np.diff(df['rate'] - df['w1_rate'])])
+
+
+def rms(df):
+    """Calculate RMS for a dataframe."""
+    return np.sqrt(sum([x ** 2 for x in df['rate'] - df['w1_rate']]) /
+                   len(df))
+
+
+def stdev(df):
+    """Calculate standard deviation of a dataframe."""
+    return np.std(df['rate'] - df['w1_rate'])
 
 
 def anomaly_density(df, method='magnitude', window_size=3600, **kwargs):
@@ -405,6 +425,124 @@ def anomaly_density(df, method='magnitude', window_size=3600, **kwargs):
                                                           min_periods=0,
                                                           **kwargs).mean()
     return anomaly_df
+
+
+def identify_hits(df):
+    """
+    Accepts:
+
+        a Pandas dataframe of shape:
+
+                obmt    rate    w1_rate
+            1.  float   float   float
+
+        or equivalent.
+
+    Isolate hits identified by all detection methods.
+
+    Returns:
+
+        list of Truth values of hits corresponding to the given time
+        series.
+    """
+    old_values = np.ones(len(df['obmt']))
+    for key in method_dict.keys():
+        working_df = method_dict[key](df)[0]
+
+        hit_series = array('d', working_df['anomaly'])[::-1]
+        new_series = array('d', [])
+
+        for i in range(len(hit_series)):
+            try:
+                if hit_series[i+1]:
+                    new_series.append(False)
+                else:
+                    new_series.append(hit_series[i])
+            except(IndexError):
+                new_series.append(False)
+                break
+        working_df['hits'] = new_series[::-1]
+        new_values = [a and b for a, b in zip(old_values, new_series[::-1])]
+        old_values = new_values
+
+    return new_values
+
+
+def filter_and_identify(df, method='magnitude', filter_threshold=None,
+                        identify_threshold=None, kalman=True, lowpass=True):
+    """
+    Accepts:
+
+        a Pandas dataframe of shape:
+
+                obmt    rate    w1_rate
+            1.  float   float   float
+
+        or equivalent.
+
+    Identifies hits in filtered data.
+
+    Kwargs:
+
+        method (string, default='magnitude'):
+            Detection method to use for the anomaly identification.
+
+        filter_threshold (float, default=None):
+            Threshold for filtering. If None, threshold is calculated
+            from the data.
+
+        identify_threshold (float, default=None):
+            Threshold for anomaly identification. If None, threshold is
+            calculated from the data.
+
+        kalman (bool, default=True):
+            If True, applies a Kalman filter to the data before
+            identifying anomalies.
+
+        lowpass (bool, default=True):
+            If True, applies a low-pass filter to the data before
+            identifying anomalies.
+
+    Returns:
+
+        a tuple of:
+
+            a Pandas dataframe of shape:
+
+                    obmt    rate    w1_rate anomaly
+                1.  float   float   float   bool
+
+            or equivalent.
+
+            and a dataframe of shape:
+
+                    obmt
+                1.  float
+
+            containing the times of detected anomalies.
+    """
+
+    if filter_threshold is None:
+        filter_threshold = rms_diff(df) + 2 * stdev_diff(df)
+
+    working_df = filter_through_response(df, threshold=filter_threshold)
+
+    if identify_threshold is None and not gradient:
+        identify_threshold = rms(working_df) + stdev(working_df)
+
+    elif identify_threshold is None and gradient:
+        identify_threshold = rms_diff(working_df)
+
+    if kalman:
+        working_df = fk.KalmanData(working_df,
+                                   q=stdev_diff(df) ** 2,
+                                   r=stdev(df) ** 2).to_pandas()
+    if lowpass:
+        working_df = fl.LowPassData(working_df).to_pandas()
+
+    identify = method_dict[method]
+
+    return identify(working_df, threshold=identify_threshold)
 
 
 def plot_anomaly(*dfs, method='magnitude', highlight=False, highlights=False,
@@ -479,7 +617,7 @@ def plot_anomaly(*dfs, method='magnitude', highlight=False, highlights=False,
             for time in isolated_data[isolated_data['hits']]['obmt']:
                 if not i % 100:
                     print(i, "/", len(isolated_data[isolated_data['hits']]))
-                plt.axvline(time, lw=1)
+                plt.axvline(time, lw=1, color="orange")
                 i += 1
             plt.scatter(data.obmt, data.rate-data.w1_rate, s=1)
         else:
@@ -493,44 +631,6 @@ def plot_anomaly(*dfs, method='magnitude', highlight=False, highlights=False,
     if show:
         plt.show()
 
-
-def identify_hits(df):
-    old_values = np.ones(len(df['obmt']))
-    for key in method_dict.keys():
-        working_df = method_dict[key](df)[0]
-
-        hit_series = array('d', working_df['anomaly'])[::-1]
-        new_series = array('d', [])
-
-        for i in range(len(hit_series)):
-            try:
-                if hit_series[i+1]:
-                    new_series.append(False)
-                else:
-                    new_series.append(hit_series[i])
-            except(IndexError):
-                new_series.append(False)
-                break
-        working_df['hits'] = new_series[::-1]
-        new_values = [a and b for a, b in zip(old_values, new_series[::-1])]
-        old_values = new_values
-
-    return new_values
-
-
-def filter_and_identify(df, filter_threshold=None, identify_threshold=None,
-                        kalman=False):
-
-    if filter_threshold is None:
-        filter_threshold = rms_diff(df) + 2 * stdev_diff(df)
-    if identify_threshold is None:
-        identify_threshold = rms_diff(df) + stdev_diff(df)
-
-    working_df = filter_through_response(df, threshold=filter_threshold)
-    if kalman:
-        working_df = nr.KalmanData(working_df).to_pandas()
-    return identify_through_magnitude(working_df,
-                                      threshold=identify_threshold)
 
 # Dictionary to allow hit detection method selection.
 method_dict = dict(magnitude=identify_through_magnitude,
