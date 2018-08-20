@@ -102,8 +102,8 @@ class TestHitDetectorIdentifyFuncs(unittest.TestCase):
                          msg="stdev_diff calculated diff of %r. Expected 0.")
 
     def test_rms_correctly_identifies_rms_of_1(self):
-        value = np.random.uniform(1,20)
-        data = np.ones(100) * value 
+        value = np.random.uniform(1, 20)
+        data = np.ones(100) * value
         df = pd.DataFrame(data=dict(rate=data,
                                     w1_rate=np.zeros(100)))
         self.assertAlmostEqual(rms(df), value, places=6,
@@ -111,14 +111,14 @@ class TestHitDetectorIdentifyFuncs(unittest.TestCase):
                                    "Expected %r." % (rms(df), value))
 
     def test_stdev_correctly_identifies_stdev_of_0(self):
-        value = np.random.uniform(1,20)
-        data = np.ones(100) * value 
+        value = np.random.uniform(1, 20)
+        data = np.ones(100) * value
         df = pd.DataFrame(data=dict(rate=data,
                                     w1_rate=np.zeros(100)))
 
         self.assertEqual(stdev(df), 0, msg="stdev identified standard "
-                                             "deviation value of %r. Expected "
-                                             "0." % stdev(df))
+                                           "deviation value of %r. Expected "
+                                           "0." % stdev(df))
 
 
 class TestHitDetectorAbuelmaattiFuncs(unittest.TestCase):
