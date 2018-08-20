@@ -116,9 +116,9 @@ class TestHitDetectorIdentifyFuncs(unittest.TestCase):
         df = pd.DataFrame(data=dict(rate=data,
                                     w1_rate=np.zeros(100)))
 
-        self.assertEqual(stdev(df), 0, msg="stdev identified standard "
-                                           "deviation value of %r. Expected "
-                                           "0." % stdev(df))
+        self.assertAlmostEqual(stdev(df), 0, msg="stdev identified standard "
+                                                 "deviation value of %r. "
+                                                 "Expected 0." % stdev(df))
 
 
 class TestHitDetectorAbuelmaattiFuncs(unittest.TestCase):
