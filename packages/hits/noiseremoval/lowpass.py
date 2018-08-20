@@ -30,7 +30,7 @@ class LowPassData(filters.FilterData):
     name = "LowPassData"
 
 # Special methods--------------------------------------------------------------
-    def __init__(self, *args):
+    def __init__(self, *args, cutoff=None):
         filters.FilterData.__init__(self, *args)
 
         # Set up private variables.
@@ -38,8 +38,11 @@ class LowPassData(filters.FilterData):
             self._dt = o2s(self._obmt[1] - self._obmt[0])
         else:
             self._dt = 1
-        # 0.05Hz is a reasonable cutoff frequency to default to.
-        self._cutoff = 0.05
+        if isinstance(cutoff, (float, int)):
+            self.cutoff = cutoff
+        else:
+            # 0.05Hz is a reasonable cutoff frequency to default to.
+            self._cutoff = 0.05
         self._alpha = (2 * np.pi * self._dt * self._cutoff)/(2 * np.pi *
                                                              self._dt *
                                                              self._cutoff + 1)
