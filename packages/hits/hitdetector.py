@@ -11,7 +11,8 @@ import matplotlib.pyplot as plt
 import sys
 import pandas as pd
 import warnings
-from hits.misc import sort_data, isolate_hit_df
+import scipy.signal
+from hits.misc import sort_data, isolate_hit_df, o2s
 from numba import jit
 from array import array
 try:
@@ -32,11 +33,13 @@ except(ImportError):
 # filter_through_response       yes
 # rms_diff                      yes
 # stdev_diff                    yes
-# rms                           no
-# stdev                         no
+# rms                           yes
+# stdev                         yes
+# get_clank_frequency_from_psd  no
 # anomaly_density               yes
 # identify_hits                 no
 # filter_and_identify           no
+# null_identify                 no
 # plot_anomaly                  no (probably unnecessary)
 #
 # -----------------------------------------------------------------------------
@@ -386,6 +389,23 @@ def stdev(df):
     return np.std(df['rate'] - df['w1_rate'])
 
 
+def get_clank_frequency_from_psd(df):
+    """
+    Calculate clank period from power spectral density of a time-series.
+    """
+    # Caluculate the sampling rate of the data. Since there are
+    # occasionally jumps, it is worth checking that two random intervals
+    # are the same to avoid accidentally calculating an incorrect rate.
+
+    f = o2s(np.mean(np.diff(df['obmt']))) ** (-1)
+
+    d = pd.DataFrame()
+
+    d['freqs'], d['psd'] = scipy.signal.welch(df['rate'] - df['w1_rate'], fs=f)
+
+    return d[d['psd'] == max(d['psd'])]['freqs'].tolist()[0]
+
+
 def anomaly_density(df, method='magnitude', window_size=3600, **kwargs):
     """
     Accepts:
@@ -527,7 +547,7 @@ def filter_and_identify(df, method='magnitude', filter_threshold=None,
 
     working_df = filter_through_response(df, threshold=filter_threshold)
 
-    if identify_threshold is None and not gradient:
+    if identify_threshold is None:
         identify_threshold = rms(working_df) + stdev(working_df)
 
     elif identify_threshold is None and gradient:
@@ -538,14 +558,38 @@ def filter_and_identify(df, method='magnitude', filter_threshold=None,
                                    q=stdev_diff(df) ** 2,
                                    r=stdev(df) ** 2).to_pandas()
     if lowpass:
-        working_df = fl.LowPassData(working_df).to_pandas()
+        cutoff = get_clank_frequency_from_psd(df) / 10
+        working_df = fl.LowPassData(working_df, cutoff=cutoff).to_pandas()
 
     identify = method_dict[method]
 
     return identify(working_df, threshold=identify_threshold)
 
 
-def plot_anomaly(*dfs, method='magnitude', highlight=False, highlights=False,
+def null_identify(df):
+    """
+    Accepts:
+
+        a Pandas dataframe of shape:
+
+                obmt    rate    w1_rate
+            1.  float   float   float
+
+        or equivalent.
+
+    Does nothing to the data and returns it as given.
+
+    Returns:
+
+        the same dataframe, a single element list of [0].
+
+    """
+    return (df, pd.DataFrame(data=dict(obmt=[0, 0],
+                                       rate=[0, 0],
+                                       w1_rate=[0, 0])))
+
+
+def plot_anomaly(*dfs, method=None, highlight=False, highlights=False,
                  show=True, line=False, **kwargs):
     """
     Accepts:
@@ -592,10 +636,13 @@ def plot_anomaly(*dfs, method='magnitude', highlight=False, highlights=False,
         identify_through_magnitude(). See
         help(identify_through_magnitude) for more information.
     """
-    try:
-        identify = method_dict[method]
-    except(KeyError):
-        raise(KeyError("Unknown value given for kwarg 'method'."))
+    if method is None:
+        identify = null_identify
+    else:
+        try:
+            identify = method_dict[method]
+        except(KeyError):
+            raise(KeyError("Unknown value given for kwarg 'method'."))
 
     for df in dfs:
 
