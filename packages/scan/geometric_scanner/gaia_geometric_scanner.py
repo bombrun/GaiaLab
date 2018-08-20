@@ -194,7 +194,6 @@ class Attitude(Satellite):
         self.beta_z = list_element[6]
         self.s = list_element[7]
 
-
     def create_storage(self, ti, tf, dt):
         '''
         Creates data necessary for step numerical methods performed in builtin method .update()
@@ -220,21 +219,28 @@ class Attitude(Satellite):
 
 class Scanner:
     """
-    Args:
-        ccd (float): width of the telescope field of view.
-        delta_z (float): height of the telescope field of view.
-        delta_y (float): width of the line of intercept.
+    :param ccd: width of the telescope field of view [float]
+    :param delta_z: height of the telescope field of view [float]
+    :param delta_y: width of the line of intercept [float]
 
-    Attributes:
-        times_to_scan_star (list of floats): times where star within CCD field of view.
-        obs_times (list of floats): times from J2000 at which the star is inside of the line of intercept.
-        telescope_positions (list of arrays): positions calculated from obs_times of transits using satellite's attitude.
+    Attributes
+    -----------
+    :times_to_scan_star: times where star within CCD field of view. [list of floats]
+    :obs_times: times from J2000 at which the star is inside of the line of intercept. [list of floats]
+    :telescope_positions: position of the scaner x-axis at each of obs_times. [list of arrays]
     """
 
-    def __init__(self, ccd = np.sin(np.radians(3)), delta_z = np.sin(np.radians(2)) , delta_y = np.sin(np.radians(0.5))):
+    def __init__(self, ccd = 0.08, delta_z = 0.05 , delta_y = 0.01):
         self.delta_z = delta_z
         self.delta_y = delta_y
         self.ccd = ccd
+
+        if type(self.delta_z) not in [int, float]:
+            raise TypeError('self.delta_z must be float or int')
+        if type(self.delta_y) not in [int, float]:
+            raise TypeError('self.delta_y must be float or int')
+        if type(self.ccd) not in [int, float]:
+            raise TypeError('self.ccd must be float or int')
 
         #create storage
         self.obs_times = []
@@ -310,7 +316,6 @@ def star_finder(att, sky, scanner):
     :param scanner: object
     :return: scanner.star_positions, scanner.obs_times.
     """
-
     for star in sky.elements:
         scanner.reset_memory()
         scanner.intercept(att, star)
