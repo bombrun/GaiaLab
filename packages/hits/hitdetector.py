@@ -12,7 +12,7 @@ import sys
 import pandas as pd
 import warnings
 import scipy.signal
-from hits.misc import sort_data, isolate_hit_df, o2s
+from hits.misc import sort_data, isolate_hit_df, o2s, hit_start_end_df
 from numba import jit
 from array import array
 try:
@@ -403,7 +403,7 @@ def get_clank_frequency_from_psd(df):
 
     d['freqs'], d['psd'] = scipy.signal.welch(df['rate'] - df['w1_rate'], fs=f)
 
-    return d[d['psd'] == max(d['psd'])]['freqs'].tolist()[0]
+    return d[d['psd'] == max(d['psd'])]['freqs'].tolist()[0]/10
 
 
 def anomaly_density(df, method='magnitude', window_size=3600, **kwargs):
@@ -543,14 +543,14 @@ def filter_and_identify(df, method='magnitude', filter_threshold=None,
     """
 
     if filter_threshold is None:
-        filter_threshold = rms_diff(df) + 2 * stdev_diff(df)
+        filter_threshold = 2
 
     working_df = filter_through_response(df, threshold=filter_threshold)
 
     if identify_threshold is None:
         identify_threshold = rms(working_df) + stdev(working_df)
 
-    elif identify_threshold is None and gradient:
+    elif identify_threshold is None and method == "gradient":
         identify_threshold = rms_diff(working_df)
 
     if kalman:
@@ -638,15 +638,23 @@ def plot_anomaly(*dfs, method=None, highlight=False, highlights=False,
     """
     if method is None:
         identify = null_identify
+        kwarg_dict = dict()
+    elif isinstance(method,
+                    tuple) and isinstance(method[0],
+                                          str) and isinstance(method[1],
+                                                              dict):
+        identify = method_dict[method[0]]
+        kwarg_dict = method[1]
     else:
         try:
             identify = method_dict[method]
+            kwarg_dict = dict()
         except(KeyError):
             raise(KeyError("Unknown value given for kwarg 'method'."))
 
     for df in dfs:
 
-        data, t = identify(df, **kwargs)
+        data, t = identify(df, **kwarg_dict)
         # Create dummy colour array where all are red.
         colors = pd.DataFrame(index=t.index.values,
                               data=dict(color=['red' for time in t.index]))
@@ -677,6 +685,32 @@ def plot_anomaly(*dfs, method=None, highlight=False, highlights=False,
 
     if show:
         plt.show()
+
+
+def log_start_and_end_times(*dfs, dest="hitranges.txt", method=None):
+    if method is None:
+        identify = null_identify
+        kwarg_dict = dict()
+    elif isinstance(method,
+                    tuple) and isinstance(method[0],
+                                          str) and isinstance(method[1],
+                                                              dict):
+        identify = method_dict[method[0]]
+        kwarg_dict = method[1]
+    else:
+        try:
+            identify = method_dict[method]
+            kwarg_dict = dict()
+        except(KeyError):
+            raise(KeyError("Unknown value given for kwarg 'method'."))
+
+    for df in dfs:
+        working_df = hit_start_end_df(identify(df, **kwarg_dict)[0])
+        with open(dest, 'w+') as d:
+            for t0, t1 in zip(working_df[working_df['start']]['obmt'],
+                              working_df[working_df['end']]['obmt']):
+
+                d.write(str(t0) + "," + str(t1) + "\n")
 
 
 # Dictionary to allow hit detection method selection.

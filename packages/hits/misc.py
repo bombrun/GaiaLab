@@ -36,6 +36,7 @@ def o2s(obmt):
 
 @jit(nopython=True)
 def isolate_true(data):
+    """Turn all Trues except the first into Falses in a run of Trues."""
     data_backwards = data[::-1]
     x = []
     for i in range(len(data) - 1):
@@ -48,6 +49,18 @@ def isolate_true(data):
 
 
 def isolate_hit_df(df):
+    """
+    Isolate events by removing multiple True readings for the same hit.
+    """
     df['hits'] = isolate_true(list(df['anomaly']))
     df['hits'] = df['hits'].astype('bool')
+    return df
+
+
+def hit_start_end_df(df):
+    """Label hit start and end times."""
+    df['start'] = isolate_true(list(df['anomaly']))
+    df['end'] = isolate_true(list(df['anomaly'])[::-1])[::-1]
+    df['start'] = df['start'].astype('bool')
+    df['end'] = df['end'].astype('bool')
     return df
