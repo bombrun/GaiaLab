@@ -10,7 +10,7 @@ import matplotlib as mpl
 import numpy as np
 import matplotlib.pyplot as plt
 import mpl_toolkits.mplot3d.axes3d
-import gaia_geometric_scanner as ggs
+import gaia_geometric_toymodel as ggs
 
 
 def plot_3DX(att, ti, tf, dt):

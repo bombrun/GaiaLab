@@ -298,15 +298,12 @@ class Scanner:
         :param satellite: satellite object.
         :param deep_dt: new step dt fur higher numerical method precision.
         """
-        print ('doing deep_scan')
-
         for t in self.times_deep_scan:
             att.short_reset_to_time(t)
             att.create_storage(t - 0.2, t + 0.2, deep_dt)
 
         self.intercept(att, star, line = True)
 
-        print('deep_scan done')
 
 def star_finder(att, sky, scanner):
     """

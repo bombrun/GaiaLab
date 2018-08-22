@@ -24,7 +24,6 @@ def plot_longalt(att, ti, tf, dt):
     plt.title('Revolving scanning')
     plt.show()
 
-
 def plot_3DX(att, ti, tf, dt):
 
     att.reset()
@@ -48,7 +47,6 @@ def plot_3DX(att, ti, tf, dt):
 
     plt.show()
 
-
 def plot_3DZ(att, ti, tf, dt):
     att.reset()
     att.create_storage(ti, tf, dt)
@@ -70,7 +68,6 @@ def plot_3DZ(att, ti, tf, dt):
     ax.set_zlabel('n')
 
     plt.show()
-
 
 def plot_3DW(att, ti, tf, dt):
     att.reset()

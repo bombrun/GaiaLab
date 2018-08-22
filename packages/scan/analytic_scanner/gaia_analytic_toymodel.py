@@ -3,9 +3,8 @@
 """
 Created on Mon Jun 18 14:59:19 2018
 
-@author: vallevaro
+@author: mdelvallevaro
 
-http://docs.astropy.org/en/stable/coordinates/index.html#module-astropy.coordinates
 """
 
 import frame_transformations as ft
@@ -23,17 +22,11 @@ import matplotlib.pyplot as plt
 #vega = Source("vega", 279.2333, 38.78, 128.91, 201.03, 286.23, -13.9)
 #proxima = Source("proxima",217.42, -62, 768.7, 3775.40, 769.33, 21.7)
 #sirio = Source("sirio", 101.28, -16.7161, 379.21, -546.05, -1223.14, -7.6)
-#alphacentauri = Source('alpha centauri', )
-#barnard = Source("Barnard", )
-#wolf = Source('Wolf 359', )
-#lalande = Source("Lalande 21185", )
-#luyten = Source('Luyten 726-8B', )
-#ross154 = Source(
-#demo = Source("demo", 217.42, -62, 1, 0, 0, 0)
+
 #vega_bcrs_au = ft.to_cartesian(np.radians(279.23), np.radians(38.78), 128.91)
 #vega_bcrs_au_six = np.array([vega_bcrs_au[0],vega_bcrs_au[1], vega_bcrs_au[2], 0,0,0])
-st_version = 3
-class Source: #need to take care of units
+
+class Source:
 
     def __init__(self, name, alpha0, delta0, parallax, mu_alpha, mu_delta, mu_radial):
         """
@@ -46,16 +39,16 @@ class Source: #need to take care of units
         """
         self.name = name
         self.init_param(alpha0, delta0, parallax, mu_alpha, mu_delta, mu_radial)
-        self.alpha = self.__alpha0 #rad
-        self.delta = self.__delta0 #rad
+        self.alpha = self.__alpha0
+        self.delta = self.__delta0
 
     def init_param(self, alpha0, delta0, parallax, mu_alpha, mu_delta, mu_radial):
-        self.__alpha0= np.radians(alpha0) #rad
-        self.__delta0=  np.radians(delta0) #rad
-        self.parallax = parallax    #mas
-        self.mu_alpha_dx = mu_alpha*np.cos(self.__delta0)   #mas/yr
-        self.mu_delta = mu_delta                       #mas/yr
-        self.mu_radial = mu_radial    #mas*km/s
+        self.__alpha0= np.radians(alpha0)
+        self.__delta0=  np.radians(delta0)
+        self.parallax = parallax
+        self.mu_alpha_dx = mu_alpha*np.cos(self.__delta0)
+        self.mu_delta = mu_delta
+        self.mu_radial = mu_radial
 
         self.direction_bcrs= ft.to_direction(self.__alpha0, self.__delta0)
         self.coor_bcrs = ft.to_cartesian(self.__alpha0, self.__delta0, self.parallax)
@@ -64,11 +57,11 @@ class Source: #need to take care of units
         self.alpha = self.__alpha0
         self.delta = self.__delta0
 
-    def set_time(self, t): #implement here relativistic effects
-        mu_alpha_dx = self.mu_alpha_dx * 4.8473097e-9 / 365 #from mas/yr to rad/day
-        mu_delta = self.mu_delta * 4.848136811095e-9 / 365  #from mas/yr to rad/day
-        self.alpha = self.__alpha0 + mu_alpha_dx*t  #rad
-        self.delta = self.__delta0 + mu_delta*t     #rad
+    def set_time(self, t):
+        mu_alpha_dx = self.mu_alpha_dx * 4.8473097e-9 / 365     #from mas/yr to rad/day
+        mu_delta = self.mu_delta * 4.848136811095e-9 / 365      #from mas/yr to rad/day
+        self.alpha = self.__alpha0 + mu_alpha_dx*t
+        self.delta = self.__delta0 + mu_delta*t
 
     def barycentric_vector(self, t):
         """
@@ -84,8 +77,8 @@ class Source: #need to take care of units
 
     def topocentric_function(self, satellite):
         """
-        :param satellite:
-        :return: lambda function of the position of the star from the satellite´s lmn frame.
+        :param satellite: satellite object
+        :return: lambda function of the position of the star from the satellite's lmn frame.
         """
         p, q, r = ft.pqr(self.alpha, self.delta)
         mastorad = 2*np.pi/(1000*360*3600)
@@ -97,13 +90,14 @@ class Source: #need to take care of units
         mu_delta = self.mu_delta*mastorad/365  #mas/yr to rad/day
         mu_radial = self.parallax*mastorad*self.mu_radial*kmtopc*sectoday #km/s to aproximation rad/day
 
-        topocentric_function = lambda t: self.barycentric_vector(0) + t*(p*mu_alpha_dx+ q*mu_delta + r*mu_radial) - satellite.ephemeris_bcrs(t)*AUtopc
+        topocentric_function = lambda t: self.barycentric_vector(0) + t*(p*mu_alpha_dx+ q*mu_delta + r*mu_radial)  \
+                                         - satellite.ephemeris_bcrs(t)*AUtopc
         return topocentric_function
 
     def topocentric_angles(self, satellite, t):
         """
 
-        :param satellite:
+        :param satellite: satellite object
         :param t: [days]
         :return: delta alpha, delta delta [mas][mas]
         """
@@ -111,8 +105,11 @@ class Source: #need to take care of units
         u_lmn = self.topocentric_function(satellite)(t)
         u_lmn_unit = u_lmn/np.linalg.norm(u_lmn)
         alpha_obs, delta_obs, radius = ft.to_polar(u_lmn_unit)
+
+        #keep longitud angle positive.
         if alpha_obs < 0:
             alpha_obs = alpha_obs + 2*np.pi
+
         delta_alpha_dx_mas = (alpha_obs - self.__alpha0) * np.cos(self.__delta0) / mastorad
         delta_delta_mas = (delta_obs - self.__delta0) / mastorad
 
@@ -120,31 +117,37 @@ class Source: #need to take care of units
         return alpha_obs/mastorad, delta_obs/mastorad
 
 class Satellite:
+    """
+    Class Object, parent to Attitude, that represents Gaia.
 
+    %run: epsilon = np.radians(23.26), xi = np.radians(55).
+
+    :param S: change in the z-axis of satellite wrt solar longitudinal angle. [float]
+    :param epsilon: ecliptical angle [rad]
+    :param xi: revolving angle [rad]
+    :param wz: z component of inertial spin vector [arcsec/s]
+    :action: Sets satellite to initialization status.
+    """
     def __init__(self, *args):
+        """
+        :orbital_period: [days]
+        :orbital_radius: [AU]
+        """
         self.init_parameters(*args)
         self.orbital_period = 365
         self.orbital_radius = 1.0
 
     def init_parameters(self, S=4.036, epsilon=np.radians(23.26), xi=np.radians(55), wz=120):
-        """
-        Sets satellite to initialization status.
-        Args:
-            S (float): -> dz/dlambda; change in z-axis of satellite with respect to solar longitudinal angle.
-            epsilon (float): ecliptic angle [rad].
-            xi (float): revolving angle [rad].
-            wz (float): z component of inertial spin vector [arcsec/s].
-        """
         self.S = S
         self.epsilon = epsilon
         self.xi = xi
         self.wz = wz * 60 * 60 * 24. * 0.0000048481368110954  # to [rad/day]
         self.ldot = 2 * np.pi / 365 # [rad/day]
 
-    def ephemeris_bcrs(self, t):
+    def ephemeris_bcrs(self, t): #the norm is not 1!!!!!!!!!!
         """
-        Returns the barycentric ephemeris of the Gaia satellite, bg(t), at time t.
-        :param t: float, time in days
+        Returns the barycentric ephemeris of the Gaia satellite at time t.
+        :param t: float [days]
         :return: 3d np.array [AU]
         """
         b_x_bcrs = self.orbital_radius*np.cos(2*np.pi/self.orbital_period*t)*np.cos(self.epsilon)
@@ -158,11 +161,13 @@ class Satellite:
 class Attitude(Satellite):
     """
     Child class to Satellite.
-    Calculates spline from attitude data of each our for 5 years by default.
+    Creates spline from attitude data for 5 years by default.
+    :param ti: initial time, float [day]
+    :param tf: final time, float [day]
+    :param dt: time step for creation of discrete data fed to spline, float [day].
     """
     def __init__(self, ti=0, tf=365*5, dt= 1/24.):
         Satellite.__init__(self)
-
         self.storage = []
         self.__init_state()
         self.__create_storage(ti, tf, dt)
@@ -244,6 +249,15 @@ class Attitude(Satellite):
         self.x = x_quat.to_vector()
 
     def __attitude_spline(self):
+        """
+        Creates spline for each component of the attitude quaternion:
+            s_x, s_y, s_z, s_w
+        Attributes
+        -----------
+        :func_attitude: lambda func, returns: attitude quaternion at time t from spline.
+        :func_x_axis_lmn: lambda func, returns: position of x_axis of satellite at time t, in lmn frame.
+        :func_z_axis_lmn: lambda func, returns: position of z_axis of satellite at time t, in lmn frame.
+        """
         w_list = []
         x_list = []
         y_list = []
@@ -269,8 +283,8 @@ class Attitude(Satellite):
     def __reset_to_time(self, t, dt):
         '''
         Resets satellite to time t, along with all the parameters corresponding to that time.
-        Args:
-            t (float): time from J2000 [days]
+        :param t: to time [day]
+        :param dt: [day]
         '''
         self.__init_state()
         n_steps = t / dt
@@ -318,18 +332,18 @@ class Scanner:
         delta_z (float): height of the telescope field of view.
         delta_y (float): width of the line of intercept.
 
-    Attributes:
-        times_to_scan_star (list of floats): times where star within CCD field of view.
-        obs_times (list of floats): times from J2000 at which the star is inside of the line of intercept.
-        stars_positions (list of arrays): positions calculated from obs_times of transits using satellite's attitude.
+    Attributes
+    -----------
+        :times_to_scan_star: (list of floats): times where star within CCD field of view.
+        :obs_times: list of times from ti init-time, at which the star is observed [days].
+        :stars_positions (list of arrays): positions calculated from obs_times of transits using satellite's attitude.
     """
 
-    def __init__(self, wide_angle = np.radians(10), coarse_angle= np.radians(0.5), scan_line_height = np.radians(0.5)):
+    def __init__(self, wide_angle = np.radians(20), coarse_angle= np.radians(1)):
         self.wide_angle = wide_angle
         self.coarse_angle = coarse_angle
-        self.scan_line_height = scan_line_height
+        self.scan_line_height = self.coarse_angle
 
-        #check which lists need self. or not.
         self.times_wide_scan = []
         self.times_coarse_scan = []
         self.times_fine_scan = []
@@ -351,7 +365,6 @@ class Scanner:
     def wide_coarse_double_scan(self, att, source, ti=0, tf=365 * 5):
         """
         Scans sky with a dot product technique to get rough times of observation.
-        :return: None
         :action: self.times_deep_scan list filled with observation time windows.
         """
         step_wide = self.wide_angle/(2 * np.pi * 4)
@@ -437,7 +450,6 @@ class Scanner:
 
 def least_squares_trajectory(scanner, satellite, initial_guess = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])):
     rays = []
-
     for time in scanner.obs_times:
         direction = satellite.func_x_axis_lmn(time)
         point = satellite.ephemeris_bcrs(time)
@@ -473,7 +485,6 @@ def run():
     """
     start_time = time.time()
     vega = Source("vega", 279.2333, 38.78, 128.91, 201.03, 286.23, -13.9)
-    demo = Source("demo", 217.42, -62, 1, 0, 0, 0)
     scan = Scanner()
     gaia = Attitude()
 
