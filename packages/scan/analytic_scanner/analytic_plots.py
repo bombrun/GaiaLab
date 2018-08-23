@@ -24,13 +24,13 @@ def plot_3DX(att, ti, tf, n_points = 1000):
         raise TypeError('ti must be non-negative real numbers.')
     if type(tf) not in [int, float]:
         raise TypeError('tf must be non-negative real numbers.')
-    if type(dt) not in [int, float]:
+    if type(n_points) not in [int, float]:
         raise TypeError('dt must be non-negative real numbers.')
     if ti < 0:
         raise ValueError('ti cannot be negative.')
     if tf <0:
         raise ValueError('tf cannot be negative.')
-    if dt <0:
+    if n_points <0:
         raise ValueError('dt cannot be negative.')
 
     times = np.linspace(ti, tf, n_points)
@@ -69,13 +69,13 @@ def plot_3DZ(att, ti, tf, n_points = 1000):
         raise TypeError('ti must be non-negative real numbers.')
     if type(tf) not in [int, float]:
         raise TypeError('tf must be non-negative real numbers.')
-    if type(dt) not in [int, float]:
+    if type(n_points) not in [int, float]:
         raise TypeError('dt must be non-negative real numbers.')
     if ti < 0:
         raise ValueError('ti cannot be negative.')
     if tf <0:
         raise ValueError('tf cannot be negative.')
-    if dt <0:
+    if n_points <0:
         raise ValueError('dt cannot be negative.')
 
     times = np.linspace(ti, tf, n_points)
@@ -96,47 +96,6 @@ def plot_3DZ(att, ti, tf, n_points = 1000):
     ax.set_ylabel('m')
     ax.set_zlabel('n')
 
-    plt.show()
-
-def plot_longitud_latitude(att, ti, tf, dt):
-    """
-    L. Lindegren, SAG_LL_014, Figure 6.
-    %run: plot_longitud_latitude(att, 0, 365*5, 3/24)
-
-    :param att: attitude object
-    :param ti: initial time [days]
-    :param tf: final time [days]
-    :param dt: step time for calculating the data point [days]
-    :return: plots the longitud and latitude angles in degrees of the z-axis of the scanner
-    with respect to the LMN frame.
-    """
-    if isinstance(att, ggs.Attitude) is False:
-        raise TypeError('att is not an Attitude object.')
-    if type(ti) not in [int, float]:
-        raise TypeError('ti must be non-negative real numbers.')
-    if type(tf) not in [int, float]:
-        raise TypeError('tf must be non-negative real numbers.')
-    if type(dt) not in [int, float]:
-        raise TypeError('dt must be non-negative real numbers.')
-    if ti < 0:
-        raise ValueError('ti cannot be negative.')
-    if tf <0:
-        raise ValueError('tf cannot be negative.')
-    if dt <0:
-        raise ValueError('dt cannot be negative.')
-
-    att.reset()
-    att.create_storage(ti, tf, dt)
-    long_list = [i[5]%(2*np.pi) for i in att.storage]
-    alt_list = [i[6] for i in att.storage]
-
-    plt.figure()
-    plt.plot(np.degrees(long_list), np.degrees(alt_list), 'b.')
-    plt.xlabel('Longitud [deg]')
-    plt.ylabel('Lattitude [deg] ')
-
-    plt.rcParams.update({'font.size': 22})
-    plt.title('Revolving scanning')
     plt.show()
 
 
@@ -189,6 +148,7 @@ def plot_attitude(att, ti, tf, n_points=1000):
 
     plt.show()
 
+from matplotlib import collections as mc
 
 def plot_observations(source, satellite, scan):
     """
@@ -209,32 +169,55 @@ def plot_observations(source, satellite, scan):
     deltas_obs = []
     star_alphas = []
     star_deltas = []
+
+    plt.figure()
     for t in scan.obs_times:
+        yalphas = []
+        ydeltas = []
+        zalphas = []
+        zdeltas = []
+
         alpha, delta, radius = ft.to_polar(satellite.func_x_axis_lmn(t))
-        alphas_obs.append(alpha)
+        alphas_obs.append(alpha% (2 * np.pi))
         deltas_obs.append(delta)
         source.set_time(t)
         star_alphas.append(source.alpha)
         star_deltas.append(source.delta)
 
-    y_alphas = []
-    y_deltas = []
-    for t in scan.obs_times:
-        y_axis = np.cross(satellite.func_z_axis_lmn(t), satellite.func_x_axis_lmn(t))
-        y_alpha, y_delta, y_radio  = ft.to_polar(y_axis)
-        y_alphas.append(y_alpha)
-        y_deltas.append(y_delta)
+        xaxis = satellite.func_x_axis_lmn(t)
+        yaxis = np.cross(satellite.func_z_axis_lmn(t), satellite.func_x_axis_lmn(t))
+        zaxis = satellite.func_z_axis_lmn(t)
 
-    alpha_err = scan.y_threshold
-    delta_err = scan.z_threshold
+        vectory1 = xaxis + scan.y_threshold * yaxis
+        vectory2 = xaxis - scan.y_threshold * yaxis
 
-    plt.figure()
-    #plt.errorbar(alphas_obs, deltas_obs, alpha_err, delta_err)
+        vectorz1 = xaxis + scan.z_threshold * zaxis
+        vectorz2 = xaxis - scan.z_threshold * zaxis
+
+        y_alpha_1, y_delta_1, y_radius_1 = ft.to_polar(vectory1)
+        y_alpha_2, y_delta_2, y_radius_2 = ft.to_polar(vectory2)
+        yalphas.append(y_alpha_1)
+        yalphas.append(y_alpha_2)
+        ydeltas.append(y_delta_1)
+        ydeltas.append(y_delta_2)
+        plt.plot(yalphas, ydeltas, 'go-')
+
+        z_alpha_1, z_delta_1, z_radius_1 = ft.to_polar(vectorz1)
+        z_alpha_2, z_delta_2, z_radius_2 = ft.to_polar(vectorz2)
+        zalphas.append(z_alpha_1)
+        zalphas.append(z_alpha_2)
+        zdeltas.append(z_delta_1)
+        zdeltas.append(z_delta_2)
+        plt.plot(zalphas, zdeltas, 'yo-')
+
+
     plt.plot(alphas_obs, deltas_obs, 'ro')
     plt.plot(star_alphas, star_deltas, 'b*')
-    plt.quiver(alphas_obs, deltas_obs, y_alphas, y_deltas)
     plt.xlabel('alpha [rad]')
     plt.ylabel('delta [rad]')
+    plt.axis('equal')
+    plt.tight_layout()
+    plt.margins(0.1)
     plt.show()
 
 def plot_stars_trajectory(source, satellite):
