@@ -96,25 +96,24 @@ class Source:
 
     def topocentric_angles(self, satellite, t):
         """
-
+        Calculates the angles of movement of the star from bcrs.
         :param satellite: satellite object
         :param t: [days]
-        :return: delta alpha, delta delta [mas][mas]
+        :return: alpha, delta, delta alpha, delta delta [mas]
         """
         mastorad = 2 * np.pi / (1000 * 360 * 3600)
         u_lmn = self.topocentric_function(satellite)(t)
         u_lmn_unit = u_lmn/np.linalg.norm(u_lmn)
         alpha_obs, delta_obs, radius = ft.to_polar(u_lmn_unit)
 
-        #keep longitud angle positive.
         if alpha_obs < 0:
-            alpha_obs = alpha_obs + 2*np.pi
+            alpha_obs = (alpha_obs + 2*np.pi)/mastorad
+        delta_obs = delta_obs/mastorad
 
         delta_alpha_dx_mas = (alpha_obs - self.__alpha0) * np.cos(self.__delta0) / mastorad
         delta_delta_mas = (delta_obs - self.__delta0) / mastorad
 
-        #return delta_alpha_dx_mas, delta_delta_mas
-        return alpha_obs/mastorad, delta_obs/mastorad
+        return alpha_obs, delta_obs, delta_alpha_dx_mas, delta_delta_mas    # mas
 
 class Satellite:
     """
@@ -144,7 +143,7 @@ class Satellite:
         self.wz = wz * 60 * 60 * 24. * 0.0000048481368110954  # to [rad/day]
         self.ldot = 2 * np.pi / 365 # [rad/day]
 
-    def ephemeris_bcrs(self, t): #the norm is not 1!!!!!!!!!!
+    def ephemeris_bcrs(self, t):
         """
         Returns the barycentric ephemeris of the Gaia satellite at time t.
         :param t: float [days]
@@ -339,10 +338,13 @@ class Scanner:
         :stars_positions (list of arrays): positions calculated from obs_times of transits using satellite's attitude.
     """
 
-    def __init__(self, wide_angle = np.radians(20), coarse_angle= np.radians(1)):
+    def __init__(self, wide_angle = np.radians(20), scan_line_height= np.radians(0.5)):
         self.wide_angle = wide_angle
-        self.coarse_angle = coarse_angle
-        self.scan_line_height = self.coarse_angle
+        self.scan_line_height = scan_line_height
+        self.coarse_angle = self.scan_line_height
+
+        self.z_threshold = np.sin(self.scan_line_height)
+        self.y_threshold = np.sin(self.scan_line_height / 5)
 
         self.times_wide_scan = []
         self.times_coarse_scan = []
@@ -394,16 +396,14 @@ class Scanner:
             to_star_unit_lmn = source.topocentric_function(att)(t) / np.linalg.norm(source.topocentric_function(att)(t))
             diff_vector = to_star_unit_lmn - att.func_x_axis_lmn(t)
             diff_vector_xyz = ft.to_xyz(att.func_attitude(t), diff_vector)
-            z_threshold = np.sin(self.scan_line_height)
-            return z_threshold-np.abs(diff_vector_xyz[2])
+            return self.z_threshold - np.abs(diff_vector_xyz[2])
 
         def y_condition(t):
             t = float(t)
             to_star_unit_lmn = source.topocentric_function(att)(t) / np.linalg.norm(source.topocentric_function(att)(t))
             diff_vector = to_star_unit_lmn - att.func_x_axis_lmn(t)
             diff_vector_xyz = ft.to_xyz(att.func_attitude(t), diff_vector)
-            y_threshold = np.sin(self.scan_line_height/5)
-            return y_threshold-np.abs(diff_vector_xyz[1])
+            return self.y_threshold - np.abs(diff_vector_xyz[1])
 
 
 
@@ -424,7 +424,7 @@ class Scanner:
                 self.fine_roots.append(root)
                 self.times_fine_scan.append(float(root.x))
 
-        # create estimated groups from observations within 3 hours of each other
+        # create estimated groups from observations within 3 hours of each other.
         groups = []
         for root in self.fine_roots:
             groups.append([idx2 for idx2, time in enumerate(self.times_fine_scan) if abs(time - float(root.x)) < 3/24])
@@ -452,7 +452,7 @@ def least_squares_trajectory(scanner, satellite, initial_guess = np.array([0.0, 
     rays = []
     for time in scanner.obs_times:
         direction = satellite.func_x_axis_lmn(time)
-        point = satellite.ephemeris_bcrs(time)
+        point = satellite.ephemeris_bcrs(time)/206265 #[AU] to [pc]
         ray = np.array([point, direction, time])
         rays.append(ray)
 
@@ -467,11 +467,8 @@ def least_squares_trajectory(scanner, satellite, initial_guess = np.array([0.0, 
             time = ray[2]
             star_position = star_origin + star_velocity * time
             relative_star_position = star_position - ray_point
-            #distance= np.linalg.norm(np.cross(ray_direction,relative_star_position))
             angle = np.arccos(np.dot(ray_direction, relative_star_position/np.linalg.norm(relative_star_position)))
-
             total_square_error += angle**2
-
         return total_square_error
 
     result = optimize.minimize(objective, initial_guess, method="Nelder-Mead", options={'maxiter': 5000})
@@ -484,19 +481,19 @@ def run():
     :return: sky, scan, att
     """
     start_time = time.time()
-    vega = Source("vega", 279.2333, 38.78, 128.91, 201.03, 286.23, -13.9)
+    sirio = Source("sirio", 101.28, -16.7161, 379.21, -546.05, -1223.14, -7.6)
     scan = Scanner()
     gaia = Attitude()
 
-    scan.wide_coarse_double_scan(gaia, vega)
+    scan.wide_coarse_double_scan(gaia, sirio)
     t1 = time.time() - start_time
     print('Star crossing field of view %i times' % (len(scan.times_coarse_scan)), ', seconds:', t1)
 
-    scan.fine_scan(gaia, vega)
+    scan.fine_scan(gaia, sirio)
     t2 = time.time() - start_time
     print('Star detected %i times' % (len(scan.obs_times)), ', seconds:', t2-t1)
 
     seconds = time.time() - start_time
     print('Total seconds:', seconds)
-    return gaia, vega, scan
+    return gaia, sirio, scan
 
