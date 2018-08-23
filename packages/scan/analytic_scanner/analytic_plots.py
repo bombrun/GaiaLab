@@ -6,29 +6,35 @@ import numpy as np
 import matplotlib.pyplot as plt
 from quaternion import Quaternion
 import frame_transformations as ft
+import gaia_analytic_toymodel as ggs
 
-def plot_longalt(att, ti, tf, dt):
-    att.reset()
-    att.create_storage(ti, tf, dt)
-    long_list = [i[5]%(2*np.pi) for i in att.storage]
-    alt_list = [i[6] for i in att.storage]
+def plot_3DX(att, ti, tf, n_points = 1000):
+    """
+    %run: plot_3DX(att, 0, 365*5, 0.1)
 
-    plt.figure()
-    plt.plot(np.degrees(long_list), np.degrees(alt_list), 'b.')
-    plt.xlabel('Longitud º')
-    plt.ylabel('Lattitude º')
+    :param att: attitude object
+    :param ti: initial time [float][days]
+    :param tf: final time [float][days]
+    :param n_points: number of points to be plotted [int]
+    :return: plot of the position of the x-axis (unitary) of the scanner wrt LMN frame.
+    """
+    if isinstance(att, ggs.Attitude) is False:
+        raise TypeError('att is not an Attitude object.')
+    if type(ti) not in [int, float]:
+        raise TypeError('ti must be non-negative real numbers.')
+    if type(tf) not in [int, float]:
+        raise TypeError('tf must be non-negative real numbers.')
+    if type(dt) not in [int, float]:
+        raise TypeError('dt must be non-negative real numbers.')
+    if ti < 0:
+        raise ValueError('ti cannot be negative.')
+    if tf <0:
+        raise ValueError('tf cannot be negative.')
+    if dt <0:
+        raise ValueError('dt cannot be negative.')
 
-    #plt.ylim(-np.pi/2, np.pi/2)
-    
-    plt.rcParams.update({'font.size': 22})
-    plt.title('Revolving scanning')
-    plt.show()
-
-def plot_3DX(att, ti, tf, dt):
-
-    att.reset()
-    att.create_storage(ti, tf, dt)
-    x_list = [obj[3] for obj in att.storage]
+    times = np.linspace(ti, tf, n_points)
+    x_list = [att.func_x_axis_lmn(t) for t in times]
 
     x_listx = [i[0] for i in x_list]
     x_listy = [i[1] for i in x_list]
@@ -47,10 +53,33 @@ def plot_3DX(att, ti, tf, dt):
 
     plt.show()
 
-def plot_3DZ(att, ti, tf, dt):
-    att.reset()
-    att.create_storage(ti, tf, dt)
-    z_list = [obj[2] for obj in att.storage]
+def plot_3DZ(att, ti, tf, n_points = 1000):
+    """
+    %run: plot_3DZ(att, 0, 365*5, 0.1)
+
+    :param att: attitude object
+    :param ti: initial time [days]
+    :param tf: final time [days]
+    :param n_points: number of points to be plotted [int]
+    :return: plot of the position of the z-axis (unitary) of the scanner wrt LMN frame.
+    """
+    if isinstance(att, ggs.Attitude) is False:
+        raise TypeError('att is not an Attitude object.')
+    if type(ti) not in [int, float]:
+        raise TypeError('ti must be non-negative real numbers.')
+    if type(tf) not in [int, float]:
+        raise TypeError('tf must be non-negative real numbers.')
+    if type(dt) not in [int, float]:
+        raise TypeError('dt must be non-negative real numbers.')
+    if ti < 0:
+        raise ValueError('ti cannot be negative.')
+    if tf <0:
+        raise ValueError('tf cannot be negative.')
+    if dt <0:
+        raise ValueError('dt cannot be negative.')
+
+    times = np.linspace(ti, tf, n_points)
+    z_list = [att.func_z_axis_lmn(t) for t in times]
 
     z_listx = [i[0] for i in z_list]
     z_listy = [i[1] for i in z_list]
@@ -69,100 +98,70 @@ def plot_3DZ(att, ti, tf, dt):
 
     plt.show()
 
-def plot_3DW(att, ti, tf, dt):
+def plot_longitud_latitude(att, ti, tf, dt):
+    """
+    L. Lindegren, SAG_LL_014, Figure 6.
+    %run: plot_longitud_latitude(att, 0, 365*5, 3/24)
+
+    :param att: attitude object
+    :param ti: initial time [days]
+    :param tf: final time [days]
+    :param dt: step time for calculating the data point [days]
+    :return: plots the longitud and latitude angles in degrees of the z-axis of the scanner
+    with respect to the LMN frame.
+    """
+    if isinstance(att, ggs.Attitude) is False:
+        raise TypeError('att is not an Attitude object.')
+    if type(ti) not in [int, float]:
+        raise TypeError('ti must be non-negative real numbers.')
+    if type(tf) not in [int, float]:
+        raise TypeError('tf must be non-negative real numbers.')
+    if type(dt) not in [int, float]:
+        raise TypeError('dt must be non-negative real numbers.')
+    if ti < 0:
+        raise ValueError('ti cannot be negative.')
+    if tf <0:
+        raise ValueError('tf cannot be negative.')
+    if dt <0:
+        raise ValueError('dt cannot be negative.')
+
     att.reset()
     att.create_storage(ti, tf, dt)
-    w_list = [obj[1] for obj in att.storage]
-
-    w_listx = [i[0] for i in w_list]
-    w_listy = [i[1] for i in w_list]
-    w_listz = [i[2] for i in w_list]
-
-    mpl.rcParams['legend.fontsize'] = 10
-
-    fig = plt.figure()
-    ax = fig.gca(projection='3d')
-
-    ax.plot(w_listx, w_listy, w_listz, '--', label='W vector rotation')
-    ax.legend()
-    ax.set_xlabel('l')
-    ax.set_ylabel('m')
-    ax.set_zlabel('n')
-
-    plt.show()
-
-
-def plot_3Dsun(att, ti, tf, dt):
-    att.reset()
-    att.create_storage(ti, tf, dt)
-
-    sun_list = [obj[7] for obj in att.storage]
-
-    x_srs_ecliptical = [i[0] for i in sun_list]
-    y_srs_ecliptical = [i[1] for i in sun_list]
-    z_srs_ecliptical = [i[2] for i in sun_list]
-
-    mpl.rcParams['legend.fontsize'] = 10
-
-    fig = plt.figure()
-    ax = fig.gca(projection='3d')
-
-    ax.plot(x_srs_ecliptical, y_srs_ecliptical, z_srs_ecliptical, 'bo--', label='s vector /sun movement wrt SRS-ecliptical')
-    ax.legend()
-    ax.set_xlabel('l')
-    ax.set_ylabel('m')
-    ax.set_zlabel('n')
-
-    ax.set_xlim(-1, 1)
-    ax.set_ylim(-1, 1)
-    ax.set_zlim(-1, 1)
-
-    plt.show()
-
-def plot_general_3d(lista_3d):
-    x = [i[0] for i in lista_3d]
-    y  = [i[1] for i in lista_3d]
-    z = [i[2] for i in lista_3d]
-
-    fig = plt.figure()
-    ax = fig.gca(projection='3d')
-
-    ax.plot(x,y,z, 'bo--')
-    ax.set_xlim(-1, 1)
-    ax.set_ylim(-1, 1)
-    ax.set_zlim(-1, 1)
-
-    plt.show()
-
-def plot_attitude_mag(att, ti, tf, n_points=100):
-
-    times= np.linspace(ti, tf, n_points)
-    attitudes = [att.get_attitude(t) for t in times]
-
-    norm_list = [np.sqrt(obj.w**2 + obj.x**2 + obj.y**2 + obj.z**2) for obj in attitudes]
+    long_list = [i[5]%(2*np.pi) for i in att.storage]
+    alt_list = [i[6] for i in att.storage]
 
     plt.figure()
-    plt.plot(times,norm_list, 'bo')
+    plt.plot(np.degrees(long_list), np.degrees(alt_list), 'b.')
+    plt.xlabel('Longitud [deg]')
+    plt.ylabel('Lattitude [deg] ')
 
+    plt.rcParams.update({'font.size': 22})
+    plt.title('Revolving scanning')
     plt.show()
 
 
-def plot_attitude(att, ti, tf, n_points):
-    '''
-    Args
-    ______
-    satellite: object to be calculated and updated.
-    dt: step per day, i.e fraction of a day.
-    n0: initial day
-    nf: final days
+def plot_attitude(att, ti, tf, n_points=1000):
+    """
+    L.Lindegren, SAG_LL_35, Figure 1.
+    %run: plot_attitude(att, 0, 80, 0.01)
+    L.Lindegren, SAG_LL_35, Figure 2.
+    %run: plot_attitude(att, 0, 1, 0.01)
 
-
-    Returns
-    ________
+    :param att: gaia satellite, attitude object
+    :param ti: initial time [days]
+    :param tf: final time [days]
+    :param n_points: number of points to be plotted of the function
+    :return:
     Plot of the 4 components of the attitude of the satellite.
     attitude = (t, x, y, z)
     Each graph plots time in days versus each component evolution wrt time.
-    '''
+
+    note: the difference between this function and the function under the same name in the file geometric_plots
+    lies on the calculation of the attitude. Here the points plotted are calculated from the spline, in contrast
+    with the numerical methods calculation for geometric_plots.plot_attitude function.
+    """
+    if isinstance(att, ggs.Attitude) is False:
+        raise TypeError('att is not an Attitude object.')
     times= np.linspace(ti, tf, n_points)
     attitudes = [att.func_attitude(t) for t in times]
 
@@ -174,16 +173,16 @@ def plot_attitude(att, ti, tf, n_points):
     fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2)
     fig.subplots_adjust(left=0.2, wspace=0.6)
 
-    ax1.plot(times, qw_list, 'r--')
+    ax1.plot(times, qw_list, 'r-')
     ax1.set(title='W', xlabel='days')
 
-    ax2.plot(times, qx_list, 'b--')
+    ax2.plot(times, qx_list, 'b-')
     ax2.set(title='X', xlabel='days')
 
-    ax3.plot(times, qy_list, 'g--')
+    ax3.plot(times, qy_list, 'g-')
     ax3.set(title='Y', xlabel='days')
 
-    ax4.plot(times, qz_list, 'k--')
+    ax4.plot(times, qz_list, 'k-')
     ax4.set(title='Z', xlabel='days')
 
     plt.rcParams.update({'font.size': 22})
@@ -191,143 +190,82 @@ def plot_attitude(att, ti, tf, n_points):
     plt.show()
 
 
-def plot_observations(scanner, sky):
+def plot_observations(source, satellite, scan):
+    """
+    :param source: source scanned (object)
+    :param satellite: Attitude object
+    :param scan: scan object
+    :return: plot of the positions directions in lmn-frame of the scanner x-axis when the star crosses the line of view
+    """
 
-    x = [i[0] for i in scanner.telescope_positions]
-    y = [i[1] for i in scanner.telescope_positions]
-    z = [i[2] for i in scanner.telescope_positions]
-    
-    x_star = [i.coor[0] for i in sky.elements]
-    y_star = [i.coor[1] for i in sky.elements]
-    z_star = [i.coor[2] for i in sky.elements]
+    #fix and add comments to it.
+    #add error bars to points to understand how the scanning law works.
+    if isinstance(satellite, ggs.Attitude) is False:
+        raise TypeError('satellite is not an Attitude object.')
+    if isinstance(scan, ggs.Scanner) is False:
+        raise TypeError('scan is not an Scanner object.')
 
-    fig1, (ax1, ax2,  ax3) = plt.subplots(1, 3)
-    fig1.subplots_adjust(left=0.2, wspace=0.6)
-    
-    ax1.plot(x, y,'ro')
-    ax1.plot(x_star, y_star, 'b*', ms=10)
-    ax1.set(title='XY PLANE')
-
-    ax2.plot(y, z, 'ko')
-    ax2.plot(y_star, z_star, 'b*', ms=10)
-    ax2.set(title='YZ PLANE')
-
-    ax3.plot(x, z, 'go')
-    ax3.plot(x_star, z_star, 'b*', ms=10)
-    ax3.set(title='XZ PLANE')
-
-
-    mpl.rcParams['legend.fontsize'] = 10
-
-    fig2 = plt.figure()
-    ax = fig2.gca(projection='3d')
-
-    ax.plot(x, y, z, 'b*', label='observation measurements')
-    ax.legend()
-    ax.set_xlabel('l')
-    ax.set_ylabel('m')
-    ax.set_zlabel('n')
-
-    ax.set_xlim(-1, 1)
-    ax.set_ylim(-1, 1)
-    ax.set_zlim(-1, 1)
-
-    plt.show()
-
-
-def plot_sky(sky):
-
-    x_list = [star.coor[0] for star in sky.elements]
-    y_list = [star.coor[1] for star in sky.elements]
-    z_list = [star.coor[2] for star in sky.elements]
-
-    mpl.rcParams['legend.fontsize'] = 10
-
-    fig2 = plt.figure()
-    ax = fig2.gca(projection='3d')
-
-    ax.plot(x_list, y_list, z_list, 'b*', label='observation measurements')
-    ax.legend()
-    ax.set_xlabel('l')
-    ax.set_ylabel('m')
-    ax.set_zlabel('n')
-    plt.show()
-
-def plot_observations_spread(source, satellite, scan):
     alphas_obs = []
     deltas_obs = []
-
-    #data info
+    star_alphas = []
+    star_deltas = []
     for t in scan.obs_times:
         alpha, delta, radius = ft.to_polar(satellite.func_x_axis_lmn(t))
         alphas_obs.append(alpha)
         deltas_obs.append(delta)
-    #data arrows
-    zalphas = []
-    zdeltas = []
-    for t in scan.obs_times:
-        z_alpha, z_delta, z_radio  = ft.to_polar(satellite.func_z_axis_lmn(t))
-        zalphas.append(z_alpha)
-        zdeltas.append(z_delta)
+        source.set_time(t)
+        star_alphas.append(source.alpha)
+        star_deltas.append(source.delta)
 
+    y_alphas = []
+    y_deltas = []
+    for t in scan.obs_times:
+        y_axis = np.cross(satellite.func_z_axis_lmn(t), satellite.func_x_axis_lmn(t))
+        y_alpha, y_delta, y_radio  = ft.to_polar(y_axis)
+        y_alphas.append(y_alpha)
+        y_deltas.append(y_delta)
+
+    alpha_err = scan.y_threshold
+    delta_err = scan.z_threshold
 
     plt.figure()
+    #plt.errorbar(alphas_obs, deltas_obs, alpha_err, delta_err)
     plt.plot(alphas_obs, deltas_obs, 'ro')
-    plt.quiver(alphas_obs, deltas_obs, zalphas, zdeltas) #headaxislength = 0.1, normalize = True)
+    plt.plot(star_alphas, star_deltas, 'b*')
+    plt.quiver(alphas_obs, deltas_obs, y_alphas, y_deltas)
     plt.xlabel('alpha [rad]')
     plt.ylabel('delta [rad]')
     plt.show()
 
-def plot_directions (satellite, scan):
-    points = []
-    for t in scan.obs_times:
-        vector = satellite.func_x_axis_lmn(t)
-        points.append(vector)
-    xvalues = [i[0] for i in arrows]
-    yvalues = [i[1] for i in arrows]
+def plot_stars_trajectory(source, satellite):
+    """
+    :param source: source object
+    :param satellite: attitude object
+    :param t_total: total time for which the trajectory is desired [days] from J2000.
+    :return: plot of the star trajectory in the lmn-frame.
+    """
+    if isinstance(source, ggs.Source) is False:
+        raise TypeError('source is not an Source object.')
+    if isinstance(satellite, ggs.Attitude) is False:
+        raise TypeError('satellite is not an Attitude object.')
 
-    plt.figure()
-    plt.quiver(xvalues, yvalues, length = 0.1, normalize = True)
-    plt.show()
-
-def plot_star_trajectory(source, satellite, scan, t_total):
-    mastorad = 2 * np.pi / (1000 * 360 * 3600)
+    time_total = satellite.storage[-1][0]
     alphas = []
     deltas = []
 
-    for i in np.arange(0, t_total, 1):
-        delta_alpha, delta_delta  =  source.topocentric_angles(satellite, i)
-        alphas.append(delta_alpha)
-        deltas.append(delta_delta)
+    for i in np.arange(0, time_total, 1):
+        alpha_obs, delta_obs, delta_alpha_dx_mas, delta_delta_mas = source.topocentric_angles(satellite, i)
+        alphas.append(delta_alpha_dx_mas)
+        deltas.append(delta_delta_mas)
 
-    alphas_obs = []
-    deltas_obs = []
-    #intercept stars
-    for t in scan.obs_times:
-        delta_alpha_obs, delta_delta_obs = source.topocentric_angles(satellite, t)
-        alphas_obs.append(delta_alpha_obs)
-        deltas_obs.append(delta_delta_obs)
-
-    alphas_sat = []
-    deltas_sat = []
-    #from satellite
-    for t in scan.obs_times:
-        alpha, delta, radius = ft.to_polar(satellite.func_x_axis_lmn(t))
-        alphas_sat.append(alpha/mastorad)
-        deltas_sat.append(delta/mastorad)
-
-    #timeline
     n = len(alphas)
-    times = np.linspace(2000, 2000 + t_total/365, n)
-    times_observations = [2000 + t/365 for t in scan.obs_times]
+    times = np.linspace(2000, 2000 + time_total/365, n)
 
     fig = plt.figure(figsize=(16, 9))
     ax = fig.add_subplot(121)
 
     ax.plot(alphas, deltas,'b-',
             label=r'%s path' %(source.name), lw=2)
-    ax.plot(alphas_obs, deltas_obs, 'r*')
-    ax.plot(alphas_sat, deltas_sat, 'g*')
     ax.set_xlabel(r'$\Delta\alpha*$ [mas]')
     ax.set_ylabel(r'$\Delta\delta$ [mas]')
     ax.axhline(y=0, c='gray', lw=1)
@@ -340,29 +278,14 @@ def plot_star_trajectory(source, satellite, scan, t_total):
     ax1dra.axhline(y=0, c='gray', lw=1)
     ax1dra.set_xlabel(r'Time [yr]')
     ax1dra.plot(times, alphas, 'b-')
-    ax1dra.plot(times_observations,alphas_obs, 'r*')
-    ax1dra.plot(times_observations, alphas_sat, 'g*')
     ax1dra.set_ylabel(r'$\Delta\alpha*$ [mas]')
 
     ax1ddec = fig.add_subplot(224)
-    ax1ddec.axhline(y=0, c='gray', lw=1
+    ax1ddec.axhline(y=0, c='gray', lw=1)
     ax1ddec.plot(times, deltas, 'b-')
-    ax1ddec.plot(times_observations, deltas_obs, 'r*')
-    ax1ddec.plot(times_observations, deltas_sat, 'g*')
     ax1ddec.set_xlabel(r'Time [yr]')
     ax1ddec.set_ylabel(r'$\Delta\delta$ [mas]')
 
     plt.tight_layout()
     plt.show()
-
-
-
-
-
-
-
-			
-
-
-
 
