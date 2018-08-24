@@ -37,12 +37,26 @@ class Source:
         :param mu_delta: mas/yr
         :param mu_radial: km/s
         """
-        self.name = name
         self.init_param(alpha0, delta0, parallax, mu_alpha, mu_delta, mu_radial)
+        self.name = name
         self.alpha = self.__alpha0
         self.delta = self.__delta0
 
     def init_param(self, alpha0, delta0, parallax, mu_alpha, mu_delta, mu_radial):
+
+        if type(alpha0) not in [int, float]:
+            raise TypeError('alpha0 need to be int or float')
+        if type(delta0) not in [int, float]:
+            raise TypeError('delta0 need to be int or float')
+        if type(parallax) not in [int, float]:
+            raise TypeError('parallax need to be int or float')
+        if type(mu_alpha) not in [int, float]:
+            raise TypeError('mu_alpha need to be int or float')
+        if type(mu_delta) not in [int, float]:
+            raise TypeError('mu_delta need to be int or float')
+        if type(mu_radial) not in [int, float]:
+            raise TypeError('mu_radial need to be int or float')
+
         self.__alpha0= np.radians(alpha0)
         self.__delta0=  np.radians(delta0)
         self.parallax = parallax
@@ -50,26 +64,47 @@ class Source:
         self.mu_delta = mu_delta
         self.mu_radial = mu_radial
 
-        self.direction_bcrs= ft.to_direction(self.__alpha0, self.__delta0)
-        self.coor_bcrs = ft.to_cartesian(self.__alpha0, self.__delta0, self.parallax)
 
     def reset(self):
+        """
+        Reset star position to t=0
+        """
         self.alpha = self.__alpha0
         self.delta = self.__delta0
 
     def set_time(self, t):
+        """
+        Sets star at position wrt bcrs at time t.
+        :param t: [float][days]
+        """
+        if type(t) not in [float, int]:
+            raise TypeError('t is not a float or int')
+        if t<0:
+            raise Warning('t is negative')
+
         mu_alpha_dx = self.mu_alpha_dx * 4.8473097e-9 / 365     #from mas/yr to rad/day
         mu_delta = self.mu_delta * 4.848136811095e-9 / 365      #from mas/yr to rad/day
         self.alpha = self.__alpha0 + mu_alpha_dx*t
         self.delta = self.__delta0 + mu_delta*t
 
-    def barycentric_vector(self, t):
+    def barycentric_direction(self, t):
         """
-        alpha: rad
-        delta: rad
-        parallax: mas
-        :param t: days
-        :return: vector in parsecs
+        Direction unit vector to star from bcrs.
+        :param t: [float][days]
+        :return: ndarray 3D vector of [floats]
+        """
+        self.set_time(t)
+        u_bcrs_direction = ft.to_direction(self.alpha, self.delta)
+        return u_bcrs_direction
+
+    def barycentric_coor(self, t):
+        """
+        Vector to star wrt bcrs-frame.
+        alpha: [float][rad]
+        delta: [float][rad]
+        parallax: [float][rad]
+        :param t: [float][days]
+        :return: ndarray, length 3, components [floats][parsecs]
         """
         self.set_time(t)
         u_bcrs = ft.to_cartesian(self.alpha, self.delta, self.parallax)
@@ -77,9 +112,12 @@ class Source:
 
     def topocentric_function(self, satellite):
         """
-        :param satellite: satellite object
-        :return: lambda function of the position of the star from the satellite's lmn frame.
+        :param satellite: satellite [class object]
+        :return: [lambda function] of the position of the star from the satellite's lmn frame.
         """
+        if isinstance(satellite, Satellite) != True:
+            raise TypeError('arg is not Satellite object')
+
         p, q, r = ft.pqr(self.alpha, self.delta)
         mastorad = 2*np.pi/(1000*360*3600)
         kmtopc = 3.24078e-14
@@ -90,7 +128,7 @@ class Source:
         mu_delta = self.mu_delta*mastorad/365  #mas/yr to rad/day
         mu_radial = self.parallax*mastorad*self.mu_radial*kmtopc*sectoday #km/s to aproximation rad/day
 
-        topocentric_function = lambda t: self.barycentric_vector(0) + t*(p*mu_alpha_dx+ q*mu_delta + r*mu_radial)  \
+        topocentric_function = lambda t: self.barycentric_coor(0) + t*(p*mu_alpha_dx+ q*mu_delta + r*mu_radial)  \
                                          - satellite.ephemeris_bcrs(t)*AUtopc
         return topocentric_function
 
@@ -325,20 +363,20 @@ class Attitude(Satellite):
         self.__attitude_spline()
 
 class Scanner:
-    """
-    Args:
-        ccd (float): width of the telescope field of view.
-        delta_z (float): height of the telescope field of view.
-        delta_y (float): width of the line of intercept.
-
-    Attributes
-    -----------
-        :times_to_scan_star: (list of floats): times where star within CCD field of view.
-        :obs_times: list of times from ti init-time, at which the star is observed [days].
-        :stars_positions (list of arrays): positions calculated from obs_times of transits using satellite's attitude.
-    """
 
     def __init__(self, wide_angle = np.radians(20), scan_line_height= np.radians(0.5)):
+        """
+        :param wide_angle: angle for first dot-product-rough scan of all the sky.
+        :param scan_line_height: condition for the line_height of the scanner (z-axis height in lmn)
+
+        Attributes
+        -----------
+        :coarse_angle: uses scan_line_height to get measurements after wide_angle dot product. [rad]
+        :times_wide_scan: times where star in wide_angle field of view. [days]
+        :times_coarse_scan: times where star in wide_angle and coarse angle field of view [days]
+        :times_fine_scan: times where star crosses line of view.
+        :obs_times: accurate and optimize times where the star is crossing field of view line within constrains. [days]
+        """
         self.wide_angle = wide_angle
         self.scan_line_height = scan_line_height
         self.coarse_angle = self.scan_line_height
@@ -349,26 +387,29 @@ class Scanner:
         self.times_wide_scan = []
         self.times_coarse_scan = []
         self.times_fine_scan = []
-        self.fine_roots = []
+        self.__fine_roots = []
         self.obs_times = []
-        self.distances =[]
 
     def reset_memory(self):
         """
         :return: empty all attribute lists from scanner before beginning new scanning period.
         """
-        self.obs_times.clear()
+        self.times_wide_scan.clear()
         self.times_coarse_scan.clear()
         self.times_fine_scan.clear()
-        self.times_wide_scan.clear()
-        self.fine_roots.clear()
-        self.distances.clear()
+        self.obs_times.clear()
 
     def wide_coarse_double_scan(self, att, source, ti=0, tf=365 * 5):
         """
         Scans sky with a dot product technique to get rough times of observation.
         :action: self.times_deep_scan list filled with observation time windows.
         """
+        if isinstance(att, Attitude) != True:
+            return TypeError('firs argument is not an Attitude object')
+        if isinstance(source, Source) != True:
+            return TypeError('second argument is not a Source object')
+
+        self.reset_memory()
         step_wide = self.wide_angle/(2 * np.pi * 4)
         for t in np.arange(ti, tf, step_wide):
             to_star_unit = source.topocentric_function(att)(t) / np.linalg.norm(source.topocentric_function(att)(t))
@@ -383,6 +424,15 @@ class Scanner:
                     self.times_coarse_scan.append(t)
 
     def fine_scan(self, att, source):
+        """
+        Finds times when the star crosses the line of the field of view, stores it in self.obs_times
+        :param att: Attitude object
+        :param source: source object
+        """
+        if isinstance(att, Attitude) != True:
+            return TypeError('firs argument is not an Attitude object')
+        if isinstance(source, Source) != True:
+            return TypeError('second argument is not a Source object')
 
         def f(t):
             t = float(t)
@@ -421,12 +471,11 @@ class Scanner:
 
             root = optimize.minimize(f, i, method='COBYLA', constraints=[con1, con2, con3])
             if root.success == True:
-                self.fine_roots.append(root)
                 self.times_fine_scan.append(float(root.x))
 
         # create estimated groups from observations within 3 hours of each other.
         groups = []
-        for root in self.fine_roots:
+        for root in self.__fine_roots:
             groups.append([idx2 for idx2, time in enumerate(self.times_fine_scan) if abs(time - float(root.x)) < 3/24])
         groups = [set(group) for group in groups]
 
@@ -442,13 +491,23 @@ class Scanner:
         self.roots = []
         for g in merged_groups:
             list_indices = list(g)
-            idx = np.argmin([f(float(self.fine_roots[i].x)) for i in list_indices])
-            min_root = self.fine_roots[list_indices[idx]]
+            idx = np.argmin([f(float(self.__fine_roots[i].x)) for i in list_indices])
+            min_root = self.__fine_roots[list_indices[idx]]
             self.roots.append(min_root)
-            self.distances.append(f(float(min_root.x)))
             self.obs_times.append(float(min_root.x))
 
-def least_squares_trajectory(scanner, satellite, initial_guess = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])):
+def least_squares_trajectory(scanner, satellite, initial_guess = np.array([1, 1, 1, 0.0, 0.0, 0.0])):
+    #need to check units for initial_guess and fix the function.
+    """
+    :param scanner: Scanner object
+    :param satellite: Attitude object
+    :param initial_guess: [x, y, z, vx, vy, vz]  [pc, pc, pc, pc/yr, pc/yr, pc/yr]
+    :return:
+    """
+    if isinstance(scanner, Scanner) != True:
+        raise TypeError('first argument is not Scanner object')
+    if isinstance(satellite, Attitude) != True:
+        raise TypeError('second argument is not Attitude object')
     rays = []
     for time in scanner.obs_times:
         direction = satellite.func_x_axis_lmn(time)
