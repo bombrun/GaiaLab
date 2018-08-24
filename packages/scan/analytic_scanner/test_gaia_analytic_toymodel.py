@@ -1,76 +1,39 @@
 
 import unittest 
-from NSL import *
+import gaia_analytic_toymodel as gat
 import numpy as np
+import quaternion as Quaternion
 
-class AttitudeTest(unittest.TestCase):
-    
+class test_source(unittest.TestCase):
+
     def setUp(self):
-        self.att = Attitude()
+        self.source = gat.Source('test',0,1,2,3,4,5)
 
-        
+    def test_init_param_types(self):
+        self.assertRaises(TypeError, self.source.parallax, 3 +5j)
+        self.assertRaises(TypeError, self.source.parallax, True)
+        self.assertRaises(TypeError, self.source.parallax, 'string')
+
+        self.assertRaises(TypeError, self.source.mu_alpha_dx, 3 + 5j)
+        self.assertRaises(TypeError, self.source.mu_alpha_dx, True)
+        self.assertRaises(TypeError, self.source.mu_alpha_dx, 'string')
+
+        self.assertRaises(TypeError, self.source.mu_delta, 3 + 5j)
+        self.assertRaises(TypeError, self.source.mu_delta, True)
+        self.assertRaises(TypeError, self.source.mu_delta, 'string')
+
+class test_satellite(unittest.TestCase):
+
+    def setUp(self):
+        self.satellite = gat.Satellite
+
+class test_Attitude(unittest.TestCase):
+
+    def setUp(self):
+        self.att = gat.Attitude()
+
     def test_init_state(self):
-        self.assertEqual(self.att.nu, 0)
-        self.assertEqual(self.att._lambda, 0)
-        self.assertEqual(self.att.omega, 0)
-        self.assertEqual(self.att._beta, 0)
-        self.assertEqual(self.att.t, 0)
-
-        if isinstance(self.att.init_attitude(), Quaternion) is False:
-            raise Exception('Init Attitude not a quaternion object')
-
-
-    def test_reset(self):
-        self.att.update(np.random.uniform(0,10))
-        self.att.reset()
-        
-        self.assertEqual(self.att.nu, 0)
-        self.assertEqual(self.att._lambda, 0)
-        self.assertEqual(self.att.omega, 0)
-        self.assertEqual(self.att._beta, 0)
-        self.assertEqual(self.att.t, 0)
-    
-        if isinstance(self.att.z, np.ndarray) == False:
-            raise Exception('z is not a vector')
-    
-    def test_update(self):
-        dt = np.random.uniform(0,1)
-        self.att.update(dt)
-
-        if isinstance(self.att.attitude, Quaternion) == False:
-            raise Exception('updated satellite.attitude is not a quaternion')
-
-    def test_long_reset_to_time(self):
-        t = np.random.uniform(0,10)
-        dt = np.random.uniform(0, 1)
-        self.att.long_reset_to_time(t, dt)
-
-
-class SkyTest(unittest.TestCase):
-    
-    def setUp(self):
-        self.n = 5
-        self.sky = Sky(self.n)
-               
-    def test_initSky(self):
-        self.assertEqual(len(self.sky.elements), self.n)
-        self.assertEqual(type(self.sky.elements[0].coor), np.ndarray)
-
-class Source(unittest.TestCase):
-    
-        def setUp(self):
-            self.alpha = np.random.uniform(0,7)
-            self.delta = np.random.uniform(0,7)
-            self.source = Source(self.alpha, self.delta)
-
-class ScannerTest(unittest.TestCase):
-    
-    def setUp(self):
-        ccd = np.random.uniform(0, 1)
-        delta_z = np.random.uniform(0, 0.5)
-        delta_y = np.random.uniform(0, 0.3)
-        self.scan = Scanner(ccd, delta_z, delta_y)
-
+        self.assertRaises(TypeError, self.att.attitude, gat.Attitude)
 
 if __name__ == '__main__':
     unittest.main()
