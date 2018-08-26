@@ -147,6 +147,7 @@ class Source:
         if alpha_obs < 0:
             alpha_obs = (alpha_obs + 2*np.pi)/mastorad
         delta_obs = delta_obs/mastorad
+        alpha_obs = alpha_obs/mastorad
 
         delta_alpha_dx_mas = (alpha_obs - self.__alpha0) * np.cos(self.__delta0) / mastorad
         delta_delta_mas = (delta_obs - self.__delta0) / mastorad
@@ -364,7 +365,7 @@ class Attitude(Satellite):
 
 class Scanner:
 
-    def __init__(self, wide_angle = np.radians(20), scan_line_height= np.radians(0.5)):
+    def __init__(self, wide_angle = np.radians(20),  scan_line_height = np.radians(2), coarse_angle = np.radians(2)):
         """
         :param wide_angle: angle for first dot-product-rough scan of all the sky.
         :param scan_line_height: condition for the line_height of the scanner (z-axis height in lmn)
@@ -379,7 +380,7 @@ class Scanner:
         """
         self.wide_angle = wide_angle
         self.scan_line_height = scan_line_height
-        self.coarse_angle = self.scan_line_height
+        self.coarse_angle = coarse_angle
 
         self.z_threshold = np.sin(self.scan_line_height)
         self.y_threshold = np.sin(self.scan_line_height / 5)
@@ -387,8 +388,10 @@ class Scanner:
         self.times_wide_scan = []
         self.times_coarse_scan = []
         self.times_fine_scan = []
-        self.__fine_roots = []
+        self.fine_roots = []
         self.obs_times = []
+        self.roots = []
+
 
     def reset_memory(self):
         """
@@ -398,6 +401,7 @@ class Scanner:
         self.times_coarse_scan.clear()
         self.times_fine_scan.clear()
         self.obs_times.clear()
+        self.roots.clear()
 
     def wide_coarse_double_scan(self, att, source, ti=0, tf=365 * 5):
         """
@@ -410,7 +414,7 @@ class Scanner:
             return TypeError('second argument is not a Source object')
 
         self.reset_memory()
-        step_wide = self.wide_angle/(2 * np.pi * 4)
+        step_wide = self.wide_angle / (2 * np.pi * 4)
         for t in np.arange(ti, tf, step_wide):
             to_star_unit = source.topocentric_function(att)(t) / np.linalg.norm(source.topocentric_function(att)(t))
             if np.arccos(np.dot(to_star_unit, att.func_x_axis_lmn(t))) < self.wide_angle:
@@ -418,21 +422,13 @@ class Scanner:
 
         step_coarse = self.coarse_angle / (2 * np.pi * 4)
         for t_wide in self.times_wide_scan:
-            for t in np.arange(t_wide - step_wide/2, t_wide + step_wide/2, step_coarse):
+            for t in np.arange(t_wide - step_wide / 2, t_wide + step_wide / 2, step_coarse):
                 to_star_unit = source.topocentric_function(att)(t) / np.linalg.norm(source.topocentric_function(att)(t))
                 if np.arccos(np.dot(to_star_unit, att.func_x_axis_lmn(t))) < self.coarse_angle:
                     self.times_coarse_scan.append(t)
 
+
     def fine_scan(self, att, source):
-        """
-        Finds times when the star crosses the line of the field of view, stores it in self.obs_times
-        :param att: Attitude object
-        :param source: source object
-        """
-        if isinstance(att, Attitude) != True:
-            return TypeError('firs argument is not an Attitude object')
-        if isinstance(source, Source) != True:
-            return TypeError('second argument is not a Source object')
 
         def f(t):
             t = float(t)
@@ -446,16 +442,16 @@ class Scanner:
             to_star_unit_lmn = source.topocentric_function(att)(t) / np.linalg.norm(source.topocentric_function(att)(t))
             diff_vector = to_star_unit_lmn - att.func_x_axis_lmn(t)
             diff_vector_xyz = ft.to_xyz(att.func_attitude(t), diff_vector)
-            return self.z_threshold - np.abs(diff_vector_xyz[2])
+            z_threshold = np.sin(self.scan_line_height)
+            return z_threshold - np.abs(diff_vector_xyz[2])
 
         def y_condition(t):
             t = float(t)
             to_star_unit_lmn = source.topocentric_function(att)(t) / np.linalg.norm(source.topocentric_function(att)(t))
             diff_vector = to_star_unit_lmn - att.func_x_axis_lmn(t)
             diff_vector_xyz = ft.to_xyz(att.func_attitude(t), diff_vector)
-            return self.y_threshold - np.abs(diff_vector_xyz[1])
-
-
+            y_threshold = np.sin(self.scan_line_height / 5)
+            return y_threshold - np.abs(diff_vector_xyz[1])
 
         con1 = {'type': 'ineq', 'fun': z_condition}
         con2 = {'type': 'ineq', 'fun': y_condition}
@@ -467,16 +463,19 @@ class Scanner:
                     return 1.0
                 else:
                     return -1.0
+
             con3 = {'type': 'ineq', 'fun': t_condition}
 
             root = optimize.minimize(f, i, method='COBYLA', constraints=[con1, con2, con3])
             if root.success == True:
+                self.fine_roots.append(root)
                 self.times_fine_scan.append(float(root.x))
 
-        # create estimated groups from observations within 3 hours of each other.
+        # create estimated groups from observations within 3 hours of each other
         groups = []
-        for root in self.__fine_roots:
-            groups.append([idx2 for idx2, time in enumerate(self.times_fine_scan) if abs(time - float(root.x)) < 3/24])
+        for root in self.fine_roots:
+            groups.append(
+                [idx2 for idx2, time in enumerate(self.times_fine_scan) if abs(time - float(root.x)) < 3 / 24])
         groups = [set(group) for group in groups]
 
         # merge intersecting groups
@@ -488,11 +487,11 @@ class Scanner:
                     merged_groups.remove(inner_group)
 
         # find best observation in each group, and discard other observations
-        self.roots = []
+        #self.roots = []
         for g in merged_groups:
             list_indices = list(g)
-            idx = np.argmin([f(float(self.__fine_roots[i].x)) for i in list_indices])
-            min_root = self.__fine_roots[list_indices[idx]]
+            idx = np.argmin([f(float(self.fine_roots[i].x)) for i in list_indices])
+            min_root = self.fine_roots[list_indices[idx]]
             self.roots.append(min_root)
             self.obs_times.append(float(min_root.x))
 
@@ -541,10 +540,14 @@ def run():
     """
     start_time = time.time()
     sirio = Source("sirio", 101.28, -16.7161, 379.21, -546.05, -1223.14, -7.6)
+    vega = Source("vega", 279.2333, 38.78, 128.91, 201.03, 286.23, -13.9)
+    proxima = Source("proxima",217.42, -62, 768.7, 3775.40, 769.33, 21.7)
+
     scan = Scanner()
     gaia = Attitude()
 
     scan.wide_coarse_double_scan(gaia, sirio)
+
     t1 = time.time() - start_time
     print('Star crossing field of view %i times' % (len(scan.times_coarse_scan)), ', seconds:', t1)
 
@@ -554,5 +557,5 @@ def run():
 
     seconds = time.time() - start_time
     print('Total seconds:', seconds)
-    return gaia, sirio, scan
+    return gaia, sirio, vega, proxima, scan
 
