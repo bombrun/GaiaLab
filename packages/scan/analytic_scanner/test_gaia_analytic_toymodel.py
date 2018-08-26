@@ -27,13 +27,17 @@ class test_satellite(unittest.TestCase):
     def setUp(self):
         self.satellite = gat.Satellite
 
-class test_Attitude(unittest.TestCase):
+class test_attitude(unittest.TestCase):
 
     def setUp(self):
         self.att = gat.Attitude()
 
     def test_init_state(self):
         self.assertRaises(TypeError, self.att.attitude, gat.Attitude)
+
+class test_scanner(unittest.TestCase):
+    def setUp(self):
+        self.scan = gat.Scanner()
 
 if __name__ == '__main__':
     unittest.main()
