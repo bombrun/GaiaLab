@@ -403,6 +403,10 @@ class Scanner:
         self.obs_times.clear()
         self.roots.clear()
 
+    def start(self, att, source, ti=0, tf=365 * 5):
+        self.wide_coarse_double_scan(att, source, ti, tf)
+        self.fine_scan(att, source)
+
     def wide_coarse_double_scan(self, att, source, ti=0, tf=365 * 5):
         """
         Scans sky with a dot product technique to get rough times of observation.
@@ -543,19 +547,17 @@ def run():
     vega = Source("vega", 279.2333, 38.78, 128.91, 201.03, 286.23, -13.9)
     proxima = Source("proxima",217.42, -62, 768.7, 3775.40, 769.33, 21.7)
 
-    scan = Scanner()
+    scan1 = Scanner()
+    scan2 = Scanner()
+    scan3 = Scanner()
     gaia = Attitude()
 
-    scan.wide_coarse_double_scan(gaia, sirio)
+    scan1.start(gaia, sirio)
+    scan2.start(gaia, vega)
+    scan3.start(gaia, proxima)
 
-    t1 = time.time() - start_time
-    print('Star crossing field of view %i times' % (len(scan.times_coarse_scan)), ', seconds:', t1)
-
-    scan.fine_scan(gaia, sirio)
-    t2 = time.time() - start_time
-    print('Star detected %i times' % (len(scan.obs_times)), ', seconds:', t2-t1)
 
     seconds = time.time() - start_time
     print('Total seconds:', seconds)
-    return gaia, sirio, vega, proxima, scan
+    return gaia, sirio, vega, proxima, scan1, scan2, scan3
 
