@@ -95,7 +95,7 @@ class Source:
         """
         self.set_time(t)
         u_bcrs_direction = ft.to_direction(self.alpha, self.delta)
-        return u_bcrs_direction
+        return u_bcrs_direction #no units, just a unit direction
 
     def barycentric_coor(self, t):
         """
@@ -128,7 +128,7 @@ class Source:
         mu_delta = self.mu_delta*mastorad/365  #mas/yr to rad/day
         mu_radial = self.parallax*mastorad*self.mu_radial*kmtopc*sectoday #km/s to aproximation rad/day
 
-        topocentric_function = lambda t: self.barycentric_coor(0) + t*(p*mu_alpha_dx+ q*mu_delta + r*mu_radial)  \
+        topocentric_function = lambda t: self.barycentric_coor(0) + t*(p*mu_alpha_dx+ q*mu_delta + r*mu_radial) \
                                          - satellite.ephemeris_bcrs(t)*AUtopc
         return topocentric_function
 
@@ -146,8 +146,6 @@ class Source:
 
         if alpha_obs < 0:
             alpha_obs = (alpha_obs + 2*np.pi)/mastorad
-        delta_obs = delta_obs/mastorad
-        alpha_obs = alpha_obs/mastorad
 
         delta_alpha_dx_mas = (alpha_obs - self.__alpha0) * np.cos(self.__delta0) / mastorad
         delta_delta_mas = (delta_obs - self.__delta0) / mastorad
@@ -193,7 +191,6 @@ class Satellite:
         b_z_bcrs = self.orbital_radius*np.sin(2*np.pi/self.orbital_period*t)*np.sin(self.epsilon)
 
         bcrs_ephemeris_satellite = np.array([b_x_bcrs, b_y_bcrs, b_z_bcrs])
-
         return bcrs_ephemeris_satellite
 
 class Attitude(Satellite):
@@ -365,7 +362,7 @@ class Attitude(Satellite):
 
 class Scanner:
 
-    def __init__(self, wide_angle = np.radians(20),  scan_line_height = np.radians(2), coarse_angle = np.radians(2)):
+    def __init__(self, wide_angle = np.radians(20),  scan_line_height = np.radians(1)):
         """
         :param wide_angle: angle for first dot-product-rough scan of all the sky.
         :param scan_line_height: condition for the line_height of the scanner (z-axis height in lmn)
@@ -379,11 +376,11 @@ class Scanner:
         :obs_times: accurate and optimize times where the star is crossing field of view line within constrains. [days]
         """
         self.wide_angle = wide_angle
-        self.scan_line_height = scan_line_height
-        self.coarse_angle = coarse_angle
+        self.scan_line_height = scan_line_height/2.
+        self.coarse_angle = self.scan_line_height
 
         self.z_threshold = np.sin(self.scan_line_height)
-        self.y_threshold = np.sin(self.scan_line_height / 5)
+        self.y_threshold = np.sin(self.scan_line_height / 6)
 
         self.times_wide_scan = []
         self.times_coarse_scan = []
@@ -499,42 +496,14 @@ class Scanner:
             self.roots.append(min_root)
             self.obs_times.append(float(min_root.x))
 
-def least_squares_trajectory(scanner, satellite, initial_guess = np.array([1, 1, 1, 0.0, 0.0, 0.0])):
-    #need to check units for initial_guess and fix the function.
-    """
-    :param scanner: Scanner object
-    :param satellite: Attitude object
-    :param initial_guess: [x, y, z, vx, vy, vz]  [pc, pc, pc, pc/yr, pc/yr, pc/yr]
-    :return:
-    """
-    if isinstance(scanner, Scanner) != True:
-        raise TypeError('first argument is not Scanner object')
-    if isinstance(satellite, Attitude) != True:
-        raise TypeError('second argument is not Attitude object')
-    rays = []
-    for time in scanner.obs_times:
-        direction = satellite.func_x_axis_lmn(time)
-        point = satellite.ephemeris_bcrs(time)/206265 #[AU] to [pc]
-        ray = np.array([point, direction, time])
-        rays.append(ray)
 
-    def objective(arg_array):
-        star_origin = arg_array[0:3]
-        star_velocity = arg_array[3:6]
-        total_square_error = 0
+def obs_positions(att, scanner):
 
-        for ray in rays:
-            ray_point = ray[0]
-            ray_direction = ray[1]
-            time = ray[2]
-            star_position = star_origin + star_velocity * time
-            relative_star_position = star_position - ray_point
-            angle = np.arccos(np.dot(ray_direction, relative_star_position/np.linalg.norm(relative_star_position)))
-            total_square_error += angle**2
-        return total_square_error
-
-    result = optimize.minimize(objective, initial_guess, method="Nelder-Mead", options={'maxiter': 5000})
-    return result
+    positions_list = []
+    for t in scanner.obs_times:
+        u_lmn_unit = att.func_x_axis_lmn(t)/np.linalg.norm(att.func_x_axis_lmn(t))
+        positions_list.append(u_lmn_unit)
+    return positions_list
 
 def run():
     """
@@ -547,17 +516,17 @@ def run():
     vega = Source("vega", 279.2333, 38.78, 128.91, 201.03, 286.23, -13.9)
     proxima = Source("proxima",217.42, -62, 768.7, 3775.40, 769.33, 21.7)
 
-    scan1 = Scanner()
-    scan2 = Scanner()
-    scan3 = Scanner()
+    scanSirio = Scanner(np.radians(30), np.radians(1))
+    scanVega =  Scanner(np.radians(30), np.radians(1))
+    scanProxima = Scanner(np.radians(30), np.radians(1))
     gaia = Attitude()
 
-    scan1.start(gaia, sirio)
-    scan2.start(gaia, vega)
-    scan3.start(gaia, proxima)
+    scanSirio.start(gaia, sirio)
+    scanVega.start(gaia, vega)
+    scanProxima.start(gaia, proxima)
 
 
     seconds = time.time() - start_time
     print('Total seconds:', seconds)
-    return gaia, sirio, vega, proxima, scan1, scan2, scan3
+    return gaia, sirio, vega, proxima, scanSirio, scanVega, scanProxima
 

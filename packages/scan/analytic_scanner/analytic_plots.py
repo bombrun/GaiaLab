@@ -155,11 +155,9 @@ def plot_observations(source, satellite, scan):
     :param source: source scanned (object)
     :param satellite: Attitude object
     :param scan: scan object
-    :return: plot of the positions directions in lmn-frame of the scanner x-axis when the star crosses the line of view
+    :return: plot of position of observations and their error bars.
     """
 
-    #fix and add comments to it.
-    #add error bars to points to understand how the scanning law works.
     if isinstance(satellite, ggs.Attitude) is False:
         raise TypeError('satellite is not an Attitude object.')
     if isinstance(scan, ggs.Scanner) is False:
@@ -171,9 +169,14 @@ def plot_observations(source, satellite, scan):
     star_deltas = []
 
     plt.figure()
+
+    #for each of the observed times we plot the position of the x-axis in lmn of the scanner,
+    # and the error is equivalent to the z-threshold values and the y-threshold values.
     for t in scan.obs_times:
+
         yalphas = []
         ydeltas = []
+
         zalphas = []
         zdeltas = []
 
@@ -210,9 +213,9 @@ def plot_observations(source, satellite, scan):
         zdeltas.append(z_delta_2)
         plt.plot(zalphas, zdeltas, 'yo-')
 
-
     plt.plot(alphas_obs, deltas_obs, 'ro')
     plt.plot(star_alphas, star_deltas, 'b*')
+    plt.title('%s' %source.name)
     plt.xlabel('alpha [rad]')
     plt.ylabel('delta [rad]')
     plt.axis('equal')
@@ -233,9 +236,9 @@ def plot_stars_trajectory(source, satellite):
         raise TypeError('satellite is not an Attitude object.')
 
     time_total = satellite.storage[-1][0]
+
     alphas = []
     deltas = []
-
     for i in np.arange(0, time_total, 1):
         alpha_obs, delta_obs, delta_alpha_dx_mas, delta_delta_mas = source.topocentric_angles(satellite, i)
         alphas.append(delta_alpha_dx_mas)
