@@ -362,7 +362,7 @@ class Attitude(Satellite):
 
 class Scanner:
 
-    def __init__(self, wide_angle = np.radians(20),  scan_line_height = np.radians(1)):
+    def __init__(self, wide_angle = np.radians(20),  scan_line_height = np.radians(5)):
         """
         :param wide_angle: angle for first dot-product-rough scan of all the sky.
         :param scan_line_height: condition for the line_height of the scanner (z-axis height in lmn)
@@ -380,15 +380,15 @@ class Scanner:
         self.coarse_angle = self.scan_line_height
 
         self.z_threshold = np.sin(self.scan_line_height)
-        self.y_threshold = np.sin(self.scan_line_height / 6)
+        #self.y_threshold = np.sin(self.scan_line_height/5)
 
         self.times_wide_scan = []
         self.times_coarse_scan = []
-        self.times_fine_scan = []
-        self.fine_roots = []
-        self.obs_times = []
-        self.roots = []
 
+        self.times_optimize = []
+        self.optimize_roots = []
+        self.roots = []
+        self.obs_times = []
 
     def reset_memory(self):
         """
@@ -396,9 +396,11 @@ class Scanner:
         """
         self.times_wide_scan.clear()
         self.times_coarse_scan.clear()
-        self.times_fine_scan.clear()
-        self.obs_times.clear()
+
+        self.times_optimize.clear()
+        self.optimize_roots.clear()
         self.roots.clear()
+        self.obs_times.clear()
 
     def start(self, att, source, ti=0, tf=365 * 5):
         self.wide_coarse_double_scan(att, source, ti, tf)
@@ -431,12 +433,12 @@ class Scanner:
 
     def fine_scan(self, att, source):
 
-        def f(t):
+        def phi_objective(t):
             t = float(t)
             to_star_unit_lmn = source.topocentric_function(att)(t) / np.linalg.norm(source.topocentric_function(att)(t))
-            diff_vector = to_star_unit_lmn - att.func_x_axis_lmn(t)
-            diff_vector_xyz = ft.to_xyz(att.func_attitude(t), diff_vector)
-            return np.abs(diff_vector_xyz[1])
+            phi_vector_lmn = to_star_unit_lmn - att.func_x_axis_lmn(t)
+            phi_vector_xyz = ft.to_xyz(att.func_attitude(t), phi_vector_lmn)
+            return np.abs(phi_vector_xyz[1])
 
         def z_condition(t):
             t = float(t)
@@ -446,18 +448,11 @@ class Scanner:
             z_threshold = np.sin(self.scan_line_height)
             return z_threshold - np.abs(diff_vector_xyz[2])
 
-        def y_condition(t):
-            t = float(t)
-            to_star_unit_lmn = source.topocentric_function(att)(t) / np.linalg.norm(source.topocentric_function(att)(t))
-            diff_vector = to_star_unit_lmn - att.func_x_axis_lmn(t)
-            diff_vector_xyz = ft.to_xyz(att.func_attitude(t), diff_vector)
-            y_threshold = np.sin(self.scan_line_height / 5)
-            return y_threshold - np.abs(diff_vector_xyz[1])
-
         con1 = {'type': 'ineq', 'fun': z_condition}
-        con2 = {'type': 'ineq', 'fun': y_condition}
 
         time_step = self.coarse_angle / (2 * np.pi * 4)
+
+        #find times where possible solutions are
         for i in self.times_coarse_scan:
             def t_condition(t):
                 if i - time_step < t < i + time_step:
@@ -465,45 +460,29 @@ class Scanner:
                 else:
                     return -1.0
 
-            con3 = {'type': 'ineq', 'fun': t_condition}
+            con2 = {'type': 'ineq', 'fun': t_condition}
 
-            root = optimize.minimize(f, i, method='COBYLA', constraints=[con1, con2, con3])
-            if root.success == True:
-                self.fine_roots.append(root)
-                self.times_fine_scan.append(float(root.x))
+            optimize_root = optimize.minimize(phi_objective, i, method='COBYLA', constraints=[con1, con2])
+            if optimize_root.success == True:
+                self.times_optimize.append(float(optimize_root.x))
+                self.optimize_roots.append(optimize_root)
 
-        # create estimated groups from observations within 3 hours of each other
-        groups = []
-        for root in self.fine_roots:
-            groups.append(
-                [idx2 for idx2, time in enumerate(self.times_fine_scan) if abs(time - float(root.x)) < 3 / 24])
-        groups = [set(group) for group in groups]
+        #find roots for phi
+        for obj in self.optimize_roots:
+            root = optimize.root(phi_objective, [obj.x])
+            self.roots.append(root)
+            self.obs_times.append(float(root.x))
 
-        # merge intersecting groups
-        merged_groups = groups.copy()
-        for outer_group in merged_groups:
-            for inner_group in merged_groups:
-                if (inner_group is not outer_group) and (not outer_group.isdisjoint(inner_group)):
-                    outer_group.update(inner_group)
-                    merged_groups.remove(inner_group)
+        #remove duplicates
+        self.obs_times = list(set(self.obs_times))
+        self.obs_times.sort()
 
-        # find best observation in each group, and discard other observations
-        #self.roots = []
-        for g in merged_groups:
-            list_indices = list(g)
-            idx = np.argmin([f(float(self.fine_roots[i].x)) for i in list_indices])
-            min_root = self.fine_roots[list_indices[idx]]
-            self.roots.append(min_root)
-            self.obs_times.append(float(min_root.x))
-
-
-def obs_positions(att, scanner):
-
-    positions_list = []
-    for t in scanner.obs_times:
-        u_lmn_unit = att.func_x_axis_lmn(t)/np.linalg.norm(att.func_x_axis_lmn(t))
-        positions_list.append(u_lmn_unit)
-    return positions_list
+def phi(source, att, t):
+    t = float(t)
+    u_lmn_unit = source.topocentric_function(att)(t) / np.linalg.norm(source.topocentric_function(att)(t))
+    phi_value_lmn = u_lmn_unit - att.func_x_axis_lmn(t)
+    phi_value_xyz = ft.to_xyz(att.func_attitude(t), phi_value_lmn)
+    return np.arcsin(phi_value_xyz[1])
 
 def run():
     """
@@ -516,17 +495,18 @@ def run():
     vega = Source("vega", 279.2333, 38.78, 128.91, 201.03, 286.23, -13.9)
     proxima = Source("proxima",217.42, -62, 768.7, 3775.40, 769.33, 21.7)
 
-    scanSirio = Scanner(np.radians(30), np.radians(1))
-    scanVega =  Scanner(np.radians(30), np.radians(1))
-    scanProxima = Scanner(np.radians(30), np.radians(1))
+    scanSirio = Scanner(np.radians(20), np.radians(2))
+    scanVega =  Scanner(np.radians(20), np.radians(2))
+    scanProxima = Scanner(np.radians(20), np.radians(2))
     gaia = Attitude()
+    print (time.time() - start_time)
 
     scanSirio.start(gaia, sirio)
     scanVega.start(gaia, vega)
     scanProxima.start(gaia, proxima)
-
+    print (time.time() - start_time)
 
     seconds = time.time() - start_time
     print('Total seconds:', seconds)
-    return gaia, sirio, vega, proxima, scanSirio, scanVega, scanProxima
+    return gaia, sirio, scanSirio, vega, scanVega, proxima, scanProxima
 
