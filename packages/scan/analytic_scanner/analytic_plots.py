@@ -173,10 +173,6 @@ def plot_observations(source, satellite, scan):
     #for each of the observed times we plot the position of the x-axis in lmn of the scanner,
     # and the error is equivalent to the z-threshold values and the y-threshold values.
     for t in scan.obs_times:
-
-        yalphas = []
-        ydeltas = []
-
         zalphas = []
         zdeltas = []
 
@@ -188,22 +184,10 @@ def plot_observations(source, satellite, scan):
         star_deltas.append(source.delta)
 
         xaxis = satellite.func_x_axis_lmn(t)
-        yaxis = np.cross(satellite.func_z_axis_lmn(t), satellite.func_x_axis_lmn(t))
         zaxis = satellite.func_z_axis_lmn(t)
-
-        vectory1 = xaxis + scan.y_threshold * yaxis
-        vectory2 = xaxis - scan.y_threshold * yaxis
 
         vectorz1 = xaxis + scan.z_threshold * zaxis
         vectorz2 = xaxis - scan.z_threshold * zaxis
-
-        y_alpha_1, y_delta_1, y_radius_1 = ft.to_polar(vectory1)
-        y_alpha_2, y_delta_2, y_radius_2 = ft.to_polar(vectory2)
-        yalphas.append(y_alpha_1)
-        yalphas.append(y_alpha_2)
-        ydeltas.append(y_delta_1)
-        ydeltas.append(y_delta_2)
-        plt.plot(yalphas, ydeltas, 'go-')
 
         z_alpha_1, z_delta_1, z_radius_1 = ft.to_polar(vectorz1)
         z_alpha_2, z_delta_2, z_radius_2 = ft.to_polar(vectorz2)
@@ -213,8 +197,9 @@ def plot_observations(source, satellite, scan):
         zdeltas.append(z_delta_2)
         plt.plot(zalphas, zdeltas, 'yo-')
 
-    plt.plot(alphas_obs, deltas_obs, 'ro')
-    plt.plot(star_alphas, star_deltas, 'b*')
+    plt.plot(alphas_obs, deltas_obs, 'ro', label = 'observations')
+    plt.plot(star_alphas, star_deltas, 'b*', label = 'star')
+    plt.legend(loc = 'upper left')
     plt.title('%s' %source.name)
     plt.xlabel('alpha [rad]')
     plt.ylabel('delta [rad]')
@@ -223,6 +208,29 @@ def plot_observations(source, satellite, scan):
     plt.margins(0.1)
     plt.show()
 
+def plot_phi(source, att, scan, obs = True, ti = 0, tf =365*5):
+    times_total= np.linspace(ti, tf, 10000)
+    phi_list = []
+    for t in times_total:
+        phi_value = phi(source, att, t)
+        phi_list.append(phi_value)
+
+    plt.figure()
+    plt.plot(times_total, phi_list, 'bo--')
+    if obs is True:
+        for t in scan.obs_times:
+            small_phi_list =[]
+            times = np.linspace(t-0.3, t + 0.3)
+            for i in times:
+                phi_value = phi(source, att, i)
+                small_phi_list.append(phi_value)
+            plt.plot(times, small_phi_list, 'ro--')
+
+    plt.hlines(0, xmin = times_total[0], xmax = times_total[-1], color = 'g')
+    plt.xlabel('time [days]')
+    plt.ylabel('Phi [rad]')
+    plt.show()
+    
 def plot_stars_trajectory(source, satellite):
     """
     :param source: source object
