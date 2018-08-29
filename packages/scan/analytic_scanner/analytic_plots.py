@@ -208,29 +208,28 @@ def plot_observations(source, satellite, scan):
     plt.margins(0.1)
     plt.show()
 
-def plot_phi(source, att, scan, obs = True, ti = 0, tf =365*5):
-    times_total= np.linspace(ti, tf, 10000)
+def plot_phi(source, att, ti = 0, tf =90, n = 1000):
+    times_total= np.linspace(ti, tf, n)
     phi_list = []
+    eta_list = []
     for t in times_total:
-        phi_value = phi(source, att, t)
+        phi_value, eta_value = ggs.phi(source, att, t)
+        eta_list.append(eta_value)
         phi_list.append(phi_value)
 
-    plt.figure()
-    plt.plot(times_total, phi_list, 'bo--')
-    if obs is True:
-        for t in scan.obs_times:
-            small_phi_list =[]
-            times = np.linspace(t-0.3, t + 0.3)
-            for i in times:
-                phi_value = phi(source, att, i)
-                small_phi_list.append(phi_value)
-            plt.plot(times, small_phi_list, 'ro--')
-
+    plt.figure(1)
+    plt.plot(times_total, phi_list, 'bo-')
     plt.hlines(0, xmin = times_total[0], xmax = times_total[-1], color = 'g')
     plt.xlabel('time [days]')
     plt.ylabel('Phi [rad]')
+
+    plt.figure(2)
+    plt.plot(times_total, eta_list, 'ro-')
+    plt.hlines(0, xmin = times_total[0], xmax = times_total[-1], color = 'g')
+    plt.xlabel('time [days]')
+    plt.ylabel('Eta[rad]')
     plt.show()
-    
+
 def plot_stars_trajectory(source, satellite):
     """
     :param source: source object
