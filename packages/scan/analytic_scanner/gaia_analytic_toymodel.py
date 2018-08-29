@@ -372,15 +372,15 @@ class Scanner:
         :coarse_angle: uses scan_line_height to get measurements after wide_angle dot product. [rad]
         :times_wide_scan: times where star in wide_angle field of view. [days]
         :times_coarse_scan: times where star in wide_angle and coarse angle field of view [days]
-        :times_fine_scan: times where star crosses line of view.
-        :obs_times: accurate and optimize times where the star is crossing field of view line within constrains. [days]
+        :optimize_roots: [func] minimized solutions
+        :roots: [func] found roots
+        :obs_times: the times of the roots (i.e. self.roots.x) where the star precisely crosses the line of view [days]
         """
         self.wide_angle = wide_angle
         self.scan_line_height = scan_line_height/2.
         self.coarse_angle = self.scan_line_height
 
         self.z_threshold = np.sin(self.scan_line_height)
-        #self.y_threshold = np.sin(self.scan_line_height/5)
 
         self.times_wide_scan = []
         self.times_coarse_scan = []
@@ -478,11 +478,19 @@ class Scanner:
         self.obs_times.sort()
 
 def phi(source, att, t):
+    """
+    Calculates the diference between the x-axis of the satellite and the direction vector to the star.
+    Once this is calculated, it checks how far away is in the alpha direction (i.e. the y-component) wrt IRS.
+    :param source: Source [object]
+    :param att: Attitude [object]
+    :param t: time [float][days]
+    :return: [float] angle, alpha wrt IRS.
+    """
     t = float(t)
     u_lmn_unit = source.topocentric_function(att)(t) / np.linalg.norm(source.topocentric_function(att)(t))
     phi_value_lmn = u_lmn_unit - att.func_x_axis_lmn(t)
     phi_value_xyz = ft.to_xyz(att.func_attitude(t), phi_value_lmn)
-    return np.arcsin(phi_value_xyz[1])
+    return np.arcsin(phi_value_xyz[1]), np.arcsin(phi_value_xyz[2])
 
 def run():
     """
