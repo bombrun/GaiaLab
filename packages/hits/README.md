@@ -6,8 +6,7 @@ Hits is an open-source python library of functions for the analysis and simulati
 Packages within the module are:
 * hitsimulator
 * hitdetector
-* noiseremoval
-    * filters
+* filters
     * kalman
     * lowpass
 * response

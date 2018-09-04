@@ -4,7 +4,7 @@
 import hits.hitdetector
 import hits.response
 import hits.hitsimulator
-import hits.noiseremoval
+import hits.filters
 """
 Hit detection and simulation programs for Gaia data.
 

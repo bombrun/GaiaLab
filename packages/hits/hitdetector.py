@@ -16,11 +16,11 @@ from hits.misc import sort_data, isolate_hit_df, o2s, hit_start_end_df
 from numba import jit
 from array import array
 try:
-    import noiseremoval.kalman as fk
-    import noiseremoval.lowpass as fl
+    import filters.kalman as fk
+    import filters.lowpass as fl
 except(ImportError):
-    import hits.noiseremoval.kalman as fk
-    import hits.noiseremoval.lowpass as fl
+    import hits.filters.kalman as fk
+    import hits.filters.lowpass as fl
 
 # -----------------------------------------------------------------------------
 #
@@ -687,7 +687,8 @@ def plot_anomaly(*dfs, method=None, highlight=False, highlights=False,
         plt.show()
 
 
-def log_start_and_end_times(*dfs, dest="hitranges.txt", method=None):
+def log_start_and_end_times(*dfs, dest="hitranges.txt", method=None,
+                            write_method='w+'):
     if method is None:
         identify = null_identify
         kwarg_dict = dict()
@@ -706,11 +707,20 @@ def log_start_and_end_times(*dfs, dest="hitranges.txt", method=None):
 
     for df in dfs:
         working_df = hit_start_end_df(identify(df, **kwarg_dict)[0])
-        with open(dest, 'w+') as d:
-            for t0, t1 in zip(working_df[working_df['start']]['obmt'],
-                              working_df[working_df['end']]['obmt']):
 
-                d.write(str(t0) + "," + str(t1) + "\n")
+        if dest is None:
+            d = sys.stdout
+
+        else:
+            d = open(dest, write_method)
+
+        for t0, t1 in zip(working_df[working_df['start']]['obmt'],
+                          working_df[working_df['end']]['obmt']):
+
+            d.write(str(t0) + "," + str(t1) + "\n")
+        
+        if d is not sys.stdout:
+            d.close()
 
 
 # Dictionary to allow hit detection method selection.

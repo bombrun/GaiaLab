@@ -65,9 +65,9 @@ References:
    Welch G, Bishop G; An Introduction to the Kalman Filter; UNC; 1994.
 """
 try:
-    import filters
+    import filter_base
 except(ImportError):
-    from hits.noiseremoval import filters
+    from hits.filters import filter_base
 
 # TODO implement extended Kalman and use to identify decay pattern for
 # hits (assume exponential?).
@@ -80,12 +80,12 @@ except(ImportError):
 # TODO implement multiple dimensional Kalman.
 
 
-class KalmanData(filters.FilterData):
+class KalmanData(filter_base.FilterData):
 
     name = "KalmanData"
 
     def __init__(self, *args, q=None, r=None):
-        filters.FilterData.__init__(self, *args)
+        filter_base.FilterData.__init__(self, *args)
 
         if isinstance(q, (float, int)):
             self._q = q

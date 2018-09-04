@@ -1,6 +1,6 @@
 import pandas as pd
 import unittest
-import hits.noiseremoval.filters as filters
+import hits.filters.filter_base as filter_base
 
 """
 Unit testing for the filter data class.
@@ -13,35 +13,35 @@ Unit testing for the filter data class.
 class TestFilterInit(unittest.TestCase):
     def test_init_with_string_throws_error(self):
         with self.assertRaises(TypeError):
-            filters.FilterData("string")
+            filter_base.FilterData("string")
 
     def test_init_with_list_of_strings_throws_error(self):
         with self.assertRaises(TypeError):
-            filters.FilterData(["list", "of", "strings"])
+            filter_base.FilterData(["list", "of", "strings"])
 
     def test_init_with_list_of_complex_numbers_throws_error(self):
         with self.assertRaises(TypeError):
-            filters.FilterData([1 + 2j, 2 + 3j, 3+4j])
+            filter_base.FilterData([1 + 2j, 2 + 3j, 3+4j])
 
     def test_init_with_list_of_lists_throws_error(self):
         with self.assertRaises(TypeError):
-            filters.FilterData([[1, 2, 3], [1, 2, 3], [1, 2, 3]])
+            filter_base.FilterData([[1, 2, 3], [1, 2, 3], [1, 2, 3]])
 
     def test_init_with_single_number_throws_error(self):
         # There is an argument to be made that you should be able to
         # init an instance with only one number, but I disagree - how
         # can you remove noise from one data point?
         with self.assertRaises(TypeError):
-            filters.FilterData(1)
+            filter_base.FilterData(1)
 
 
 class TestFilterComparisons(unittest.TestCase):
     def setUp(self):
-        self.filter_list_1 = filters.FilterData([1, 2, 3, 4, 5, 6, 7])
-        self.filter_tuple_1 = filters.FilterData((1, 2, 3, 4, 5, 6, 7))
-        self.filter_list_different = filters.FilterData([2, 4, 6, 8, 10, 12,
+        self.filter_list_1 = filter_base.FilterData([1, 2, 3, 4, 5, 6, 7])
+        self.filter_tuple_1 = filter_base.FilterData((1, 2, 3, 4, 5, 6, 7))
+        self.filter_list_different = filter_base.FilterData([2, 4, 6, 8, 10, 12,
                                                          14])
-        self.filter_big_first_value = filters.FilterData([10000, 0, 0, 0, 0, 0,
+        self.filter_big_first_value = filter_base.FilterData([10000, 0, 0, 0, 0, 0,
                                                           0])
 
     def test_equality_of_same_data(self):
@@ -51,7 +51,7 @@ class TestFilterComparisons(unittest.TestCase):
     def test_filter_init_from_list_and_filter_init_from_tuple_are_equal(self):
         self.assertEqual(self.filter_list_1, self.filter_tuple_1)
 
-    def test_different_filters_are_not_equal(self):
+    def test_different_filter_base_are_not_equal(self):
         self.assertNotEqual(self.filter_list_1, self.filter_list_different)
 
     def test_greater_than_behaves_as_expected(self):
@@ -86,9 +86,9 @@ class TestFilterComparisons(unittest.TestCase):
 
 class TestFilterArithmetic(unittest.TestCase):
     def setUp(self):
-        self.filter_1 = filters.FilterData([1, 2, 3, 4, 5, 6, 7])
+        self.filter_1 = filter_base.FilterData([1, 2, 3, 4, 5, 6, 7])
         self.equivalent_list = [1, 2, 3, 4, 5, 6, 7]
-        self.double_filter = filters.FilterData([2, 4, 6, 8, 10, 12, 14])
+        self.double_filter = filter_base.FilterData([2, 4, 6, 8, 10, 12, 14])
 
     def test_add_filter_together(self):
         self.assertEqual(self.filter_1 + self.filter_1, self.double_filter)
@@ -102,7 +102,7 @@ class TestFilterArithmetic(unittest.TestCase):
                          self.double_filter)
 
     def test_add_constant_to_filter(self):
-        filter_1_plus_2 = filters.FilterData([3, 4, 5, 6, 7, 8, 9])
+        filter_1_plus_2 = filter_base.FilterData([3, 4, 5, 6, 7, 8, 9])
         self.assertEqual(self.filter_1 + 2, filter_1_plus_2)
 
     def test_add_string_to_filter_raises_error(self):
@@ -119,7 +119,7 @@ class TestFilterArithmetic(unittest.TestCase):
 
     def test_add_filter_of_different_length_to_filter_raises_error(self):
         with self.assertRaises(ValueError):
-            self.filter_1 + filters.FilterData((1, 2))
+            self.filter_1 + filter_base.FilterData((1, 2))
 
     def test_sub_filter_from_filter(self):
         self.assertEqual(self.double_filter - self.filter_1, self.filter_1)
@@ -133,7 +133,7 @@ class TestFilterArithmetic(unittest.TestCase):
                              self.filter_1)
 
     def test_sub_constant_from_filter(self):
-        filter_1_minus_2 = filters.FilterData([-1, 0, 1, 2, 3, 4, 5])
+        filter_1_minus_2 = filter_base.FilterData([-1, 0, 1, 2, 3, 4, 5])
         self.assertEqual(self.filter_1 - 2, filter_1_minus_2)
 
     def test_sub_string_from_filter_raises_error(self):
@@ -150,7 +150,7 @@ class TestFilterArithmetic(unittest.TestCase):
 
     def test_sub_filter_of_different_length_from_filter_raises_error(self):
         with self.assertRaises(ValueError):
-            self.filter_1 - filters.FilterData((1, 2))
+            self.filter_1 - filter_base.FilterData((1, 2))
 
     def test_mul_filter_by_constant(self):
         self.assertEqual(self.filter_1 * 2, self.double_filter)
@@ -160,7 +160,7 @@ class TestFilterArithmetic(unittest.TestCase):
 
     def test_mul_by_list_is_elementwise(self):
         self.assertEqual(self.filter_1 * self.equivalent_list,
-                         filters.FilterData([1, 4, 9, 16, 25, 36, 49]))
+                         filter_base.FilterData([1, 4, 9, 16, 25, 36, 49]))
 
     def test_mul_by_equivalent_list_is_equal_to_mul_by_filter(self):
         self.assertEqual(self.filter_1 * self.equivalent_list,
@@ -182,7 +182,7 @@ class TestFilterArithmetic(unittest.TestCase):
         self.assertEqual(self.double_filter / 2, self.filter_1)
 
     def test_div_by_list_is_elementwise(self):
-        self.assertEqual(filters.FilterData([1, 4, 9, 16, 25, 36, 49]) /
+        self.assertEqual(filter_base.FilterData([1, 4, 9, 16, 25, 36, 49]) /
                          self.equivalent_list, self.filter_1)
 
     def test_div_by_equivalent_list_is_equal_to_div_by_filter(self):

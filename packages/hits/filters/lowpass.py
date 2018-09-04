@@ -16,14 +16,14 @@ where dt is the time step used.
 
 import numpy as np
 try:
-    import filters
+    import filter_base
     from ..misc import s2o, o2s
 except(ImportError):
-    from hits.noiseremoval import filters
+    from hits.filters import filter_base
     from hits.misc import s2o, o2s
 
 
-class LowPassData(filters.FilterData):
+class LowPassData(filter_base.FilterData):
     """
     Low pass filter implementation.
     """
@@ -31,7 +31,7 @@ class LowPassData(filters.FilterData):
 
 # Special methods--------------------------------------------------------------
     def __init__(self, *args, cutoff=None):
-        filters.FilterData.__init__(self, *args)
+        filter_base.FilterData.__init__(self, *args)
 
         # Set up private variables.
         if self._obmt is not None:
