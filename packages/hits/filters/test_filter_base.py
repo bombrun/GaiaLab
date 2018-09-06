@@ -39,10 +39,10 @@ class TestFilterComparisons(unittest.TestCase):
     def setUp(self):
         self.filter_list_1 = filter_base.FilterData([1, 2, 3, 4, 5, 6, 7])
         self.filter_tuple_1 = filter_base.FilterData((1, 2, 3, 4, 5, 6, 7))
-        self.filter_list_different = filter_base.FilterData([2, 4, 6, 8, 10, 12,
-                                                         14])
-        self.filter_big_first_value = filter_base.FilterData([10000, 0, 0, 0, 0, 0,
-                                                          0])
+        self.filter_list_different = filter_base.FilterData([2, 4, 6, 8, 10,
+                                                             12, 14])
+        self.filter_big_first_value = filter_base.FilterData([10000, 0, 0, 0,
+                                                              0, 0, 0])
 
     def test_equality_of_same_data(self):
         filter_list_2 = self.filter_list_1.copy()
