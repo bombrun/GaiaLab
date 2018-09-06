@@ -64,6 +64,7 @@ References:
    kalmanfilter.net
    Welch G, Bishop G; An Introduction to the Kalman Filter; UNC; 1994.
 """
+import numpy as np
 try:
     import filter_base
 except(ImportError):
@@ -160,7 +161,7 @@ class KalmanData(filter_base.FilterData):
             if r is None and self._r is not None:
                 r = self._r
             elif r is None and self._r is None:
-                r = 1
+                r = np.std([abs(x) for x in np.diff(self._data)]) ** 2
             K = p/(p+r)
             x = x + K * (z - x)
             p = (1-K)*p
