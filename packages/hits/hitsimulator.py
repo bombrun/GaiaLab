@@ -385,5 +385,18 @@ def generate_data(length, masses=masses, sigma=False):
                        "rate": omega,
                        "error": sigmas})
     df = df[['obmt', 'rate', 'error']]
+    noise = np.random.normal(0, 0.001, len(df['rate']))
+
+    periodic_noise_amplitudes = [x ** 2 for x in np.random.normal(0.1, 0.2,
+                                                                  500)]
+
+    periods = [2 * x for x in range(len(periodic_noise_amplitudes))]
+    harmonics = [np.sin(df['obmt'] * abs(x) / 2 * np.pi) for x in
+                 periods]
+
+    periodic_noise = sum([x * A for x, A in zip(harmonics,
+                                                periodic_noise_amplitudes)])
+
+    df['rate'] = df['rate'] + noise + periodic_noise
     df['w1_rate'] = df['rate'].rolling(window=3600, min_periods=0).mean()
     return df
