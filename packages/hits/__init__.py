@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import hits.hitdetector
-import hits.response
-import hits.hitsimulator
-import hits.filters
+from hits.hitdetector import *
+from hits.response import *
+from hits.hitsimulator import *
+from hits.filters import *
 """
 Hit detection and simulation programs for Gaia data.
 
@@ -21,5 +21,7 @@ For further information on imported functions, run help(function). For
 more importable functions packaged in each module, run help(hits.module)
 """
 
+__all__ = ['filters', 'response', 'hitdetector', 'hitsimulator']
+name = "gaia-hits"
 __author__ = "Toby James and Alex Bombrun"
 __version__ = "0.1"
