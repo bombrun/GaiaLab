@@ -199,7 +199,7 @@ def tp_distribution(amplitude):
     m = np.random.normal(loc=tp_m_loc, scale=tp_m_scale)
     c = np.random.normal(loc=tp_c_loc, scale=tp_c_scale)
 
-    return m * amplitude + c + 2
+    return abs(m * amplitude + c + 2)
     # +2 accounts for the initial peak, meaning there is only 1 peak and
     # nothing in the response. This stops responses with negative
     # amounts of turning points being allowed.
@@ -229,7 +229,7 @@ def time_distribution(amplitude):
     m = np.random.normal(loc=t_m_loc, scale=t_m_scale)
     c = np.random.normal(loc=t_c_loc, scale=t_c_scale)
 
-    return m * amplitude + c
+    return abs(m * amplitude + c)
 
 
 class AOCSResponse:
@@ -330,7 +330,8 @@ def generate_event(masses, frequencies, sigma=False):
         return (0, 0)
 
 
-def generate_data(length, masses=masses, sigma=False):
+def generate_data(length, masses=masses, sigma=False, noise=('gaussian',
+                                                             'periodic')):
     """
     Accepts:
 
@@ -364,6 +365,7 @@ def generate_data(length, masses=masses, sigma=False):
 
     frequencies = freq(masses)
     obmt = np.arange(0, length, 1)
+    starts = [False]
     sigmas = [0]
     omega = [0]
     response = AOCSResponse()
@@ -373,30 +375,40 @@ def generate_data(length, masses=masses, sigma=False):
         if _omega[0] != 0:
             response(_omega[0])
             d_omega = _omega[0] + response[0]
+            start = True
         else:
             try:
                 d_omega = 0 + response[0]
             except(IndexError):  # response._data is an empty list.
                 d_omega = 0
+            finally:
+                start = False
         omega.append(d_omega)
         sigmas.append(_omega[1])
+        starts.append(start)
 
     df = pd.DataFrame({"obmt": s2o(obmt),
                        "rate": omega,
                        "error": sigmas})
     df = df[['obmt', 'rate', 'error']]
-    noise = np.random.normal(0, 0.001, len(df['rate']))
+   
 
-    periodic_noise_amplitudes = [x ** 2 for x in np.random.normal(0.1, 0.2,
-                                                                  500)]
+    if hasattr(noise, '__iter__') and 'gaussian' in noise:
+        gaussian_noise = np.random.normal(0, 0.001, len(df['rate']))
+    else:
+        gaussian_noise = np.zeros(len(df['rate']))
+    if hasattr(noise, '__iter__') and 'periodic' in noise:
+        periodic_noise_amplitudes = [x ** 2 for x in np.random.normal(0, 0.2,
+                                                                      500)]
+        periods = [2 * x for x in range(len(periodic_noise_amplitudes))]
+        harmonics = [np.sin(df['obmt'] * abs(x) / 2 * np.pi) for x in
+                     periods]
 
-    periods = [2 * x for x in range(len(periodic_noise_amplitudes))]
-    harmonics = [np.sin(df['obmt'] * abs(x) / 2 * np.pi) for x in
-                 periods]
+        periodic_noise = sum([x * A for x, A in zip(harmonics,
+                                                    periodic_noise_amplitudes)])
+    else:
+        periodic_noise = np.zeros(len(df['rate']))
 
-    periodic_noise = sum([x * A for x, A in zip(harmonics,
-                                                periodic_noise_amplitudes)])
-
-    df['rate'] = df['rate'] + noise + periodic_noise
+    df['rate'] = df['rate'] + gaussian_noise + periodic_noise
     df['w1_rate'] = df['rate'].rolling(window=3600, min_periods=0).mean()
     return df

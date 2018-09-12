@@ -283,7 +283,7 @@ class TestHitSimulatorNumericalFuncs(unittest.TestCase):
     def test_time_distribution_returns_realistic_magnitude(self):
         for i in np.arange(0, 10, 0.05):
             time = time_distribution(i)
-            self.assertLess(time, 0.008,
+            self.assertLess(time, 0.1,  # Big number
                             msg="Response time was predicted to be %r for an "
                                 "input of %r." % (time, i))
             self.assertTrue(time > 0,
