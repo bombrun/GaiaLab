@@ -1,8 +1,7 @@
 
 import unittest 
-import gaia_analytic_toymodel as gat
+from . import gaia_analytic_toymodel as gat
 import numpy as np
-import quaternion as Quaternion
 
 class test_source(unittest.TestCase):
 

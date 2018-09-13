@@ -17,12 +17,8 @@ where dt is the time step used.
 import numpy as np
 import scipy
 import pandas as pd
-try:
-    import filter_base
-    from ..misc import s2o, o2s
-except(ImportError):
-    from hits.filters import filter_base
-    from hits.misc import s2o, o2s
+from . import filter_base
+from ..misc import s2o, o2s
 
 
 class LowPassData(filter_base.FilterData):

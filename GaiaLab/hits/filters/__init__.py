@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import hits
 from . import kalman
 from . import lowpass
 """

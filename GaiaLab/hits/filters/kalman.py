@@ -66,7 +66,7 @@ References:
 """
 import numpy as np
 try:
-    import filter_base
+    from . import filter_base
 except(ImportError):
     from hits.filters import filter_base
 

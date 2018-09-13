@@ -1,7 +1,7 @@
 
 import unittest
-import gaia_geometric_scanner as ggs
-from quaternion import Quaternion
+from . import gaia_geometric_toymodel as ggs
+from .quaternion import Quaternion
 import numpy as np
 
 class test_sky(unittest.TestCase):

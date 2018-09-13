@@ -46,10 +46,8 @@ if 'hitsimulator' in config and 'use_conf' in config['hitsimulator'] and \
                             tp_c_scale, t_m_loc, t_m_scale, t_c_loc, t_c_scale
     except(ImportError):
         _use_defaults = True
-        print("conf.py not found. Using default values.")
 else:
     _use_defaults = True
-    print("use_conf not selected in hits.ini. Using default values.")
 
 if _use_defaults:
     r = 3     # m         typical impact distance from z axis

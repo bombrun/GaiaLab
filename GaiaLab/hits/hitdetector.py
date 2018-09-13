@@ -12,15 +12,11 @@ import sys
 import pandas as pd
 import warnings
 import scipy.signal
-from hits.misc import sort_data, isolate_hit_df, o2s, hit_start_end_df
+from .misc import sort_data, isolate_hit_df, o2s, hit_start_end_df
 from numba import jit
 from array import array
-try:
-    import filters.kalman as fk
-    import filters.lowpass as fl
-except(ImportError):
-    import hits.filters.kalman as fk
-    import hits.filters.lowpass as fl
+from .filters import kalman as fk
+from .filters import lowpass as fl
 
 # -----------------------------------------------------------------------------
 #

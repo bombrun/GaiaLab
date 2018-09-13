@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from hits.hitdetector import *
-from hits.response import *
-from hits.hitsimulator import *
-from hits.filters import *
+from . import hitdetector
+from . import response
+from . import hitsimulator
+from . import filters
+
 """
 Hit detection and simulation programs for Gaia data.
 

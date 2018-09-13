@@ -2,8 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 try:
-    import hits.hitdetector as hd
-    from hits.misc import sort_data
+    from .. import hitdetector as hd
+    from ..misc import sort_data
 except(ImportError):
     import hits.hitdetector as hd
     from misc import sort_data

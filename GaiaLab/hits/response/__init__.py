@@ -1,3 +1,5 @@
+from . import anomaly
+from . import characteristics
 """
 Funtions to analyze AOCS response to hits
 

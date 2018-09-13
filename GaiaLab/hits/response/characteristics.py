@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from hits.misc import sort_data
+from ..misc import sort_data
 
 # -----------------------------------------------------------------------------
 #

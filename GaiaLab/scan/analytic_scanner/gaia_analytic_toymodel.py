@@ -7,8 +7,8 @@ Created on Mon Jun 18 14:59:19 2018
 
 """
 
-import frame_transformations as ft
-from quaternion import Quaternion
+from . import frame_transformations as ft
+from .quaternion import Quaternion
 import numpy as np
 import time
 from scipy import interpolate

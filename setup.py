@@ -5,14 +5,14 @@ with open('README.md', 'r') as d:
 
 setuptools.setup(name='gaia-hits',
                  version='0.1.0',
-                 author='Toby James',
-                 author_email='tobyswjames@gmail.com',
-                 description='Micrometeoroid detection and simulation for Gaia'
-                             ' data.',
+                 author='Alex Bombrun, Maria del Valle Varo, Toby James',
+                 author_email='abombrun@sciops.esa.int',
+                 description='Toy model for the Gaia scanning law and '
+                             'micrometeoroid detection and simulation '
+                             'functions for Gaia data.',
                  long_description=long_description,
                  long_description_content_type='text/markdown',
-                 url='https://github.com/bombrun/GaiaLab/tree/master/'
-                     'packages/hits',
+                 url='https://github.com/bombrun/GaiaLab',
                  packages=setuptools.find_packages(),
                  classifiers=["Programming Language :: Python :: 3",
                               "License :: OSI Approved :: MIT License",

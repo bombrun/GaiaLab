@@ -1,6 +1,6 @@
 import pandas as pd
 import unittest
-import hits.filters.filter_base as filter_base
+from . import filter_base as filter_base
 
 """
 Unit testing for the filter data class.

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import numpy as np
-from quaternion import Quaternion
+from .quaternion import Quaternion
 
 
 def to_quaternion(vector):
@@ -19,7 +19,7 @@ def to_polar(vector):
     :return: [rad][rad][pc]
     """
     radius = np.sqrt(vector[0] ** 2 + vector[1] ** 2 + vector[2] ** 2)
-    alpha = np.arctan2(vector[1], vector[0])
+    alpha = np.arctan2(vector[1], vector[0]) %(2*np.pi)
     delta = np.arcsin(vector[2]/radius)
     return alpha, delta, radius
 
@@ -86,11 +86,21 @@ def rotation_to_quat(vector, angle):
     return Quaternion(t, x, y, z)
 
 def to_lmn(attitude, vector):
+    """
+    :param attitude: Quaternion object
+    :param vector: array of 3D
+    :return: the coordinates in LMN-frame of the input vector.
+    """
     q_vector_xyz = to_quaternion(vector)
     q_vector_lmn = attitude * q_vector_xyz * attitude.conjugate()
     return q_vector_lmn.to_vector()
 
 def to_xyz(attitude, vector):
+    """
+    :param attitude: Quaternion object
+    :param vector: array of 3D
+    :return: the coordinates in XYZ-frame of the input vector.
+    """
     q_vector_lmn = to_quaternion(vector)
     q_vector_xyz = attitude.conjugate() * q_vector_lmn * attitude
     return q_vector_xyz.to_vector()
