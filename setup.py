@@ -3,7 +3,7 @@ import setuptools
 with open('README.md', 'r') as d:
     long_description = d.read()
 
-setuptools.setup(name='gaia-hits',
+setuptools.setup(name='GaiaLab',
                  version='0.1.0',
                  author='Alex Bombrun, Maria del Valle Varo, Toby James',
                  author_email='abombrun@sciops.esa.int',

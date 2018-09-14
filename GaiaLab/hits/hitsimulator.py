@@ -270,7 +270,7 @@ class AOCSResponse:
         return d_omegas
 # -----------------------------------------------------------------------------
 
-# Two master functions for generating data sets--------------------------------
+# Two parent functions for generating data sets--------------------------------
 
 
 def generate_event(masses, frequencies, sigma=False):
@@ -389,7 +389,6 @@ def generate_data(length, masses=masses, sigma=False, noise=('gaussian',
                        "rate": omega,
                        "error": sigmas})
     df = df[['obmt', 'rate', 'error']]
-   
 
     if hasattr(noise, '__iter__') and 'gaussian' in noise:
         gaussian_noise = np.random.normal(0, 0.001, len(df['rate']))
@@ -402,8 +401,9 @@ def generate_data(length, masses=masses, sigma=False, noise=('gaussian',
         harmonics = [np.sin(df['obmt'] * abs(x) / 2 * np.pi) for x in
                      periods]
 
-        periodic_noise = sum([x * A for x, A in zip(harmonics,
-                                                    periodic_noise_amplitudes)])
+        periodic_noise = sum([x * A for x,
+                              A in zip(harmonics,
+                                       periodic_noise_amplitudes)])
     else:
         periodic_noise = np.zeros(len(df['rate']))
 

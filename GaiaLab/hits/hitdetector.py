@@ -714,7 +714,7 @@ def log_start_and_end_times(*dfs, dest="hitranges.txt", method=None,
                           working_df[working_df['end']]['obmt']):
 
             d.write(str(t0) + "," + str(t1) + "\n")
-        
+
         if d is not sys.stdout:
             d.close()
 
