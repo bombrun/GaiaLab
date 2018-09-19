@@ -7,9 +7,7 @@ Created on Mon Jun 18 14:59:19 2018
 
 """
 
-#from . import frame_transformations as ft
 import frame_transformations as ft
-
 from quaternion import Quaternion
 import numpy as np
 import time

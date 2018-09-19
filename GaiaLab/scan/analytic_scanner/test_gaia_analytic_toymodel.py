@@ -1,6 +1,5 @@
 
 import unittest
-#from . import gaia_analytic_toymodel as gat
 import gaia_analytic_toymodel as gat
 
 import numpy as np
