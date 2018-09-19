@@ -11,7 +11,7 @@ class Quaternion():
     Quaternion class implemented to allow manipulation of quaternions with
     each other, matrices (including, where appropriate, vectors) and scalars.
 
-    Declare a quaternion of the form q = w + xi + yj +zk by 
+    Declare a quaternion of the form q = w + xi + yj +zk by
 
     >> q = Quaternion(w,x,y,z)
 
@@ -64,9 +64,9 @@ class Quaternion():
     def reciprocal(self):           #Create the reciprocal
         return (self.conjugate()/(self.magnitude**2))
 
-    def inverse(self):              #The same
+    def inverse(self):              #Same as reciprocal
         return self.reciprocal()
-    
+
     def __add__(self,other):        #Addition of quaternions
         if isinstance(other, Quaternion):
             return Quaternion(self.w+other.w,self.x+other.x, self.y+other.y, self.z+other.z)
@@ -82,11 +82,11 @@ class Quaternion():
     # For multiplication, python 3.5+ supports @ as the matrix multiplication operator.
     # Improvements in readability may be gained by replacing .dot functions with @.
 
-    # It is not (currently) in __future__, so from __future__ import does not allow for 
+    # It is not (currently) in __future__, so from __future__ import does not allow for
     # use with python versions < 3.5.
 
-    # No non-stylistic improvements, it breaks backwards compatibility and more than 2 
-    # matrices are never multiplied here therefore it is probably not currently worth 
+    # No non-stylistic improvements, it breaks backwards compatibility and more than 2
+    # matrices are never multiplied here therefore it is probably not currently worth
     # implementing.
 
     def __mul__(self, other):
@@ -98,7 +98,7 @@ class Quaternion():
             w = -self.x *other.x - self.y * other.y - self.z * other.z + self.w * other.w
             return Quaternion(w,x,y,z)
         elif isinstance(other, np.ndarray):
-            if other.shape[0] == 4: 
+            if other.shape[0] == 4:
                 return np.array([self.w,self.x,self.y,self.z]).dot(other)
             else:
                 raise ValueError("Operand with shape (%r,%r) could not be broadcast with a quaternion." % other.shape)
@@ -113,7 +113,7 @@ class Quaternion():
     def __rmul__(self,other):
         # Allow for left multiplication by matrices and scalars (quaternion right multiplication handled above)
         if isinstance(other, np.ndarray):
-            if other.shape[1] == 4: 
+            if other.shape[1] == 4:
                 return other.dot(np.array([self.w,self.x,self.y,self.z]))
             else:
                 raise ValueError("Operand with shape (%r,%r) could not be broadcast with a quaternion." % other.shape)
@@ -127,7 +127,7 @@ class Quaternion():
 
     def __truediv__(self, other):
         # Allow for division by scalars and quaternions: division by other types is undefined
-        if isinstance(other, Quaternion):   
+        if isinstance(other, Quaternion):
             mag_2 = other.magnitude**2
             w = (other.w*self.w + other.x*self.x + other.y*self.y + other.z*self.z)/mag_2
             x = (other.w*self.x - other.x*self.w - other.y*self.z + other.z*self.y)/mag_2
@@ -156,9 +156,9 @@ class Quaternion():
         a_31 = 2*(self.x*self.z + self.y*self.w)
         a_32 = 2*(self.y*self.z - self.x*self.w)
         a_33 =1 - 2*((self.x)**2 + (self.y)**2)
-        
+
         A = np.array([a_11, a_12, a_13, a_21, a_22, a_23, a_31, a_32, a_33])
-        
+
         return A.reshape(3,3)
 
 
