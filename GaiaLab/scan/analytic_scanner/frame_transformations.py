@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import numpy as np
-from .quaternion import Quaternion
+from quaternion import Quaternion
 
 
 def to_quaternion(vector):

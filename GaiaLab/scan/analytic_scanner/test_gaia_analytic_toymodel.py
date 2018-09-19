@@ -1,6 +1,8 @@
 
-import unittest 
-from . import gaia_analytic_toymodel as gat
+import unittest
+#from . import gaia_analytic_toymodel as gat
+import gaia_analytic_toymodel as gat
+
 import numpy as np
 
 class test_source(unittest.TestCase):
@@ -40,8 +42,3 @@ class test_scanner(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-
-
-
-
-    
