@@ -5,6 +5,12 @@ Created on Mon Jun 18 14:59:19 2018
 
 @author: mdelvallevaro
 
+Contain the classes:
+- Source
+- Scanner
+- Satellite
+- Attitude __ cild of Satellite
+
 """
 
 import frame_transformations as ft
