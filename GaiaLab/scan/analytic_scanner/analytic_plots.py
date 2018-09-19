@@ -2,11 +2,13 @@
 
 
 import matplotlib as mpl
+from matplotlib import collections as mc
 import numpy as np
 import matplotlib.pyplot as plt
 from quaternion import Quaternion
 import frame_transformations as ft
 import gaia_analytic_toymodel as ggs
+
 
 def plot_3DX(att, ti, tf, n_points = 1000):
     """
@@ -35,6 +37,7 @@ def plot_3DX(att, ti, tf, n_points = 1000):
 
     times = np.linspace(ti, tf, n_points)
     x_list = [att.func_x_axis_lmn(t) for t in times]
+
 
     x_listx = [i[0] for i in x_list]
     x_listy = [i[1] for i in x_list]
@@ -99,7 +102,7 @@ def plot_3DZ(att, ti, tf, n_points = 1000):
     plt.show()
 
 
-def plot_attitude(att, ti, tf, n_points=1000):
+def plot_attitude(att, ti, tf, n_points=1000, figsize=(9,5)):
     """
     L.Lindegren, SAG_LL_35, Figure 1.
     %run: plot_attitude(att, 0, 80, 0.01)
@@ -129,26 +132,24 @@ def plot_attitude(att, ti, tf, n_points=1000):
     qy_list = [obj.y for obj in attitudes]
     qz_list = [obj.z for obj in attitudes]
 
-    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2)
-    fig.subplots_adjust(left=0.2, wspace=0.6)
+    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=figsize) # , sharex=True
+    fig.subplots_adjust(left=0.2, wspace=0.6, hspace=1.5 )
 
     ax1.plot(times, qw_list, 'r-')
-    ax1.set(title='W', xlabel='days')
+    ax1.set(title='W', xlabel='days', xlim=(ti,tf), xticks=(np.arange(ti, tf+1, (tf+1-ti)//4)) )
 
     ax2.plot(times, qx_list, 'b-')
-    ax2.set(title='X', xlabel='days')
+    ax2.set(title='X', xlabel='days', xlim=(ti,tf), xticks=(np.arange(ti, tf+1, (tf+1-ti)//4)) )
 
     ax3.plot(times, qy_list, 'g-')
-    ax3.set(title='Y', xlabel='days')
+    ax3.set(title='Y', xlabel='days', xlim=(ti,tf), xticks=(np.arange(ti, tf+1, (tf+1-ti)//4)) )
 
     ax4.plot(times, qz_list, 'k-')
-    ax4.set(title='Z', xlabel='days')
+    ax4.set(title='Z', xlabel='days', xlim=(ti,tf), xticks=(np.arange(ti, tf+1, (tf+1-ti)//4)) )
 
     plt.rcParams.update({'font.size': 22})
-
     plt.show()
 
-from matplotlib import collections as mc
 
 def plot_observations(source, satellite, scan):
     """
@@ -281,4 +282,3 @@ def plot_stars_trajectory(source, satellite):
 
     plt.tight_layout()
     plt.show()
-
