@@ -6,4 +6,4 @@
 #
 # Luca Zampieri 2018
 
-year = 365 # [days]
+year = 365  # [days]
