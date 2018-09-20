@@ -60,16 +60,18 @@ def ljk(epsilon):
     :return: np.array, np.array, np.array
 
     """
-    l = np.array([1, 0, 0])
+    L = np.array([1, 0, 0])
     j = np.array([0, np.cos(epsilon), np.sin(epsilon)])
     k = np.array([0, -np.sin(epsilon), np.cos(epsilon)])
-    return l, j, k
+    return L, j, k
 
 
 def pqr(alpha, delta):
     p = np.array([-np.sin(alpha), np.cos(alpha), 0])
-    q = np.array([-np.sin(delta)*np.cos(alpha), -np.sin(delta)*np.sin(alpha), np.cos(delta)])
-    r = np.array([np.cos(delta)*np.cos(alpha), np.cos(delta)*np.sin(alpha), np.sin(delta)])
+    q = np.array([-np.sin(delta)*np.cos(alpha), -np.sin(delta)*np.sin(alpha),
+                  np.cos(delta)])
+    r = np.array([np.cos(delta)*np.cos(alpha), np.cos(delta)*np.sin(alpha),
+                  np.sin(delta)])
 
     return p, q, r
 
