@@ -9,7 +9,7 @@ Contain the classes:
 - Source
 - Scanner
 - Satellite
-- Attitude __ cild of Satellite
+- Attitude __ child of Satellite
 
 """
 
@@ -25,12 +25,12 @@ from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 
 
-#vega = Source("vega", 279.2333, 38.78, 128.91, 201.03, 286.23, -13.9)
-#proxima = Source("proxima",217.42, -62, 768.7, 3775.40, 769.33, 21.7)
-#sirio = Source("sirio", 101.28, -16.7161, 379.21, -546.05, -1223.14, -7.6)
+# vega = Source("vega", 279.2333, 38.78, 128.91, 201.03, 286.23, -13.9)
+# proxima = Source("proxima",217.42, -62, 768.7, 3775.40, 769.33, 21.7)
+# sirio = Source("sirio", 101.28, -16.7161, 379.21, -546.05, -1223.14, -7.6)
 
-#vega_bcrs_au = ft.to_cartesian(np.radians(279.23), np.radians(38.78), 128.91)
-#vega_bcrs_au_six = np.array([vega_bcrs_au[0],vega_bcrs_au[1], vega_bcrs_au[2], 0,0,0])
+# vega_bcrs_au = ft.to_cartesian(np.radians(279.23), np.radians(38.78), 128.91)
+# vega_bcrs_au_six = np.array([vega_bcrs_au[0],vega_bcrs_au[1], vega_bcrs_au[2], 0,0,0])
 
 class Source:
 
@@ -70,7 +70,6 @@ class Source:
         self.mu_delta = mu_delta
         self.mu_radial = mu_radial
 
-
     def reset(self):
         """
         Reset star position to t=0
@@ -85,7 +84,7 @@ class Source:
         """
         if type(t) not in [float, int]:
             raise TypeError('t is not a float or int')
-        if t<0:
+        if t < 0:
             raise Warning('t is negative')
 
         mu_alpha_dx = self.mu_alpha_dx * 4.8473097e-9 / 365     #from mas/yr to rad/day
@@ -156,7 +155,8 @@ class Source:
         delta_alpha_dx_mas = (alpha_obs - self.__alpha0) * np.cos(self.__delta0) / mastorad
         delta_delta_mas = (delta_obs - self.__delta0) / mastorad
 
-        return alpha_obs, delta_obs, delta_alpha_dx_mas, delta_delta_mas    # mas
+        return alpha_obs, delta_obs, delta_alpha_dx_mas, delta_delta_mas  # mas
+
 
 class Satellite:
     """
@@ -164,7 +164,8 @@ class Satellite:
 
     %run: epsilon = np.radians(23.26), xi = np.radians(55).
 
-    :param S: change in the z-axis of satellite wrt solar longitudinal angle. [float]
+    :param S: change in the z-axis of satellite wrt solar longitudinal angle.
+     [float]
     :param epsilon: ecliptical angle [rad]
     :param xi: revolving angle [rad]
     :param wz: z component of inertial spin vector [arcsec/s]
