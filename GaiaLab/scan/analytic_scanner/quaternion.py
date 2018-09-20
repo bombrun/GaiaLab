@@ -6,6 +6,8 @@
 # Toby James 2018
 
 import numpy as np
+
+
 class Quaternion():
     """
     Quaternion class implemented to allow manipulation of quaternions with

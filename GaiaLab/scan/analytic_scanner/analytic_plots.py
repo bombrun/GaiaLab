@@ -10,7 +10,7 @@ import frame_transformations as ft
 import gaia_analytic_toymodel as ggs
 
 
-def plot_3DX(att, ti, tf, n_points = 1000):
+def plot_3DX(att, ti, tf, n_points=1000):
     """
     %run: plot_3DX(att, 0, 365*5, 0.1)
 
@@ -18,7 +18,8 @@ def plot_3DX(att, ti, tf, n_points = 1000):
     :param ti: initial time [float][days]
     :param tf: final time [float][days]
     :param n_points: number of points to be plotted [int]
-    :return: plot of the position of the x-axis (unitary) of the scanner wrt LMN frame.
+    :return: plot of the position of the x-axis (unitary) of the scanner wrt
+     LMN frame.
     """
     if isinstance(att, ggs.Attitude) is False:
         raise TypeError('att is not an Attitude object.')
@@ -30,14 +31,13 @@ def plot_3DX(att, ti, tf, n_points = 1000):
         raise TypeError('dt must be non-negative real numbers.')
     if ti < 0:
         raise ValueError('ti cannot be negative.')
-    if tf <0:
+    if tf < 0:
         raise ValueError('tf cannot be negative.')
-    if n_points <0:
+    if n_points < 0:
         raise ValueError('dt cannot be negative.')
 
     times = np.linspace(ti, tf, n_points)
     x_list = [att.func_x_axis_lmn(t) for t in times]
-
 
     x_listx = [i[0] for i in x_list]
     x_listy = [i[1] for i in x_list]
@@ -56,7 +56,8 @@ def plot_3DX(att, ti, tf, n_points = 1000):
 
     plt.show()
 
-def plot_3DZ(att, ti, tf, n_points = 1000):
+
+def plot_3DZ(att, ti, tf, n_points=1000):
     """
     %run: plot_3DZ(att, 0, 365*5, 0.1)
 
@@ -64,7 +65,8 @@ def plot_3DZ(att, ti, tf, n_points = 1000):
     :param ti: initial time [days]
     :param tf: final time [days]
     :param n_points: number of points to be plotted [int]
-    :return: plot of the position of the z-axis (unitary) of the scanner wrt LMN frame.
+    :return: plot of the position of the z-axis (unitary) of the scanner wrt
+     LMN frame.
     """
     if isinstance(att, ggs.Attitude) is False:
         raise TypeError('att is not an Attitude object.')
@@ -76,9 +78,9 @@ def plot_3DZ(att, ti, tf, n_points = 1000):
         raise TypeError('dt must be non-negative real numbers.')
     if ti < 0:
         raise ValueError('ti cannot be negative.')
-    if tf <0:
+    if tf < 0:
         raise ValueError('tf cannot be negative.')
-    if n_points <0:
+    if n_points < 0:
         raise ValueError('dt cannot be negative.')
 
     times = np.linspace(ti, tf, n_points)
@@ -102,7 +104,7 @@ def plot_3DZ(att, ti, tf, n_points = 1000):
     plt.show()
 
 
-def plot_attitude(att, ti, tf, n_points=1000, figsize=(9,5)):
+def plot_attitude(att, ti, tf, n_points=1000, figsize=(9, 5)):
     """
     L.Lindegren, SAG_LL_35, Figure 1.
     %run: plot_attitude(att, 0, 80, 0.01)
@@ -118,13 +120,15 @@ def plot_attitude(att, ti, tf, n_points=1000, figsize=(9,5)):
     attitude = (t, x, y, z)
     Each graph plots time in days versus each component evolution wrt time.
 
-    note: the difference between this function and the function under the same name in the file geometric_plots
-    lies on the calculation of the attitude. Here the points plotted are calculated from the spline, in contrast
-    with the numerical methods calculation for geometric_plots.plot_attitude function.
+    note: the difference between this function and the function under the same
+     name in the file geometric_plots lies on the calculation of the attitude.
+     Here the points plotted are calculated from the spline, in contrast with
+     the numerical methods calculation for geometric_plots.plot_attitude
+     function.
     """
     if isinstance(att, ggs.Attitude) is False:
         raise TypeError('att is not an Attitude object.')
-    times= np.linspace(ti, tf, n_points)
+    times = np.linspace(ti, tf, n_points)
     attitudes = [att.func_attitude(t) for t in times]
 
     qw_list = [obj.w for obj in attitudes]
@@ -132,20 +136,20 @@ def plot_attitude(att, ti, tf, n_points=1000, figsize=(9,5)):
     qy_list = [obj.y for obj in attitudes]
     qz_list = [obj.z for obj in attitudes]
 
-    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=figsize) # , sharex=True
-    fig.subplots_adjust(left=0.2, wspace=0.6, hspace=1.5 )
+    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=figsize)  # ,sharex=True
+    fig.subplots_adjust(left=0.2, wspace=0.6, hspace=1.5)
 
     ax1.plot(times, qw_list, 'r-')
-    ax1.set(title='W', xlabel='days', xlim=(ti,tf), xticks=(np.arange(ti, tf+1, (tf+1-ti)//4)) )
+    ax1.set(title='W', xlabel='days', xlim=(ti, tf), xticks=(np.arange(ti, tf+1, (tf+1-ti)//4)) )
 
     ax2.plot(times, qx_list, 'b-')
-    ax2.set(title='X', xlabel='days', xlim=(ti,tf), xticks=(np.arange(ti, tf+1, (tf+1-ti)//4)) )
+    ax2.set(title='X', xlabel='days', xlim=(ti, tf), xticks=(np.arange(ti, tf+1, (tf+1-ti)//4)) )
 
     ax3.plot(times, qy_list, 'g-')
-    ax3.set(title='Y', xlabel='days', xlim=(ti,tf), xticks=(np.arange(ti, tf+1, (tf+1-ti)//4)) )
+    ax3.set(title='Y', xlabel='days', xlim=(ti, tf), xticks=(np.arange(ti, tf+1, (tf+1-ti)//4)) )
 
     ax4.plot(times, qz_list, 'k-')
-    ax4.set(title='Z', xlabel='days', xlim=(ti,tf), xticks=(np.arange(ti, tf+1, (tf+1-ti)//4)) )
+    ax4.set(title='Z', xlabel='days', xlim=(ti, tf), xticks=(np.arange(ti, tf+1, (tf+1-ti)//4)) )
 
     plt.rcParams.update({'font.size': 22})
     plt.show()
@@ -171,14 +175,14 @@ def plot_observations(source, satellite, scan):
 
     plt.figure()
 
-    #for each of the observed times we plot the position of the x-axis in lmn of the scanner,
+    # for each of the observed times we plot the position of the x-axis in lmn of the scanner,
     # and the error is equivalent to the z-threshold values and the y-threshold values.
     for t in scan.obs_times:
         zalphas = []
         zdeltas = []
 
         alpha, delta, radius = ft.to_polar(satellite.func_x_axis_lmn(t))
-        alphas_obs.append(alpha% (2 * np.pi))
+        alphas_obs.append(alpha % (2 * np.pi))
         deltas_obs.append(delta)
         source.set_time(t)
         star_alphas.append(source.alpha)
@@ -198,10 +202,10 @@ def plot_observations(source, satellite, scan):
         zdeltas.append(z_delta_2)
         plt.plot(zalphas, zdeltas, 'yo-')
 
-    plt.plot(alphas_obs, deltas_obs, 'ro', label = 'observations')
-    plt.plot(star_alphas, star_deltas, 'b*', label = 'star')
-    plt.legend(loc = 'upper left')
-    plt.title('%s' %source.name)
+    plt.plot(alphas_obs, deltas_obs, 'ro', label='observations')
+    plt.plot(star_alphas, star_deltas, 'b*', label='star')
+    plt.legend(loc='upper left')
+    plt.title('%s' % source.name)
     plt.xlabel('alpha [rad]')
     plt.ylabel('delta [rad]')
     plt.axis('equal')
@@ -209,8 +213,9 @@ def plot_observations(source, satellite, scan):
     plt.margins(0.1)
     plt.show()
 
-def plot_phi(source, att, ti = 0, tf =90, n = 1000):
-    times_total= np.linspace(ti, tf, n)
+
+def plot_phi(source, att, ti=0, tf=90, n=1000):
+    times_total = np.linspace(ti, tf, n)
     phi_list = []
     eta_list = []
     for t in times_total:
@@ -220,22 +225,24 @@ def plot_phi(source, att, ti = 0, tf =90, n = 1000):
 
     plt.figure(1)
     plt.plot(times_total, phi_list, 'bo-')
-    plt.hlines(0, xmin = times_total[0], xmax = times_total[-1], color = 'g')
+    plt.hlines(0, xmin=times_total[0], xmax=times_total[-1], color='g')
     plt.xlabel('time [days]')
     plt.ylabel('Phi [rad]')
 
     plt.figure(2)
     plt.plot(times_total, eta_list, 'ro-')
-    plt.hlines(0, xmin = times_total[0], xmax = times_total[-1], color = 'g')
+    plt.hlines(0, xmin=times_total[0], xmax=times_total[-1], color='g')
     plt.xlabel('time [days]')
     plt.ylabel('Eta[rad]')
     plt.show()
+
 
 def plot_stars_trajectory(source, satellite):
     """
     :param source: source object
     :param satellite: attitude object
-    :param t_total: total time for which the trajectory is desired [days] from J2000.
+    :param t_total: total time for which the trajectory is desired [days] from
+     J2000.
     :return: plot of the star trajectory in the lmn-frame.
     """
     if isinstance(source, ggs.Source) is False:
@@ -258,15 +265,15 @@ def plot_stars_trajectory(source, satellite):
     fig = plt.figure(figsize=(16, 9))
     ax = fig.add_subplot(121)
 
-    ax.plot(alphas, deltas,'b-',
-            label=r'%s path' %(source.name), lw=2)
+    ax.plot(alphas, deltas, 'b-',
+            label=r'%s path' % (source.name), lw=2)
     ax.set_xlabel(r'$\Delta\alpha*$ [mas]')
     ax.set_ylabel(r'$\Delta\delta$ [mas]')
     ax.axhline(y=0, c='gray', lw=1)
     ax.axvline(x=0, c='gray', lw=1)
     ax.legend(loc='upper right', fontsize=12, facecolor='#000000', framealpha=0.1)
     ax.set_title(r'$\varpi={%.2f}$, $\mu_{{\alpha*}}={%.2f}$, $\mu_\delta={%.2f}$'
-              %(source.parallax, source.mu_alpha_dx, source.mu_delta))
+                 % (source.parallax, source.mu_alpha_dx, source.mu_delta))
 
     ax1dra = fig.add_subplot(222)
     ax1dra.axhline(y=0, c='gray', lw=1)

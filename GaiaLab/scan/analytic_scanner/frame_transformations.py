@@ -19,7 +19,7 @@ def to_polar(vector):
     :return: [rad][rad][pc]
     """
     radius = np.sqrt(vector[0] ** 2 + vector[1] ** 2 + vector[2] ** 2)
-    alpha = np.arctan2(vector[1], vector[0]) %(2*np.pi)
+    alpha = np.arctan2(vector[1], vector[0]) % (2*np.pi)
     delta = np.arcsin(vector[2]/radius)
     return alpha, delta, radius
 
@@ -40,13 +40,14 @@ def to_cartesian(alpha, delta, parallax):
     :param parallax: mas
     :return: array in parsecs.
     """
-    parallax = parallax/1000 #from mas to arcsec
+    parallax = parallax/1000  # from mas to arcsec
 
     x = (1/parallax)*np.cos(alpha)*np.cos(delta)
     y = (1/parallax)*np.sin(alpha)*np.cos(delta)
     z = (1/parallax)*np.sin(delta)
 
     return np.array([x, y, z])
+
 
 def ljk(epsilon):
     """
@@ -57,7 +58,7 @@ def ljk(epsilon):
     :return: np.array, np.array, np.array
 
     """
-    l = np.array([1,0,0])
+    l = np.array([1, 0, 0])
     j = np.array([0, np.cos(epsilon), np.sin(epsilon)])
     k = np.array([0, -np.sin(epsilon), np.cos(epsilon)])
     return l, j, k
