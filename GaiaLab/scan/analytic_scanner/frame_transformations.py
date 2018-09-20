@@ -71,6 +71,7 @@ def pqr(alpha, delta):
 
     return p, q, r
 
+
 def rotation_to_quat(vector, angle):
     """
     Calculates quaternion equivalent to rotation about (vector) by an (angle).
@@ -86,6 +87,7 @@ def rotation_to_quat(vector, angle):
 
     return Quaternion(t, x, y, z)
 
+
 def to_lmn(attitude, vector):
     """
     :param attitude: Quaternion object
@@ -96,6 +98,7 @@ def to_lmn(attitude, vector):
     q_vector_lmn = attitude * q_vector_xyz * attitude.conjugate()
     return q_vector_lmn.to_vector()
 
+
 def to_xyz(attitude, vector):
     """
     :param attitude: Quaternion object
@@ -105,6 +108,7 @@ def to_xyz(attitude, vector):
     q_vector_lmn = to_quaternion(vector)
     q_vector_xyz = attitude.conjugate() * q_vector_lmn * attitude
     return q_vector_xyz.to_vector()
+
 
 def parsecs_to_au(vector):
     return vector * 206265
