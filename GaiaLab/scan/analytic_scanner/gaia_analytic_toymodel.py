@@ -137,8 +137,9 @@ class Source:
         mu_radial = self.parallax * const.rad_per_mas * self.mu_radial * const.km_per_pc * const.sec_per_day
 
         # return topocentric_function
-        return lambda t: self.barycentric_coor(0) + t*(p*mu_alpha_dx + q * mu_delta + r*mu_radial) \
+        topo = lambda t: self.barycentric_coor(0) + t*(p*mu_alpha_dx + q * mu_delta + r*mu_radial) \
             - satellite.ephemeris_bcrs(t) * const.AU_per_pc
+        return topo
 
     def topocentric_angles(self, satellite, t):
         """
@@ -212,8 +213,8 @@ class Attitude(Satellite):
     :param tf: final time, float [day]
     :param dt: time step for creation of discrete data fed to spline, float [day].
     """
-    def __init__(self, ti=0, tf=const.days_per_year*5, dt=1/24.):
-        Satellite.__init__(self)
+    def __init__(self, ti=0, tf=const.days_per_year*5, dt=1/24., *args):
+        Satellite.__init__(self, *args)
         self.storage = []
         self.__init_state()
         self.__create_storage(ti, tf, dt)
@@ -374,7 +375,7 @@ class Attitude(Satellite):
 
 class Scanner:
 
-    def __init__(self, wide_angle=np.radians(20),  scan_line_height=np.radians(5)):
+    def __init__(self, wide_angle=np.radians(40),  scan_line_height=np.radians(5)):
         """
         :param wide_angle: angle for first dot-product-rough scan of all the sky.
         :param scan_line_height: condition for the line_height of the scanner (z-axis height in lmn)
@@ -415,10 +416,14 @@ class Scanner:
         self.obs_times.clear()
 
     def start(self, att, source, ti=0, tf=const.days_per_year * 5):
+        print('Starting wide_coarse_double_scan:')
         self.wide_coarse_double_scan(att, source, ti, tf)
+        print('Finished wide_coarse_double_scan!')
+        print('Starting fine_scan:')
         self.fine_scan(att, source)
+        print('Finished fine_scan!')
 
-    def wide_coarse_double_scan(self, att, source, ti=0, tf=365 * 5):
+    def wide_coarse_double_scan2(self, att, source, ti=0, tf=const.days_per_year * 5):
         """
         Scans sky with a dot product technique to get rough times of observation.
         :action: self.times_deep_scan list filled with observation time windows.
@@ -429,11 +434,55 @@ class Scanner:
             return TypeError('second argument is not a Source object')
 
         self.reset_memory()
+
+        t_0 = time.time()  # t0 of the timer
+
         step_wide = self.wide_angle / (2 * np.pi * 4)
+
+        my_ts = np.arange(ti, tf, step_wide)
+        print('my_rs shape: ', my_ts.shape)
+
+        def f(x):
+            to_star_unit = source.topocentric_function(att)(x) / np.linalg.norm(source.topocentric_function(att)(x))
+            return np.arccos(np.dot(to_star_unit, att.func_x_axis_lmn(x))) < self.wide_angle
+
+        array_map = np.array(list(map(f, my_ts)))
+
+        self.times_wide_scan = list(my_ts[np.nonzero(array_map)])
+
+        delta_t = time.time() - t_0  # elapsed time
+        return delta_t, len(self.times_wide_scan)
+
+    def wide_coarse_double_scan(self, att, source, ti=0, tf=const.days_per_year * 5):
+        """
+        Scans sky with a dot product technique to get rough times of observation.
+        :action: self.times_deep_scan list filled with observation time windows.
+        """
+        if isinstance(att, Attitude) is not True:
+            return TypeError('first argument is not an Attitude object')
+        if isinstance(source, Source) is not True:
+            return TypeError('second argument is not a Source object')
+
+        self.reset_memory()
+
+        t_0 = time.time()  # t0 of the timer
+
+        step_wide = self.wide_angle / (2 * np.pi * 4)
+        # DEBUG:
+        # print('From ', ti, 'to ', tf, ' with step: ', step_wide)
+        # count = 0
         for t in np.arange(ti, tf, step_wide):
             to_star_unit = source.topocentric_function(att)(t) / np.linalg.norm(source.topocentric_function(att)(t))
             if np.arccos(np.dot(to_star_unit, att.func_x_axis_lmn(t))) < self.wide_angle:
                 self.times_wide_scan.append(t)
+            # DEBUG:
+            # count += 1
+            # if count % 10 == 0:
+            #     print('wide_coarse_double_scan step ', t, 'over ', tf)
+            #     print(to_star_unit)
+
+        delta_t = time.time() - t_0  # elapsed time
+        return delta_t, len(self.times_wide_scan)
 
         step_coarse = self.coarse_angle / (2 * np.pi * 4)
         for t_wide in self.times_wide_scan:
