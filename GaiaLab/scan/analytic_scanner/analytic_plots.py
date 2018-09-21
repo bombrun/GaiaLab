@@ -136,20 +136,24 @@ def plot_attitude(att, ti, tf, n_points=1000, figsize=(9, 5)):
     qy_list = [obj.y for obj in attitudes]
     qz_list = [obj.z for obj in attitudes]
 
-    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=figsize)  # ,sharex=True
+    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=figsize)
     fig.subplots_adjust(left=0.2, wspace=0.6, hspace=1.5)
 
     ax1.plot(times, qw_list, 'r-')
-    ax1.set(title='W', xlabel='days', xlim=(ti, tf), xticks=(np.arange(ti, tf+1, (tf+1-ti)//4)) )
+    ax1.set(title='W', xlabel='days', xlim=(ti, tf),
+            xticks=(np.arange(ti, tf+1, (tf+1-ti)//4)))
 
     ax2.plot(times, qx_list, 'b-')
-    ax2.set(title='X', xlabel='days', xlim=(ti, tf), xticks=(np.arange(ti, tf+1, (tf+1-ti)//4)) )
+    ax2.set(title='X', xlabel='days', xlim=(ti, tf),
+            xticks=(np.arange(ti, tf+1, (tf+1-ti)//4)))
 
     ax3.plot(times, qy_list, 'g-')
-    ax3.set(title='Y', xlabel='days', xlim=(ti, tf), xticks=(np.arange(ti, tf+1, (tf+1-ti)//4)) )
+    ax3.set(title='Y', xlabel='days', xlim=(ti, tf),
+            xticks=(np.arange(ti, tf+1, (tf+1-ti)//4)))
 
     ax4.plot(times, qz_list, 'k-')
-    ax4.set(title='Z', xlabel='days', xlim=(ti, tf), xticks=(np.arange(ti, tf+1, (tf+1-ti)//4)) )
+    ax4.set(title='Z', xlabel='days', xlim=(ti, tf),
+            xticks=(np.arange(ti, tf+1, (tf+1-ti)//4)))
 
     plt.rcParams.update({'font.size': 22})
     plt.show()
@@ -175,8 +179,9 @@ def plot_observations(source, satellite, scan):
 
     plt.figure()
 
-    # for each of the observed times we plot the position of the x-axis in lmn of the scanner,
-    # and the error is equivalent to the z-threshold values and the y-threshold values.
+    # for each of the observed times we plot the position of the x-axis in lmn
+    # of the scanner, and the error is equivalent to the z-threshold values and
+    # the y-threshold values.
     for t in scan.obs_times:
         zalphas = []
         zdeltas = []
@@ -224,17 +229,54 @@ def plot_phi(source, att, ti=0, tf=90, n=1000):
         phi_list.append(phi_value)
 
     plt.figure(1)
-    plt.plot(times_total, phi_list, 'bo-')
+    plt.plot(times_total, phi_list, 'b.:')
     plt.hlines(0, xmin=times_total[0], xmax=times_total[-1], color='g')
     plt.xlabel('time [days]')
     plt.ylabel('Phi [rad]')
 
     plt.figure(2)
-    plt.plot(times_total, eta_list, 'ro-')
+    plt.plot(times_total, eta_list, 'r.:')
     plt.hlines(0, xmin=times_total[0], xmax=times_total[-1], color='g')
     plt.xlabel('time [days]')
     plt.ylabel('Eta[rad]')
+
     plt.show()
+
+
+def plot_eta_over_phi(source, att, ti=0, tf=90, n=1000):
+    times_total = np.linspace(ti, tf, n)
+    phi_list = []
+    eta_list = []
+    for t in times_total:
+        phi_value, eta_value = ggs.phi(source, att, t)
+        eta_list.append(eta_value)
+        phi_list.append(phi_value)
+
+    plt.figure(1)
+    plt.plot(phi_list, eta_list, 'b,')
+    plt.xlabel('Phi [rad]')
+    plt.ylabel('Eta [rad]')
+
+    plt.show()
+
+
+def plot_eta_over_phi_day(source, att, ti=0, tf=90, n=1000, day=45):
+    times_total = np.linspace(ti, tf, n)
+    phi_list = []
+    eta_list = []
+    for t in times_total:
+        phi_value, eta_value = ggs.phi(source, att, t)
+        eta_list.append(eta_value)
+        phi_list.append(phi_value)
+    phi_actual, eta_actual = ggs.phi(source, att, day)
+
+    p = plt.figure(1)
+    plt.plot(phi_list, eta_list, 'b,')
+    plt.plot(phi_actual, eta_actual, 'bo')
+    plt.xlabel('Phi [rad]')
+    plt.ylabel('Eta [rad]')
+
+    return p
 
 
 def plot_stars_trajectory(source, satellite):
@@ -271,7 +313,8 @@ def plot_stars_trajectory(source, satellite):
     ax.set_ylabel(r'$\Delta\delta$ [mas]')
     ax.axhline(y=0, c='gray', lw=1)
     ax.axvline(x=0, c='gray', lw=1)
-    ax.legend(loc='upper right', fontsize=12, facecolor='#000000', framealpha=0.1)
+    ax.legend(loc='upper right', fontsize=12, facecolor='#000000',
+              framealpha=0.1)
     ax.set_title(r'$\varpi={%.2f}$, $\mu_{{\alpha*}}={%.2f}$, $\mu_\delta={%.2f}$'
                  % (source.parallax, source.mu_alpha_dx, source.mu_delta))
 

@@ -15,6 +15,8 @@ Contain the classes:
 
 import frame_transformations as ft
 from quaternion import Quaternion
+import constants as const
+
 import numpy as np
 import time
 from scipy import interpolate
@@ -24,13 +26,13 @@ from scipy.optimize import fsolve
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 
-
 # vega = Source("vega", 279.2333, 38.78, 128.91, 201.03, 286.23, -13.9)
 # proxima = Source("proxima",217.42, -62, 768.7, 3775.40, 769.33, 21.7)
 # sirio = Source("sirio", 101.28, -16.7161, 379.21, -546.05, -1223.14, -7.6)
 
 # vega_bcrs_au = ft.to_cartesian(np.radians(279.23), np.radians(38.78), 128.91)
 # vega_bcrs_au_six = np.array([vega_bcrs_au[0],vega_bcrs_au[1], vega_bcrs_au[2], 0,0,0])
+
 
 class Source:
 
@@ -63,8 +65,8 @@ class Source:
         if type(mu_radial) not in [int, float]:
             raise TypeError('mu_radial need to be int or float')
 
-        self.__alpha0= np.radians(alpha0)
-        self.__delta0=  np.radians(delta0)
+        self.__alpha0 = np.radians(alpha0)
+        self.__delta0 = np.radians(delta0)
         self.parallax = parallax
         self.mu_alpha_dx = mu_alpha*np.cos(self.__delta0)
         self.mu_delta = mu_delta
@@ -87,8 +89,8 @@ class Source:
         if t < 0:
             raise Warning('t is negative')
 
-        mu_alpha_dx = self.mu_alpha_dx * 4.8473097e-9 / 365     #from mas/yr to rad/day
-        mu_delta = self.mu_delta * 4.848136811095e-9 / 365      #from mas/yr to rad/day
+        mu_alpha_dx = self.mu_alpha_dx * 4.8473097e-9 / const.days_per_year     # from mas/yr to rad/day
+        mu_delta = self.mu_delta * 4.848136811095e-9 / const.days_per_year      # from mas/yr to rad/day
         self.alpha = self.__alpha0 + mu_alpha_dx*t
         self.delta = self.__delta0 + mu_delta*t
 
@@ -100,7 +102,7 @@ class Source:
         """
         self.set_time(t)
         u_bcrs_direction = ft.to_direction(self.alpha, self.delta)
-        return u_bcrs_direction #no units, just a unit direction
+        return u_bcrs_direction  # no units, just a unit direction
 
     def barycentric_coor(self, t):
         """
@@ -120,22 +122,23 @@ class Source:
         :param satellite: satellite [class object]
         :return: [lambda function] of the position of the star from the satellite's lmn frame.
         """
-        if isinstance(satellite, Satellite) != True:
+        if isinstance(satellite, Satellite) is not True:
             raise TypeError('arg is not Satellite object')
 
         p, q, r = ft.pqr(self.alpha, self.delta)
-        mastorad = 2*np.pi/(1000*360*3600)
-        kmtopc = 3.24078e-14
-        sectoday = 3600*24
-        AUtopc = 4.8481705933824e-6
+        # mastorad = 2*np.pi/(1000*360*3600)
+        # kmtopc = 3.24078e-14
+        # sectoday = 3600*24
+        # AUtopc = 4.8481705933824e-6
 
-        mu_alpha_dx = self.mu_alpha_dx*mastorad/365   #mas/yr to rad/day
-        mu_delta = self.mu_delta*mastorad/365  #mas/yr to rad/day
-        mu_radial = self.parallax*mastorad*self.mu_radial*kmtopc*sectoday #km/s to aproximation rad/day
+        mu_alpha_dx = self.mu_alpha_dx * const.rad_per_mas / const.days_per_year   # mas/yr to rad/day
+        mu_delta = self.mu_delta * const.rad_per_mas / const.days_per_year  # mas/yr to rad/day
+        # km/s to aproximation rad/day
+        mu_radial = self.parallax * const.rad_per_mas * self.mu_radial * const.km_per_pc * const.sec_per_day
 
-        topocentric_function = lambda t: self.barycentric_coor(0) + t*(p*mu_alpha_dx+ q*mu_delta + r*mu_radial) \
-                                         - satellite.ephemeris_bcrs(t)*AUtopc
-        return topocentric_function
+        # return topocentric_function
+        return lambda t: self.barycentric_coor(0) + t*(p*mu_alpha_dx + q * mu_delta + r*mu_radial) \
+            - satellite.ephemeris_bcrs(t) * const.AU_per_pc
 
     def topocentric_angles(self, satellite, t):
         """
@@ -185,7 +188,7 @@ class Satellite:
         self.epsilon = epsilon
         self.xi = xi
         self.wz = wz * 60 * 60 * 24. * 0.0000048481368110954  # to [rad/day]
-        self.ldot = 2 * np.pi / 365 # [rad/day]
+        self.ldot = 2 * np.pi / 365  # [rad/day]
 
     def ephemeris_bcrs(self, t):
         """
@@ -200,6 +203,7 @@ class Satellite:
         bcrs_ephemeris_satellite = np.array([b_x_bcrs, b_y_bcrs, b_z_bcrs])
         return bcrs_ephemeris_satellite
 
+
 class Attitude(Satellite):
     """
     Child class to Satellite.
@@ -208,7 +212,7 @@ class Attitude(Satellite):
     :param tf: final time, float [day]
     :param dt: time step for creation of discrete data fed to spline, float [day].
     """
-    def __init__(self, ti=0, tf=365*5, dt= 1/24.):
+    def __init__(self, ti=0, tf=365*5, dt=1/24.):
         Satellite.__init__(self)
         self.storage = []
         self.__init_state()
@@ -232,8 +236,8 @@ class Attitude(Satellite):
 
         self.attitude = self.__init_attitude()
 
-        self.z = ft.to_lmn(self.attitude, np.array([0,0,1]))
-        self.x = ft.to_lmn(self.attitude, np.array([1,0,0]))
+        self.z = ft.to_lmn(self.attitude, np.array([0, 0, 1]))
+        self.x = ft.to_lmn(self.attitude, np.array([1, 0, 0]))
         self.w = np.cross(np.array([0, 0, 1]), self.z)
 
     def __init_attitude(self):
@@ -259,7 +263,7 @@ class Attitude(Satellite):
         self._lambda = self._lambda + dL
 
         nu_dot = (self.ldot/np.sin(self.xi))*(np.sqrt(self.S**2 - np.cos(self.nu)**2)
-                                                + np.cos(self.xi)*np.sin(self.nu))
+                                              + np.cos(self.xi)*np.sin(self.nu))
         d_nu = nu_dot * dt
         self.nu = self.nu + d_nu
 
@@ -279,15 +283,15 @@ class Attitude(Satellite):
 
         self.w = self.k * self.ldot + self.s * nu_dot + self.z * omega_dot
 
-        #change attitude by deltaquat
+        # change attitude by deltaquat
         w_magnitude = np.linalg.norm(self.w)
         d_zheta = w_magnitude * dt
-        delta_quat = ft.rotation_to_quat(self.w, d_zheta/2.) # w is not in bcrs frame.
+        delta_quat = ft.rotation_to_quat(self.w, d_zheta/2.)  # w is not in bcrs frame.
         self.attitude = delta_quat * self.attitude
 
         # x axis rotates through quaternion multiplication
         x_quat = Quaternion(0, self.x[0], self.x[1], self.x[2])
-        x_quat = delta_quat* x_quat* delta_quat.conjugate()
+        x_quat = delta_quat * x_quat * delta_quat.conjugate()
         self.x = x_quat.to_vector()
 
     def __attitude_spline(self):
@@ -312,15 +316,15 @@ class Attitude(Satellite):
             y_list.append(obj[4].y)
             z_list.append(obj[4].z)
 
-        self.s_x= interpolate.InterpolatedUnivariateSpline(t_list, x_list, k=4)
+        self.s_x = interpolate.InterpolatedUnivariateSpline(t_list, x_list, k=4)
         self.s_y = interpolate.InterpolatedUnivariateSpline(t_list, y_list, k=4)
         self.s_z = interpolate.InterpolatedUnivariateSpline(t_list, z_list, k=4)
         self.s_w = interpolate.InterpolatedUnivariateSpline(t_list, w_list, k=4)
 
-        self.func_attitude = lambda t: Quaternion(float(self.s_w(t)), float(self.s_x(t)), float(self.s_y(t)), float(self.s_z(t))).unit()
-        self.func_x_axis_lmn  = lambda t: ft.to_lmn(self.func_attitude(t), np.array([1,0,0]))
-        self.func_z_axis_lmn = lambda t: ft.to_lmn(self.func_attitude(t), np.array([0,0,1]))
-
+        self.func_attitude = lambda t: Quaternion(float(self.s_w(t)), float(self.s_x(t)), float(self.s_y(t)),
+                                                  float(self.s_z(t))).unit()
+        self.func_x_axis_lmn = lambda t: ft.to_lmn(self.func_attitude(t), np.array([1, 0, 0]))
+        self.func_z_axis_lmn = lambda t: ft.to_lmn(self.func_attitude(t), np.array([0, 0, 1]))
 
     def __reset_to_time(self, t, dt):
         '''
@@ -364,12 +368,13 @@ class Attitude(Satellite):
         self.storage.clear()
         self.__init_state()
         self.__create_storage(ti, tf, dt)
-        self.__init_state()   #need to reset self.x to initial state for initialization of spline functions.
+        self.__init_state()   # need to reset self.x to initial state for initialization of spline functions.
         self.__attitude_spline()
+
 
 class Scanner:
 
-    def __init__(self, wide_angle = np.radians(20),  scan_line_height = np.radians(5)):
+    def __init__(self, wide_angle=np.radians(20),  scan_line_height=np.radians(5)):
         """
         :param wide_angle: angle for first dot-product-rough scan of all the sky.
         :param scan_line_height: condition for the line_height of the scanner (z-axis height in lmn)
@@ -418,9 +423,9 @@ class Scanner:
         Scans sky with a dot product technique to get rough times of observation.
         :action: self.times_deep_scan list filled with observation time windows.
         """
-        if isinstance(att, Attitude) != True:
+        if isinstance(att, Attitude) is not True:
             return TypeError('firs argument is not an Attitude object')
-        if isinstance(source, Source) != True:
+        if isinstance(source, Source) is not True:
             return TypeError('second argument is not a Source object')
 
         self.reset_memory()
@@ -436,7 +441,6 @@ class Scanner:
                 to_star_unit = source.topocentric_function(att)(t) / np.linalg.norm(source.topocentric_function(att)(t))
                 if np.arccos(np.dot(to_star_unit, att.func_x_axis_lmn(t))) < self.coarse_angle:
                     self.times_coarse_scan.append(t)
-
 
     def fine_scan(self, att, source):
 
@@ -459,7 +463,7 @@ class Scanner:
 
         time_step = self.coarse_angle / (2 * np.pi * 4)
 
-        #find times where possible solutions are
+        # find times where possible solutions are
         for i in self.times_coarse_scan:
             def t_condition(t):
                 if i - time_step < t < i + time_step:
@@ -470,19 +474,20 @@ class Scanner:
             con2 = {'type': 'ineq', 'fun': t_condition}
 
             optimize_root = optimize.minimize(phi_objective, i, method='COBYLA', constraints=[con1, con2])
-            if optimize_root.success == True:
+            if optimize_root.success is True:
                 self.times_optimize.append(float(optimize_root.x))
                 self.optimize_roots.append(optimize_root)
 
-        #find roots for phi
+        # find roots for phi
         for obj in self.optimize_roots:
             root = optimize.root(phi_objective, [obj.x])
             self.roots.append(root)
             self.obs_times.append(float(root.x))
 
-        #remove duplicates
+        # remove duplicates
         self.obs_times = list(set(self.obs_times))
         self.obs_times.sort()
+
 
 def phi(source, att, t):
     """
@@ -499,6 +504,7 @@ def phi(source, att, t):
     phi_value_xyz = ft.to_xyz(att.func_attitude(t), phi_value_lmn)
     return np.arcsin(phi_value_xyz[1]), np.arcsin(phi_value_xyz[2])
 
+
 def run():
     """
     :param days: number of days to run
@@ -508,18 +514,18 @@ def run():
     start_time = time.time()
     sirio = Source("sirio", 101.28, -16.7161, 379.21, -546.05, -1223.14, -7.6)
     vega = Source("vega", 279.2333, 38.78, 128.91, 201.03, 286.23, -13.9)
-    proxima = Source("proxima",217.42, -62, 768.7, 3775.40, 769.33, 21.7)
+    proxima = Source("proxima", 217.42, -62, 768.7, 3775.40, 769.33, 21.7)
 
     scanSirio = Scanner(np.radians(20), np.radians(2))
-    scanVega =  Scanner(np.radians(20), np.radians(2))
+    scanVega = Scanner(np.radians(20), np.radians(2))
     scanProxima = Scanner(np.radians(20), np.radians(2))
     gaia = Attitude()
-    print (time.time() - start_time)
+    print(time.time() - start_time)
 
     scanSirio.start(gaia, sirio)
     scanVega.start(gaia, vega)
     scanProxima.start(gaia, proxima)
-    print (time.time() - start_time)
+    print(time.time() - start_time)
 
     seconds = time.time() - start_time
     print('Total seconds:', seconds)
