@@ -10,100 +10,6 @@ import frame_transformations as ft
 import gaia_analytic_toymodel as ggs
 
 
-def plot_3DX(att, ti, tf, n_points=1000):
-    """
-    %run: plot_3DX(att, 0, 365*5, 0.1)
-
-    :param att: attitude object
-    :param ti: initial time [float][days]
-    :param tf: final time [float][days]
-    :param n_points: number of points to be plotted [int]
-    :return: plot of the position of the x-axis (unitary) of the scanner wrt
-     LMN frame.
-    """
-    if isinstance(att, ggs.Attitude) is False:
-        raise TypeError('att is not an Attitude object.')
-    if type(ti) not in [int, float]:
-        raise TypeError('ti must be non-negative real numbers.')
-    if type(tf) not in [int, float]:
-        raise TypeError('tf must be non-negative real numbers.')
-    if type(n_points) not in [int, float]:
-        raise TypeError('dt must be non-negative real numbers.')
-    if ti < 0:
-        raise ValueError('ti cannot be negative.')
-    if tf < 0:
-        raise ValueError('tf cannot be negative.')
-    if n_points < 0:
-        raise ValueError('dt cannot be negative.')
-
-    times = np.linspace(ti, tf, n_points)
-    x_list = [att.func_x_axis_lmn(t) for t in times]
-
-    x_listx = [i[0] for i in x_list]
-    x_listy = [i[1] for i in x_list]
-    x_listz = [i[2] for i in x_list]
-
-    mpl.rcParams['legend.fontsize'] = 10
-
-    fig = plt.figure()
-    ax = fig.gca(projection='3d')
-
-    ax.plot(x_listx, x_listy, x_listz, 'bo', label='X vector rotation')
-    ax.legend()
-    ax.set_xlabel('l')
-    ax.set_ylabel('m')
-    ax.set_zlabel('n')
-
-    plt.show()
-
-
-def plot_3DZ(att, ti, tf, n_points=1000):
-    """
-    %run: plot_3DZ(att, 0, 365*5, 0.1)
-
-    :param att: attitude object
-    :param ti: initial time [days]
-    :param tf: final time [days]
-    :param n_points: number of points to be plotted [int]
-    :return: plot of the position of the z-axis (unitary) of the scanner wrt
-     LMN frame.
-    """
-    if isinstance(att, ggs.Attitude) is False:
-        raise TypeError('att is not an Attitude object.')
-    if type(ti) not in [int, float]:
-        raise TypeError('ti must be non-negative real numbers.')
-    if type(tf) not in [int, float]:
-        raise TypeError('tf must be non-negative real numbers.')
-    if type(n_points) not in [int, float]:
-        raise TypeError('dt must be non-negative real numbers.')
-    if ti < 0:
-        raise ValueError('ti cannot be negative.')
-    if tf < 0:
-        raise ValueError('tf cannot be negative.')
-    if n_points < 0:
-        raise ValueError('dt cannot be negative.')
-
-    times = np.linspace(ti, tf, n_points)
-    z_list = [att.func_z_axis_lmn(t) for t in times]
-
-    z_listx = [i[0] for i in z_list]
-    z_listy = [i[1] for i in z_list]
-    z_listz = [i[2] for i in z_list]
-
-    mpl.rcParams['legend.fontsize'] = 10
-
-    fig = plt.figure()
-    ax = fig.gca(projection='3d')
-
-    ax.plot(z_listx, z_listy, z_listz, '--', label='Z vector rotation')
-    ax.legend()
-    ax.set_xlabel('l')
-    ax.set_ylabel('m')
-    ax.set_zlabel('n')
-
-    plt.show()
-
-
 def plot_attitude(att, ti, tf, n_points=1000, figsize=(9, 5)):
     """
     L.Lindegren, SAG_LL_35, Figure 1.
@@ -229,13 +135,13 @@ def plot_phi(source, att, ti=0, tf=90, n=1000):
         phi_list.append(phi_value)
 
     plt.figure(1)
-    plt.plot(times_total, phi_list, 'b.:')
+    plt.plot(times_total, phi_list, 'b.')
     plt.hlines(0, xmin=times_total[0], xmax=times_total[-1], color='g')
     plt.xlabel('time [days]')
     plt.ylabel('Phi [rad]')
 
     plt.figure(2)
-    plt.plot(times_total, eta_list, 'r.:')
+    plt.plot(times_total, eta_list, 'r.')
     plt.hlines(0, xmin=times_total[0], xmax=times_total[-1], color='g')
     plt.xlabel('time [days]')
     plt.ylabel('Eta[rad]')
@@ -331,4 +237,60 @@ def plot_stars_trajectory(source, satellite):
     ax1ddec.set_ylabel(r'$\Delta\delta$ [mas]')
 
     plt.tight_layout()
+    plt.show()
+
+
+def plot_3D_scanner_pos(att, axis, ti, tf, n_points=1000):
+    """
+    %run: plot_3D_scanner_pos(att, 'X', 0, 365*5, 0.1)
+
+    :param att: attitude object
+    :param ti: initial time [float][days]
+    :param tf: final time [float][days]
+    :param n_points: number of points to be plotted [int]
+    :return: plot of the position of the given axis (unitary) of the scanner wrt
+     LMN frame.
+    """
+    if isinstance(att, ggs.Attitude) is False:
+        raise TypeError('att is not an Attitude object.')
+    if type(ti) not in [int, float]:
+        raise TypeError('ti must be non-negative real numbers.')
+    if type(tf) not in [int, float]:
+        raise TypeError('tf must be non-negative real numbers.')
+    if type(n_points) not in [int, float]:
+        raise TypeError('dt must be non-negative real numbers.')
+    if axis not in ['X', 'Z']:
+        raise ValueError("Axis can be either 'X' or 'Z'.")
+    if ti < 0:
+        raise ValueError('ti cannot be negative.')
+    if tf < 0:
+        raise ValueError('tf cannot be negative.')
+    if n_points < 0:
+        raise ValueError('dt cannot be negative.')
+
+    times = np.linspace(ti, tf, n_points)
+    if axis == 'X':
+        axis_list = [att.func_x_axis_lmn(t) for t in times]
+        label_ = 'X vector rotation'
+        style_ = 'b,'
+    elif axis == 'Z':
+        axis_list = [att.func_z_axis_lmn(t) for t in times]
+        label_ = 'Z vector rotation'
+        style_ = 'r,'
+
+    listx = [i[0] for i in axis_list]
+    listy = [i[1] for i in axis_list]
+    listz = [i[2] for i in axis_list]
+
+    mpl.rcParams['legend.fontsize'] = 10
+
+    fig = plt.figure()
+    ax = fig.gca(projection='3d')
+
+    ax.plot(listx, listy, listz, style_, label=label_)
+    ax.legend()
+    ax.set_xlabel('l')
+    ax.set_ylabel('m')
+    ax.set_zlabel('n')
+
     plt.show()
