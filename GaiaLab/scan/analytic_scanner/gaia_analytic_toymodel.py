@@ -89,8 +89,8 @@ class Source:
         if t < 0:
             raise Warning('t is negative')
 
-        mu_alpha_dx = self.mu_alpha_dx * 4.8473097e-9 / const.days_per_year     # from mas/yr to rad/day
-        mu_delta = self.mu_delta * 4.848136811095e-9 / const.days_per_year      # from mas/yr to rad/day
+        mu_alpha_dx = self.mu_alpha_dx * const.rad_per_mas / const.days_per_year     # from mas/yr to rad/day
+        mu_delta = self.mu_delta * const.rad_per_mas / const.days_per_year      # from mas/yr to rad/day
         self.alpha = self.__alpha0 + mu_alpha_dx*t
         self.delta = self.__delta0 + mu_delta*t
 
@@ -147,16 +147,16 @@ class Source:
         :param t: [days]
         :return: alpha, delta, delta alpha, delta delta [mas]
         """
-        mastorad = 2 * np.pi / (1000 * 360 * 3600)
+        # mastorad = 2 * np.pi / (1000 * 360 * 3600)
         u_lmn = self.topocentric_function(satellite)(t)
         u_lmn_unit = u_lmn/np.linalg.norm(u_lmn)
         alpha_obs, delta_obs, radius = ft.to_polar(u_lmn_unit)
 
         if alpha_obs < 0:
-            alpha_obs = (alpha_obs + 2*np.pi)/mastorad
+            alpha_obs = (alpha_obs + 2*np.pi)/const.rad_per_mas
 
-        delta_alpha_dx_mas = (alpha_obs - self.__alpha0) * np.cos(self.__delta0) / mastorad
-        delta_delta_mas = (delta_obs - self.__delta0) / mastorad
+        delta_alpha_dx_mas = (alpha_obs - self.__alpha0) * np.cos(self.__delta0) / const.rad_per_mas
+        delta_delta_mas = (delta_obs - self.__delta0) / const.rad_per_mas
 
         return alpha_obs, delta_obs, delta_alpha_dx_mas, delta_delta_mas  # mas
 
@@ -180,7 +180,7 @@ class Satellite:
         :orbital_radius: [AU]
         """
         self.init_parameters(*args)
-        self.orbital_period = 365
+        self.orbital_period = const.days_per_year
         self.orbital_radius = 1.0
 
     def init_parameters(self, S=4.036, epsilon=np.radians(23.26), xi=np.radians(55), wz=120):
@@ -188,7 +188,7 @@ class Satellite:
         self.epsilon = epsilon
         self.xi = xi
         self.wz = wz * 60 * 60 * 24. * 0.0000048481368110954  # to [rad/day]
-        self.ldot = 2 * np.pi / 365  # [rad/day]
+        self.ldot = 2 * np.pi / const.days_per_year  # [rad/day]
 
     def ephemeris_bcrs(self, t):
         """
@@ -212,7 +212,7 @@ class Attitude(Satellite):
     :param tf: final time, float [day]
     :param dt: time step for creation of discrete data fed to spline, float [day].
     """
-    def __init__(self, ti=0, tf=365*5, dt=1/24.):
+    def __init__(self, ti=0, tf=const.days_per_year*5, dt=1/24.):
         Satellite.__init__(self)
         self.storage = []
         self.__init_state()
@@ -414,7 +414,7 @@ class Scanner:
         self.roots.clear()
         self.obs_times.clear()
 
-    def start(self, att, source, ti=0, tf=365 * 5):
+    def start(self, att, source, ti=0, tf=const.days_per_year * 5):
         self.wide_coarse_double_scan(att, source, ti, tf)
         self.fine_scan(att, source)
 
