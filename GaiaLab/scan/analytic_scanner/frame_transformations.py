@@ -38,7 +38,7 @@ def to_cartesian(alpha, delta, parallax):
     """
 
     :param azimuth: rad
-    :param altitude:rad
+    :param altitude: rad
     :param parallax: mas
     :return: array in parsecs.
     """
@@ -81,7 +81,7 @@ def rotation_to_quat(vector, angle):
     Calculates quaternion equivalent to rotation about (vector) by an (angle).
     :param vector:
     :param angle:
-    :return:
+    :return equivalent quaternion:
     """
     vector = vector / np.linalg.norm(vector)
     t = np.cos(angle/2.)

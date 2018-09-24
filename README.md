@@ -15,4 +15,4 @@ The first version will be based on a very simple model :
 
 The project will make used of the technical notes written by Lennart Lindegren http://www.astro.lu.se/~lennart/Astrometry/TN.html
 
-The syntax tries to follow linter 2.2 codestyle. (see https://atom.io/packages/linter as of 20.09.2018) 
+The codestyle tries to follow PEP8 guidelines, for example using linter 2.2 codestyle package. (see https://atom.io/packages/linter as of 20.09.2018) 

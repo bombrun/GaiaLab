@@ -9,7 +9,7 @@ Contain the classes:
 - Source
 - Scanner
 - Satellite
-- Attitude __ child of Satellite
+- Attitude <-- child of Satellite
 
 """
 
@@ -85,12 +85,12 @@ class Source:
         :param t: [float][days]
         """
         if type(t) not in [float, int]:
-            raise TypeError('t is not a float or int')
+            raise TypeError('t is not a float or int, but instead of type %r.' % type(t))
         if t < 0:
             raise Warning('t is negative')
 
         mu_alpha_dx = self.mu_alpha_dx * const.rad_per_mas / const.days_per_year     # from mas/yr to rad/day
-        mu_delta = self.mu_delta * const.rad_per_mas / const.days_per_year      # from mas/yr to rad/day
+        mu_delta = self.mu_delta * const.rad_per_mas / const.days_per_year           # from mas/yr to rad/day
         self.alpha = self.__alpha0 + mu_alpha_dx*t
         self.delta = self.__delta0 + mu_delta*t
 
@@ -137,9 +137,8 @@ class Source:
         mu_radial = self.parallax * const.rad_per_mas * self.mu_radial * const.km_per_pc * const.sec_per_day
 
         # return topocentric_function
-        topo = lambda t: self.barycentric_coor(0) + t*(p*mu_alpha_dx + q * mu_delta + r*mu_radial) \
+        return lambda t: self.barycentric_coor(0) + t*(p*mu_alpha_dx + q * mu_delta + r*mu_radial) \
             - satellite.ephemeris_bcrs(t) * const.AU_per_pc
-        return topo
 
     def topocentric_angles(self, satellite, t):
         """
@@ -186,16 +185,23 @@ class Satellite:
 
     def init_parameters(self, S=4.036, epsilon=np.radians(23.26), xi=np.radians(55), wz=120):
         self.S = S
+
+        # obliquity of equator. This is a constant chosen to be 23º 26' 21.448''
         self.epsilon = epsilon
+
+        # "ksi" revolving angle. At any time the z axis is at this constant angle from s⃗ s→.
+        # For Gaia, the current choice is 55º.
         self.xi = xi
-        self.wz = wz * 60 * 60 * 24. * 0.0000048481368110954  # to [rad/day]
-        self.ldot = 2 * np.pi / const.days_per_year  # [rad/day]
+        self.wz = wz * const.sec_per_day * const.AU_per_pc  # to [rad/day]
+
+        # Nominal longitud of the sun in the ecliptic plane
+        self.lambda_dot = 2 * np.pi / const.days_per_year  # [rad/day] (lambda dot set as const)
 
     def ephemeris_bcrs(self, t):
         """
         Returns the barycentric ephemeris of the Gaia satellite at time t.
         :param t: float [days]
-        :return: 3d np.array [AU]
+        :return: 3D np.array [AU]
         """
         b_x_bcrs = self.orbital_radius*np.cos(2*np.pi/self.orbital_period*t)*np.cos(self.epsilon)
         b_y_bcrs = self.orbital_radius*np.sin(2*np.pi/self.orbital_period*t)*np.cos(self.epsilon)
@@ -256,35 +262,40 @@ class Attitude(Satellite):
 
     def __update(self, dt):
         """
+        Update value of functions for next moment in time by calculating their infinitesimal change in dt
         :param dt: time step to calculate derivatives of functions
-        :return: update value of functions for next moment in time by calculating their infinitesimal change in dt
         """
+
         self.t = self.t + dt
-        dL = self.ldot * dt
-        self._lambda = self._lambda + dL
 
-        nu_dot = (self.ldot/np.sin(self.xi))*(np.sqrt(self.S**2 - np.cos(self.nu)**2)
-                                              + np.cos(self.xi)*np.sin(self.nu))
-        d_nu = nu_dot * dt
-        self.nu = self.nu + d_nu
+        # update lambda
+        self._lambda = self._lambda + self.lambda_dot * dt  # Updates lambda
 
+        # Update nu
+        nu_dot = (self.lambda_dot/np.sin(self.xi))*(np.sqrt(self.S**2 - np.cos(self.nu)**2)
+                                                    + np.cos(self.xi)*np.sin(self.nu))
+        self.nu = self.nu + nu_dot * dt
+
+        # how does the longitude and latitude of the z axis changes with time:
         self.lamb_z = self._lambda + np.arctan2(np.tan(self.xi) * np.cos(self.nu), 1)
         self.beta_z = np.arcsin(np.sin(self.xi) * np.sin(self.nu))
 
-        omega_dot = self.wz - nu_dot * np.cos(self.xi) - self.ldot * np.sin(self.xi) * np.sin(self.nu)
-        d_omega = omega_dot * dt
-        self.omega = self.omega + d_omega
+        # Update Omega
+        omega_dot = self.wz - nu_dot * np.cos(self.xi) - self.lambda_dot * np.sin(self.xi) * np.sin(self.nu)
+        self.omega = self.omega + omega_dot * dt
 
+        # Update S
         self.s = self.l * np.cos(self._lambda) + self.j * np.sin(self._lambda)
 
-        z_dot = np.cross(self.k, self.z) * self.ldot + np.cross(self.s, self.z) * nu_dot
-        dz = z_dot * dt
-        self.z = self.z + dz
+        # Update z
+        z_dot = np.cross(self.k, self.z) * self.lambda_dot + np.cross(self.s, self.z) * nu_dot
+        self.z = self.z + z_dot * dt
         self.z = self.z/np.linalg.linalg.norm(self.z)
 
-        self.w = self.k * self.ldot + self.s * nu_dot + self.z * omega_dot
+        # Update w (total inertial rotation of the telescope)
+        self.w = self.k * self.lambda_dot + self.s * nu_dot + self.z * omega_dot
 
-        # change attitude by deltaquat
+        # change attitude by delta_quat
         w_magnitude = np.linalg.norm(self.w)
         d_zheta = w_magnitude * dt
         delta_quat = ft.rotation_to_quat(self.w, d_zheta/2.)  # w is not in bcrs frame.
@@ -299,6 +310,7 @@ class Attitude(Satellite):
         """
         Creates spline for each component of the attitude quaternion:
             s_x, s_y, s_z, s_w
+
         Attributes
         -----------
         :func_attitude: lambda func, returns: attitude quaternion at time t from spline.
@@ -415,7 +427,7 @@ class Scanner:
         self.roots.clear()
         self.obs_times.clear()
 
-    def start(self, att, source, ti=0, tf=const.days_per_year * 5):
+    def start(self, att, source, ti=0, tf=5*const.days_per_year):
         print('Starting wide_coarse_double_scan:')
         self.wide_coarse_double_scan(att, source, ti, tf)
         print('Finished wide_coarse_double_scan!')
@@ -423,7 +435,7 @@ class Scanner:
         self.fine_scan(att, source)
         print('Finished fine_scan!')
 
-    def wide_coarse_double_scan2(self, att, source, ti=0, tf=const.days_per_year * 5):
+    def wide_coarse_double_scan2(self, att, source, ti=0, tf=5*const.days_per_year):
         """
         Scans sky with a dot product technique to get rough times of observation.
         :action: self.times_deep_scan list filled with observation time windows.
@@ -453,7 +465,7 @@ class Scanner:
         delta_t = time.time() - t_0  # elapsed time
         return delta_t, len(self.times_wide_scan)
 
-    def wide_coarse_double_scan(self, att, source, ti=0, tf=const.days_per_year * 5):
+    def wide_coarse_double_scan(self, att, source, ti=0, tf=5*const.days_per_year):
         """
         Scans sky with a dot product technique to get rough times of observation.
         :action: self.times_deep_scan list filled with observation time windows.
@@ -556,9 +568,10 @@ def phi(source, att, t):
 
 def run():
     """
-    :param days: number of days to run
-    :param dt: time step
-    :return: sky, scan, att
+    Create the objects source for Sirio, Vega and Proxima as well
+    as the corresponding scanners and the attitude object of Gaia.
+    Then scan the sources from Gaia and print the time.
+    :return: gaia, sirio, scanSirio, vega, scanVega, proxima, scanProxima
     """
     start_time = time.time()
     sirio = Source("sirio", 101.28, -16.7161, 379.21, -546.05, -1223.14, -7.6)
