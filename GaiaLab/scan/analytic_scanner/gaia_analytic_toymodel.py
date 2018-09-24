@@ -5,6 +5,8 @@ Created on Mon Jun 18 14:59:19 2018
 
 @author: mdelvallevaro
 
+modified by LucaZampieri
+
 Contain the classes:
 - Source
 - Scanner
@@ -35,6 +37,9 @@ import matplotlib.pyplot as plt
 
 
 class Source:
+    """
+    Source class implemented to represent a source object in the sky
+    """
 
     def __init__(self, name, alpha0, delta0, parallax, mu_alpha, mu_delta, mu_radial):
         """
@@ -89,8 +94,11 @@ class Source:
         if t < 0:
             raise Warning('t is negative')
 
-        mu_alpha_dx = self.mu_alpha_dx * const.rad_per_mas / const.days_per_year     # from mas/yr to rad/day
-        mu_delta = self.mu_delta * const.rad_per_mas / const.days_per_year           # from mas/yr to rad/day
+        mu_alpha_dx = self.mu_alpha_dx * 4.8473097e-9 / 365     # from mas/yr to rad/day
+        mu_delta = self.mu_delta * 4.848136811095e-9 / 365      # from mas/yr to rad/day
+
+        # mu_alpha_dx = self.mu_alpha_dx * const.rad_per_mas / const.days_per_year     # from mas/yr to rad/day
+        # mu_delta = self.mu_delta * const.rad_per_mas / const.days_per_year           # from mas/yr to rad/day
         self.alpha = self.__alpha0 + mu_alpha_dx*t
         self.delta = self.__delta0 + mu_delta*t
 
@@ -119,6 +127,11 @@ class Source:
 
     def topocentric_function(self, satellite):
         """
+        Compute the topocentric_function
+        The horizontal coordinate system, also known as topocentric coordinate
+        system, is a celestial coordinate system that uses the observer's local
+        horizon as the fundamental plane. Coordinates of an object in the sky are
+        expressed in terms of altitude (or elevation) angle and azimuth.
         :param satellite: satellite [class object]
         :return: [lambda function] of the position of the star from the satellite's lmn frame.
         """
@@ -126,9 +139,10 @@ class Source:
             raise TypeError('arg is not Satellite object')
 
         p, q, r = ft.pqr(self.alpha, self.delta)
+
         # mastorad = 2*np.pi/(1000*360*3600)
         # kmtopc = 3.24078e-14
-        # sectoday = 3600*24
+        # sectoday = 3600 * 24
         # AUtopc = 4.8481705933824e-6
 
         mu_alpha_dx = self.mu_alpha_dx * const.rad_per_mas / const.days_per_year   # mas/yr to rad/day
@@ -140,6 +154,15 @@ class Source:
         return lambda t: self.barycentric_coor(0) + t*(p*mu_alpha_dx + q * mu_delta + r*mu_radial) \
             - satellite.ephemeris_bcrs(t) * const.AU_per_pc
 
+    def topocentric_function_unit(self, satellite):
+        """
+        Normalised topocentric_function
+        :param satellite: [class object] satellite
+        :return: normalised topocentric function
+        """
+        topo = self.topocentric_function(satellite)(t)
+        return topo/np.linalg.norm(topo)
+
     def topocentric_angles(self, satellite, t):
         """
         Calculates the angles of movement of the star from bcrs.
@@ -148,12 +171,13 @@ class Source:
         :return: alpha, delta, delta alpha, delta delta [mas]
         """
         # mastorad = 2 * np.pi / (1000 * 360 * 3600)
+
         u_lmn = self.topocentric_function(satellite)(t)
         u_lmn_unit = u_lmn/np.linalg.norm(u_lmn)
         alpha_obs, delta_obs, radius = ft.to_polar(u_lmn_unit)
 
         if alpha_obs < 0:
-            alpha_obs = (alpha_obs + 2*np.pi)/const.rad_per_mas
+            alpha_obs = (alpha_obs + 2*np.pi) / const.rad_per_mas
 
         delta_alpha_dx_mas = (alpha_obs - self.__alpha0) * np.cos(self.__delta0) / const.rad_per_mas
         delta_delta_mas = (delta_obs - self.__delta0) / const.rad_per_mas
@@ -193,9 +217,11 @@ class Satellite:
         # For Gaia, the current choice is 55º.
         self.xi = xi
         self.wz = wz * const.sec_per_day * const.AU_per_pc  # to [rad/day]
+        # self.wz = wz * 60 * 60 * 24. * 0.0000048481368110954  # to [rad/day]
 
         # Nominal longitud of the sun in the ecliptic plane
         self.lambda_dot = 2 * np.pi / const.days_per_year  # [rad/day] (lambda dot set as const)
+        # self.ldot = 2 * np.pi / const.days_per_year  # [rad/day] (lambda dot set as const)
 
     def ephemeris_bcrs(self, t):
         """
@@ -219,7 +245,7 @@ class Attitude(Satellite):
     :param tf: final time, float [day]
     :param dt: time step for creation of discrete data fed to spline, float [day].
     """
-    def __init__(self, ti=0, tf=const.days_per_year*5, dt=1/24., *args):
+    def __init__(self, ti=0, tf=5*const.days_per_year, dt=1/24., *args):
         Satellite.__init__(self, *args)
         self.storage = []
         self.__init_state()
@@ -329,14 +355,18 @@ class Attitude(Satellite):
             y_list.append(obj[4].y)
             z_list.append(obj[4].z)
 
+        # Splines for each coordinates i, i_list at each time in t_list of order k
         self.s_x = interpolate.InterpolatedUnivariateSpline(t_list, x_list, k=4)
         self.s_y = interpolate.InterpolatedUnivariateSpline(t_list, y_list, k=4)
         self.s_z = interpolate.InterpolatedUnivariateSpline(t_list, z_list, k=4)
         self.s_w = interpolate.InterpolatedUnivariateSpline(t_list, w_list, k=4)
 
+        # Attitude
         self.func_attitude = lambda t: Quaternion(float(self.s_w(t)), float(self.s_x(t)), float(self.s_y(t)),
                                                   float(self.s_z(t))).unit()
+        # Attitude in the lmn frame
         self.func_x_axis_lmn = lambda t: ft.to_lmn(self.func_attitude(t), np.array([1, 0, 0]))
+        self.func_y_axis_lmn = lambda t: ft.to_lmn(self.func_attitude(t), np.array([0, 1, 0]))
         self.func_z_axis_lmn = lambda t: ft.to_lmn(self.func_attitude(t), np.array([0, 0, 1]))
 
     def __reset_to_time(self, t, dt):
@@ -352,7 +382,7 @@ class Attitude(Satellite):
 
     def __create_storage(self, ti, tf, dt):
         '''
-        Creates data necessary for step numerical methods performed in builtin method .update()
+        Creates data necessary for step numerical methods performed in builtin method .__update()
         Args:
             ti (float): integrating time lower limit [days]
             tf (float): integrating time upper limit [days]
@@ -387,7 +417,7 @@ class Attitude(Satellite):
 
 class Scanner:
 
-    def __init__(self, wide_angle=np.radians(40),  scan_line_height=np.radians(5)):
+    def __init__(self, wide_angle=np.radians(20),  scan_line_height=np.radians(5)):
         """
         :param wide_angle: angle for first dot-product-rough scan of all the sky.
         :param scan_line_height: condition for the line_height of the scanner (z-axis height in lmn)
@@ -428,7 +458,7 @@ class Scanner:
         self.obs_times.clear()
 
     def start(self, att, source, ti=0, tf=5*const.days_per_year):
-        print('Starting wide_coarse_double_scan:')
+        print('Starting wide_coarse_double_scan with time from {} to {} days'.format(ti, tf))
         self.wide_coarse_double_scan(att, source, ti, tf)
         print('Finished wide_coarse_double_scan!')
         print('Starting fine_scan:')
@@ -477,24 +507,15 @@ class Scanner:
 
         self.reset_memory()
 
-        t_0 = time.time()  # t0 of the timer
+        # t_0 = time.time()  # t0 of the timer
 
         step_wide = self.wide_angle / (2 * np.pi * 4)
-        # DEBUG:
-        # print('From ', ti, 'to ', tf, ' with step: ', step_wide)
-        # count = 0
         for t in np.arange(ti, tf, step_wide):
             to_star_unit = source.topocentric_function(att)(t) / np.linalg.norm(source.topocentric_function(att)(t))
             if np.arccos(np.dot(to_star_unit, att.func_x_axis_lmn(t))) < self.wide_angle:
                 self.times_wide_scan.append(t)
-            # DEBUG:
-            # count += 1
-            # if count % 10 == 0:
-            #     print('wide_coarse_double_scan step ', t, 'over ', tf)
-            #     print(to_star_unit)
 
-        delta_t = time.time() - t_0  # elapsed time
-        return delta_t, len(self.times_wide_scan)
+        # delta_t = time.time() - t_0  # elapsed time
 
         step_coarse = self.coarse_angle / (2 * np.pi * 4)
         for t_wide in self.times_wide_scan:
@@ -535,7 +556,7 @@ class Scanner:
             con2 = {'type': 'ineq', 'fun': t_condition}
 
             optimize_root = optimize.minimize(phi_objective, i, method='COBYLA', constraints=[con1, con2])
-            if optimize_root.success is True:
+            if optimize_root.success:
                 self.times_optimize.append(float(optimize_root.x))
                 self.optimize_roots.append(optimize_root)
 

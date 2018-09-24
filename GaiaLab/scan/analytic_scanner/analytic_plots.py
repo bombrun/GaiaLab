@@ -1,13 +1,26 @@
 # -*- coding: utf-8 -*-
 
+"""
+Created on Mon Jun 18 14:59:19 2018
 
+@author: mdelvallevaro
+
+modified by LucaZampieri
+
+Plot helper functions, and other helper functions
+"""
+
+# lib imports
 import matplotlib as mpl
 from matplotlib import collections as mc
 import numpy as np
 import matplotlib.pyplot as plt
+
+# local imports
 from quaternion import Quaternion
 import frame_transformations as ft
 import gaia_analytic_toymodel as ggs
+import constants as const
 
 
 def plot_attitude(att, ti, tf, n_points=1000, figsize=(9, 5)):
@@ -208,39 +221,98 @@ def plot_stars_trajectory(source, satellite):
         deltas.append(delta_delta_mas)
 
     n = len(alphas)
-    times = np.linspace(2000, 2000 + time_total/365, n)
+    times = np.linspace(2000, 2000 + time_total/const.days_per_year, n)
+
+    # Styles for the plots
+    path_style = 'b:s'
+    origin_style = 'kx'
 
     fig = plt.figure(figsize=(16, 9))
     ax = fig.add_subplot(121)
 
-    ax.plot(alphas, deltas, 'b-',
+    fig.suptitle(r'$\varpi={%.2f}$, $\mu_{{\alpha*}}={%.2f}$, $\mu_\delta={%.2f}$'
+                 % (source.parallax, source.mu_alpha_dx, source.mu_delta),
+                 fontsize=20)
+
+    ax.plot(alphas, deltas, path_style,
             label=r'%s path' % (source.name), lw=2)
+    ax.plot(alphas[0], deltas[0], origin_style, label='origin')
     ax.set_xlabel(r'$\Delta\alpha*$ [mas]')
     ax.set_ylabel(r'$\Delta\delta$ [mas]')
     ax.axhline(y=0, c='gray', lw=1)
     ax.axvline(x=0, c='gray', lw=1)
-    ax.legend(loc='upper right', fontsize=12, facecolor='#000000',
+    ax.legend(fontsize=12, facecolor='#000000',
               framealpha=0.1)
-    ax.set_title(r'$\varpi={%.2f}$, $\mu_{{\alpha*}}={%.2f}$, $\mu_\delta={%.2f}$'
-                 % (source.parallax, source.mu_alpha_dx, source.mu_delta))
-
+    # Top right subplot
     ax1dra = fig.add_subplot(222)
+    ax1dra.plot(times, alphas, path_style)
+    ax1dra.plot(times[0], alphas[0], origin_style, label='origin')
     ax1dra.axhline(y=0, c='gray', lw=1)
-    ax1dra.set_xlabel(r'Time [yr]')
-    ax1dra.plot(times, alphas, 'b-')
+    # ax1dra.set_xlabel(r'Time [yr]')
     ax1dra.set_ylabel(r'$\Delta\alpha*$ [mas]')
 
-    ax1ddec = fig.add_subplot(224)
+    # Top left subplot
+    ax1ddec = fig.add_subplot(224, sharex=ax1dra)
     ax1ddec.axhline(y=0, c='gray', lw=1)
-    ax1ddec.plot(times, deltas, 'b-')
+    ax1ddec.plot(times, deltas, path_style)
+    ax1ddec.plot(times[0], deltas[0], origin_style, label='origin')
     ax1ddec.set_xlabel(r'Time [yr]')
     ax1ddec.set_ylabel(r'$\Delta\delta$ [mas]')
 
-    plt.tight_layout()
+    # plt.tight_layout()
     plt.show()
 
 
-def plot_3D_scanner_pos(att, axis, ti, tf, n_points=1000):
+def plot_stars_trajectory_3D(source, satellite):
+    """
+    :param source: source object
+    :param satellite: attitude object
+    :param t_total: total time for which the trajectory is desired [days] from
+     J2000.
+    :return: plot of the star trajectory in the lmn-frame.
+    """
+    if isinstance(source, ggs.Source) is False:
+        raise TypeError('source is not an Source object.')
+    if isinstance(satellite, ggs.Attitude) is False:
+        raise TypeError('satellite is not an Attitude object.')
+
+    time_total = satellite.storage[-1][0]
+
+    alphas = []
+    deltas = []
+    for i in np.arange(0, time_total, 1):
+        alpha_obs, delta_obs, delta_alpha_dx_mas, delta_delta_mas = source.topocentric_angles(satellite, i)
+        alphas.append(delta_alpha_dx_mas)
+        deltas.append(delta_delta_mas)
+
+    n = len(alphas)
+    times = np.linspace(2000, 2000 + time_total/const.days_per_year, n)
+
+    # Styles for the plots
+    path_style = 'b:s'
+    origin_style = 'kx'
+
+    fig = plt.figure(figsize=(16, 9))
+    ax = fig.gca(projection='3d')
+
+    fig.suptitle(r'$\varpi={%.2f}$, $\mu_{{\alpha*}}={%.2f}$, $\mu_\delta={%.2f}$'
+                 % (source.parallax, source.mu_alpha_dx, source.mu_delta),
+                 fontsize=20)
+
+    ax.plot(alphas, deltas, times, path_style,
+            label=r'%s path' % (source.name), lw=2)
+    # ax.plot(alphas[0], deltas[0], times[0], origin_style, label='origin')
+    ax.set_xlabel(r'$\Delta\alpha*$ [mas]')
+    ax.set_ylabel(r'$\Delta\delta$ [mas]')
+    ax.axhline(y=0, c='gray', lw=1)
+    ax.axvline(x=0, c='gray', lw=1)
+    ax.legend(fontsize=12, facecolor='#000000',
+              framealpha=0.1)
+    # plt.tight_layout()
+    plt.show()
+
+
+def plot_3D_scanner_pos(att, axis, ti, tf, n_points=1000, elevation=10, azimuth=10):
     """
     %run: plot_3D_scanner_pos(att, 'X', 0, 365*5, 0.1)
 
@@ -248,6 +320,8 @@ def plot_3D_scanner_pos(att, axis, ti, tf, n_points=1000):
     :param ti: initial time [float][days]
     :param tf: final time [float][days]
     :param n_points: number of points to be plotted [int]
+    :param elevation: (plot aestetic) set the elevation of the 3D view
+    :param azimuth: (plot aestetic) set the azimuth of the 3D view
     :return: plot of the position of the given axis (unitary) of the scanner wrt
      LMN frame.
     """
@@ -288,9 +362,31 @@ def plot_3D_scanner_pos(att, axis, ti, tf, n_points=1000):
     ax = fig.gca(projection='3d')
 
     ax.plot(listx, listy, listz, style_, label=label_)
+    ax.plot([0], [0], [0], 'kx', label='origin')
     ax.legend()
-    ax.set_xlabel('l')
-    ax.set_ylabel('m')
-    ax.set_zlabel('n')
+    ax.set_xlabel('L')
+    ax.set_ylabel('M')
+    ax.set_zlabel('N')
+    ax.azim = azimuth
+    ax.elev = elevation
 
     plt.show()
+
+
+# Draft of helper functions
+"""
+def get_var_name(var):
+    dict((name, eval(name)) for name in ['Source', 'sirio'])
+    return var_name
+
+def f(x):
+    return {
+        'a': 1,
+        'b': 2
+    }.get(x, 9)    # 9 is default if x not found
+
+def test_if_object(object, Instance_str):
+    if Instance_str == 'Source'
+        if not isinstance(object, Instance):
+            raise TypeError("Unable to broadcast object of type {} to type {}.".format(type(object), type(Instance)))
+"""
