@@ -44,8 +44,8 @@ def to_cartesian(alpha, delta, parallax):
     """
     parallax = parallax/1000  # from mas to arcsec
 
-    x = (1/parallax)*np.cos(alpha)*np.cos(delta)
-    y = (1/parallax)*np.sin(alpha)*np.cos(delta)
+    x = (1/parallax)*np.cos(delta)*np.cos(alpha)
+    y = (1/parallax)*np.cos(delta)*np.sin(alpha)
     z = (1/parallax)*np.sin(delta)
 
     return np.array([x, y, z])
