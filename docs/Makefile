@@ -6,7 +6,7 @@ SPHINXOPTS    =
 SPHINXBUILD   = sphinx-build
 SPHINXPROJ    = gaia_toymodel
 SOURCEDIR     = source
-BUILDDIR      = build
+BUILDDIR      = build # should we use "." or "docs" ?
 
 # Put it first so that "make" without argument is like "make help".
 help:
