@@ -521,40 +521,6 @@ class Scanner:
         time_coarse = time.time()  # time after coarse scan
         print('Coarse scan lasted {} seconds'.format(time_coarse - t_0))
 
-    def wide_coarse_double_scan_old(self, att, source, ti=0, tf=5*const.days_per_year):
-        """
-        Scans sky with a dot product technique to get rough times of observation.
-        :action: self.times_deep_scan list filled with observation time windows.
-        """
-        if isinstance(att, Attitude) is not True:
-            return TypeError('first argument is not an Attitude object')
-        if isinstance(source, Source) is not True:
-            return TypeError('second argument is not a Source object')
-
-        self.reset_memory()
-
-        t_0 = time.time()  # t0 of the timer
-
-        # Make the wide angle scan
-        step_wide = self.wide_angle / (2 * np.pi * 4)
-        for t in np.arange(ti, tf, step_wide):
-            to_star_unit = source.topocentric_function(att)(t) / np.linalg.norm(source.topocentric_function(att)(t))
-            if np.arccos(np.dot(to_star_unit, att.func_x_axis_lmn(t))) < self.wide_angle:
-                self.times_wide_scan.append(t)
-        time_wide = time.time()  # time after wide scan
-        print('wide scan lasted {} seconds'.format(time_wide - t_0))
-
-        t_0 = time.time()  # reset the  t_0 of the time
-        # Make the coarse angle scan
-        step_coarse = self.coarse_angle / (2 * np.pi * 4)
-        for t_wide in self.times_wide_scan:
-            for t in np.arange(t_wide - step_wide / 2, t_wide + step_wide / 2, step_coarse):
-                to_star_unit = source.topocentric_function(att)(t) / np.linalg.norm(source.topocentric_function(att)(t))
-                if np.arccos(np.dot(to_star_unit, att.func_x_axis_lmn(t))) < self.coarse_angle:
-                    self.times_coarse_scan.append(t)
-        time_coarse = time.time()  # time after coarse scan
-        print('Coarse scan lasted {} seconds'.format(time_coarse - t_0))
-
     def fine_scan(self, att, source):
 
         def phi_objective(t):
