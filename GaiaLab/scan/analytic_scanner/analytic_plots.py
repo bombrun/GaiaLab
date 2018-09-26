@@ -5,7 +5,7 @@ Created on Mon Jun 18 14:59:19 2018
 
 @author: mdelvallevaro
 
-modified by LucaZampieri
+modified by: LucaZampieri
 
 Plot helper functions, and other helper functions
 """
@@ -105,7 +105,7 @@ def plot_observations(source, satellite, scan):
         zalphas = []
         zdeltas = []
 
-        alpha, delta, radius = ft.to_polar(satellite.func_x_axis_lmn(t))
+        alpha, delta, radius = ft.vector_to_polar(satellite.func_x_axis_lmn(t))
         alphas_obs.append(alpha % (2 * np.pi))
         deltas_obs.append(delta)
         source.set_time(t)
@@ -118,8 +118,8 @@ def plot_observations(source, satellite, scan):
         vectorz1 = xaxis + scan.z_threshold * zaxis
         vectorz2 = xaxis - scan.z_threshold * zaxis
 
-        z_alpha_1, z_delta_1, z_radius_1 = ft.to_polar(vectorz1)
-        z_alpha_2, z_delta_2, z_radius_2 = ft.to_polar(vectorz2)
+        z_alpha_1, z_delta_1, z_radius_1 = ft.vector_to_polar(vectorz1)
+        z_alpha_2, z_delta_2, z_radius_2 = ft.vector_to_polar(vectorz2)
         zalphas.append(z_alpha_1)
         zalphas.append(z_alpha_2)
         zdeltas.append(z_delta_1)

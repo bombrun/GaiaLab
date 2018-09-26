@@ -5,13 +5,22 @@ Created on Mon Jun 18 14:59:19 2018
 
 @author: mdelvallevaro
 
-modified by LucaZampieri
+modified by: LucaZampieri 2018
 
 Contain the classes:
 - Source
 - Scanner
 - Satellite
 - Attitude <-- child of Satellite
+
+This work has been inspired by what has been found in the following notes and
+papers:
+- (Lindegren, SAG-LL-14)
+- (Lindegren, SAG-LL-30)
+- (Lindegren, SAG-LL-35)
+- The astrometric core solution for the gaia mission, overview of models, algorithms,
+and software implementation, L.Lindegren et al.
+
 
 """
 
@@ -32,7 +41,7 @@ import matplotlib.pyplot as plt
 # proxima = Source("proxima",217.42, -62, 768.7, 3775.40, 769.33, 21.7)
 # sirio = Source("sirio", 101.28, -16.7161, 379.21, -546.05, -1223.14, -7.6)
 
-# vega_bcrs_au = ft.to_cartesian(np.radians(279.23), np.radians(38.78), 128.91)
+# vega_bcrs_au = ft.adp_to_cartesian(np.radians(279.23), np.radians(38.78), 128.91)
 # vega_bcrs_au_six = np.array([vega_bcrs_au[0],vega_bcrs_au[1], vega_bcrs_au[2], 0,0,0])
 
 
@@ -109,7 +118,7 @@ class Source:
         :return: ndarray 3D vector of [floats]
         """
         self.set_time(t)
-        u_bcrs_direction = ft.to_direction(self.alpha, self.delta)
+        u_bcrs_direction = ft.polar_to_direction(self.alpha, self.delta)
         return u_bcrs_direction  # no units, just a unit direction
 
     def barycentric_coor(self, t):
@@ -122,7 +131,7 @@ class Source:
         :return: ndarray, length 3, components [floats][parsecs]
         """
         self.set_time(t)
-        u_bcrs = ft.to_cartesian(self.alpha, self.delta, self.parallax)
+        u_bcrs = ft.adp_to_cartesian(self.alpha, self.delta, self.parallax)
         return u_bcrs
 
     def topocentric_function(self, satellite):
@@ -138,7 +147,7 @@ class Source:
         if isinstance(satellite, Satellite) is not True:
             raise TypeError('arg is not Satellite object')
 
-        p, q, r = ft.pqr(self.alpha, self.delta)
+        p, q, r = ft.compute_pqr(self.alpha, self.delta)
 
         # mastorad = 2*np.pi/(1000*360*3600)
         # kmtopc = 3.24078e-14
@@ -174,7 +183,7 @@ class Source:
 
         u_lmn = self.topocentric_function(satellite)(t)
         u_lmn_unit = u_lmn/np.linalg.norm(u_lmn)
-        alpha_obs, delta_obs, radius = ft.to_polar(u_lmn_unit)
+        alpha_obs, delta_obs, radius = ft.vector_to_polar(u_lmn_unit)
 
         if alpha_obs < 0:
             alpha_obs = (alpha_obs + 2*np.pi) / const.rad_per_mas
@@ -207,7 +216,7 @@ class Satellite:
         self.orbital_period = const.days_per_year
         self.orbital_radius = 1.0
 
-    def init_parameters(self, S=4.036, epsilon=np.radians(23.26), xi=np.radians(55), wz=120):
+    def init_parameters(self, S=const.S, epsilon=np.radians(const.epsilon), xi=np.radians(const.xi), wz=const.w_z):
         self.S = S
 
         # obliquity of equator. This is a constant chosen to be 23º 26' 21.448''
@@ -225,10 +234,13 @@ class Satellite:
 
     def ephemeris_bcrs(self, t):
         """
+        Defines the orbit of the satellite around the sun
         Returns the barycentric ephemeris of the Gaia satellite at time t.
+
         :param t: float [days]
         :return: 3D np.array [AU]
         """
+        # Assuming it is a circle tilted by epsilon:
         b_x_bcrs = self.orbital_radius*np.cos(2*np.pi/self.orbital_period*t)*np.cos(self.epsilon)
         b_y_bcrs = self.orbital_radius*np.sin(2*np.pi/self.orbital_period*t)*np.cos(self.epsilon)
         b_z_bcrs = self.orbital_radius*np.sin(2*np.pi/self.orbital_period*t)*np.sin(self.epsilon)
@@ -241,6 +253,17 @@ class Attitude(Satellite):
     """
     Child class to Satellite.
     Creates spline from attitude data for 5 years by default.
+    info: (see e.g. Lindegren, SAG-LL-35)
+        The Nominal Scanning Law (NSL) for gaia is descibed by two constant
+        angles:
+        - Epsilon: obliquity of equator
+        - Xi (greek letter): revolving angles
+        and 3 angles that increase continuously but non-uniformly:
+        - _lambda(t): nominal longitude of the sun
+        - nu(t): revolving phase
+        - omega(t): spin phase
+        The
+
     :param ti: initial time, float [day]
     :param tf: final time, float [day]
     :param dt: time step for creation of discrete data fed to spline, float [day].
@@ -263,18 +286,19 @@ class Attitude(Satellite):
         self.nu = 0
         self.omega = 0
 
-        self.l, self.j, self.k = ft.ljk(self.epsilon)
+        self.l, self.j, self.k = ft.compute_ljk(self.epsilon)
 
         self.s = self.l*np.cos(self._lambda) + self.j*np.sin(self._lambda)
 
         self.attitude = self.__init_attitude()
 
-        self.z = ft.to_lmn(self.attitude, np.array([0, 0, 1]))
-        self.x = ft.to_lmn(self.attitude, np.array([1, 0, 0]))
+        self.z = ft.xyz_to_lmn(self.attitude, np.array([0, 0, 1]))
+        self.x = ft.xyz_to_lmn(self.attitude, np.array([1, 0, 0]))
         self.w = np.cross(np.array([0, 0, 1]), self.z)
 
     def __init_attitude(self):
         """
+        (Lindegren, SAG-LL-35, Eq.6)
         :return: quaternion equivalent to initialization of satellite
         """
         q1 = Quaternion(np.cos(self.epsilon/2), np.sin(self.epsilon/2), 0, 0)
@@ -365,9 +389,9 @@ class Attitude(Satellite):
         self.func_attitude = lambda t: Quaternion(float(self.s_w(t)), float(self.s_x(t)), float(self.s_y(t)),
                                                   float(self.s_z(t))).unit()
         # Attitude in the lmn frame
-        self.func_x_axis_lmn = lambda t: ft.to_lmn(self.func_attitude(t), np.array([1, 0, 0]))
-        self.func_y_axis_lmn = lambda t: ft.to_lmn(self.func_attitude(t), np.array([0, 1, 0]))
-        self.func_z_axis_lmn = lambda t: ft.to_lmn(self.func_attitude(t), np.array([0, 0, 1]))
+        self.func_x_axis_lmn = lambda t: ft.xyz_to_lmn(self.func_attitude(t), np.array([1, 0, 0]))
+        self.func_y_axis_lmn = lambda t: ft.xyz_to_lmn(self.func_attitude(t), np.array([0, 1, 0]))
+        self.func_z_axis_lmn = lambda t: ft.xyz_to_lmn(self.func_attitude(t), np.array([0, 0, 1]))
 
     def __reset_to_time(self, t, dt):
         '''
@@ -507,22 +531,27 @@ class Scanner:
 
         self.reset_memory()
 
-        # t_0 = time.time()  # t0 of the timer
+        t_0 = time.time()  # t0 of the timer
 
+        # Make the wide angle scan
         step_wide = self.wide_angle / (2 * np.pi * 4)
         for t in np.arange(ti, tf, step_wide):
             to_star_unit = source.topocentric_function(att)(t) / np.linalg.norm(source.topocentric_function(att)(t))
             if np.arccos(np.dot(to_star_unit, att.func_x_axis_lmn(t))) < self.wide_angle:
                 self.times_wide_scan.append(t)
+        time_wide = time.time()  # time after wide scan
+        print('wide scan lasted {} seconds'.format(time_wide - t_0))
 
-        # delta_t = time.time() - t_0  # elapsed time
-
+        t_0 = time.time()  # reset the  t_0 of the time
+        # Make the coarse angle scan
         step_coarse = self.coarse_angle / (2 * np.pi * 4)
         for t_wide in self.times_wide_scan:
             for t in np.arange(t_wide - step_wide / 2, t_wide + step_wide / 2, step_coarse):
                 to_star_unit = source.topocentric_function(att)(t) / np.linalg.norm(source.topocentric_function(att)(t))
                 if np.arccos(np.dot(to_star_unit, att.func_x_axis_lmn(t))) < self.coarse_angle:
                     self.times_coarse_scan.append(t)
+        time_coarse = time.time()  # time after coarse scan
+        print('Coarse scan lasted {} seconds'.format(time_coarse - t_0))
 
     def fine_scan(self, att, source):
 
@@ -530,14 +559,14 @@ class Scanner:
             t = float(t)
             to_star_unit_lmn = source.topocentric_function(att)(t) / np.linalg.norm(source.topocentric_function(att)(t))
             phi_vector_lmn = to_star_unit_lmn - att.func_x_axis_lmn(t)
-            phi_vector_xyz = ft.to_xyz(att.func_attitude(t), phi_vector_lmn)
+            phi_vector_xyz = ft.lmn_to_xyz(att.func_attitude(t), phi_vector_lmn)
             return np.abs(phi_vector_xyz[1])
 
         def z_condition(t):
             t = float(t)
             to_star_unit_lmn = source.topocentric_function(att)(t) / np.linalg.norm(source.topocentric_function(att)(t))
             diff_vector = to_star_unit_lmn - att.func_x_axis_lmn(t)
-            diff_vector_xyz = ft.to_xyz(att.func_attitude(t), diff_vector)
+            diff_vector_xyz = ft.lmn_to_xyz(att.func_attitude(t), diff_vector)
             z_threshold = np.sin(self.scan_line_height)
             return z_threshold - np.abs(diff_vector_xyz[2])
 
@@ -583,7 +612,7 @@ def phi(source, att, t):
     t = float(t)
     u_lmn_unit = source.topocentric_function(att)(t) / np.linalg.norm(source.topocentric_function(att)(t))
     phi_value_lmn = u_lmn_unit - att.func_x_axis_lmn(t)
-    phi_value_xyz = ft.to_xyz(att.func_attitude(t), phi_value_lmn)
+    phi_value_xyz = ft.lmn_to_xyz(att.func_attitude(t), phi_value_lmn)
     return np.arcsin(phi_value_xyz[1]), np.arcsin(phi_value_xyz[2])
 
 
