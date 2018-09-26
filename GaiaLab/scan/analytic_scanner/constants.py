@@ -17,7 +17,7 @@ AU_per_pc = 4.8481705933824e-6  # [au/pc] austronomical unit per parsec
 
 # # Proper to Gaia
 # constant specific to gaia that have been chosen. (see e.g. )
-epsison = 23 + 26/60 + 21.448/3600  # [deg] obiquity of equator chosen to be 23º 26' 21.448''
+epsilon = 23 + 26/60 + 21.448/3600  # [deg] obiquity of equator chosen to be 23º 26' 21.448''
 Gamma_c = 106.5  # [deg] basic angle, Gamma_c = arccos(f_p' f_F)
 xi = 55  # [deg] angle between the z-axis and s (s being the nominal sun direction)
 S = 4.035  # [deg/day] for a xi of 55°. S=|dz/dlambda|
