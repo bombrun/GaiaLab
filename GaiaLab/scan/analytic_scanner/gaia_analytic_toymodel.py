@@ -134,43 +134,32 @@ class Source:
         u_bcrs = ft.adp_to_cartesian(self.alpha, self.delta, self.parallax)
         return u_bcrs
 
-    def topocentric_function(self, satellite):
+    def unit_topocentric_function(self, satellite, t):
         """
-        Compute the topocentric_function
+        Compute the topocentric_function direction
         The horizontal coordinate system, also known as topocentric coordinate
         system, is a celestial coordinate system that uses the observer's local
         horizon as the fundamental plane. Coordinates of an object in the sky are
         expressed in terms of altitude (or elevation) angle and azimuth.
         :param satellite: satellite [class object]
-        :return: [lambda function] of the position of the star from the satellite's lmn frame.
+        :return: [array] (x,y,z) direction-vector of the star from the satellite's lmn frame.
         """
         if isinstance(satellite, Satellite) is not True:
             raise TypeError('arg is not Satellite object')
 
         p, q, r = ft.compute_pqr(self.alpha, self.delta)
 
-        # mastorad = 2*np.pi/(1000*360*3600)
-        # kmtopc = 3.24078e-14
-        # sectoday = 3600 * 24
-        # AUtopc = 4.8481705933824e-6
-
         mu_alpha_dx = self.mu_alpha_dx * const.rad_per_mas / const.days_per_year   # mas/yr to rad/day
         mu_delta = self.mu_delta * const.rad_per_mas / const.days_per_year  # mas/yr to rad/day
         # km/s to aproximation rad/day
         mu_radial = self.parallax * const.rad_per_mas * self.mu_radial * const.km_per_pc * const.sec_per_day
 
-        # return topocentric_function
-        return lambda t: self.barycentric_coor(0) + t*(p*mu_alpha_dx + q * mu_delta + r*mu_radial) \
+        # topocentric_function direction
+        topocentric = self.barycentric_coor(0) + t*(p*mu_alpha_dx + q * mu_delta + r*mu_radial) \
             - satellite.ephemeris_bcrs(t) * const.AU_per_pc
+        norm_topocentric = np.linalg.norm(topocentric)
 
-    def topocentric_function_unit(self, satellite):
-        """
-        Normalised topocentric_function
-        :param satellite: [class object] satellite
-        :return: normalised topocentric function
-        """
-        topo = self.topocentric_function(satellite)(t)
-        return topo/np.linalg.norm(topo)
+        return topocentric / norm_topocentric
 
     def topocentric_angles(self, satellite, t):
         """
@@ -181,8 +170,7 @@ class Source:
         """
         # mastorad = 2 * np.pi / (1000 * 360 * 3600)
 
-        u_lmn = self.topocentric_function(satellite)(t)
-        u_lmn_unit = u_lmn/np.linalg.norm(u_lmn)
+        u_lmn_unit = self.unit_topocentric_function(satellite, t)
         alpha_obs, delta_obs, radius = ft.vector_to_polar(u_lmn_unit)
 
         if alpha_obs < 0:
@@ -262,7 +250,8 @@ class Attitude(Satellite):
         - _lambda(t): nominal longitude of the sun
         - nu(t): revolving phase
         - omega(t): spin phase
-        The
+        With also initial values nu(0), omega(0) at time t_0 the NSL is completely
+        specified.
 
     :param ti: initial time, float [day]
     :param tf: final time, float [day]
@@ -489,13 +478,13 @@ class Scanner:
         self.fine_scan(att, source)
         print('Finished fine_scan!')
 
-    def wide_coarse_double_scan2(self, att, source, ti=0, tf=5*const.days_per_year):
+    def wide_coarse_double_scan(self, att, source, ti=0, tf=5*const.days_per_year):
         """
         Scans sky with a dot product technique to get rough times of observation.
         :action: self.times_deep_scan list filled with observation time windows.
         """
         if isinstance(att, Attitude) is not True:
-            return TypeError('firs argument is not an Attitude object')
+            return TypeError('first argument is not an Attitude object')
         if isinstance(source, Source) is not True:
             return TypeError('second argument is not a Source object')
 
@@ -503,23 +492,36 @@ class Scanner:
 
         t_0 = time.time()  # t0 of the timer
 
+        # Make the wide angle scan
         step_wide = self.wide_angle / (2 * np.pi * 4)
+        for t in np.arange(ti, tf, step_wide):
+            to_star_unit = source.unit_topocentric_function(att, t)
+            if np.arccos(np.dot(to_star_unit, att.func_x_axis_lmn(t))) < self.wide_angle:
+                self.times_wide_scan.append(t)
+        time_wide = time.time()  # time after wide scan
+        print('wide scan lasted {} seconds'.format(time_wide - t_0))
 
-        my_ts = np.arange(ti, tf, step_wide)
-        print('my_rs shape: ', my_ts.shape)
+        # # Alternative way to do it:
+        # my_ts = np.arange(ti, tf, step_wide)
+        # def f(x):
+        #     to_star_unit = source.unit_topocentric_function(att, x)
+        #     return np.arccos(np.dot(to_star_unit, att.func_x_axis_lmn(x))) < self.wide_angle
+        # array_map = np.array(list(map(f, my_ts)))
+        # self.times_wide_scan = list(my_ts[np.nonzero(array_map)])
+        # #
 
-        def f(x):
-            to_star_unit = source.topocentric_function(att)(x) / np.linalg.norm(source.topocentric_function(att)(x))
-            return np.arccos(np.dot(to_star_unit, att.func_x_axis_lmn(x))) < self.wide_angle
+        t_0 = time.time()  # reset the  t_0 of the time
+        # Make the coarse angle scan
+        step_coarse = self.coarse_angle / (2 * np.pi * 4)
+        for t_wide in self.times_wide_scan:
+            for t in np.arange(t_wide - step_wide / 2, t_wide + step_wide / 2, step_coarse):
+                to_star_unit = source.unit_topocentric_function(att, t)
+                if np.arccos(np.dot(to_star_unit, att.func_x_axis_lmn(t))) < self.coarse_angle:
+                    self.times_coarse_scan.append(t)
+        time_coarse = time.time()  # time after coarse scan
+        print('Coarse scan lasted {} seconds'.format(time_coarse - t_0))
 
-        array_map = np.array(list(map(f, my_ts)))
-
-        self.times_wide_scan = list(my_ts[np.nonzero(array_map)])
-
-        delta_t = time.time() - t_0  # elapsed time
-        return delta_t, len(self.times_wide_scan)
-
-    def wide_coarse_double_scan(self, att, source, ti=0, tf=5*const.days_per_year):
+    def wide_coarse_double_scan_old(self, att, source, ti=0, tf=5*const.days_per_year):
         """
         Scans sky with a dot product technique to get rough times of observation.
         :action: self.times_deep_scan list filled with observation time windows.
@@ -557,14 +559,14 @@ class Scanner:
 
         def phi_objective(t):
             t = float(t)
-            to_star_unit_lmn = source.topocentric_function(att)(t) / np.linalg.norm(source.topocentric_function(att)(t))
+            to_star_unit_lmn = source.unit_topocentric_function(att, t)
             phi_vector_lmn = to_star_unit_lmn - att.func_x_axis_lmn(t)
             phi_vector_xyz = ft.lmn_to_xyz(att.func_attitude(t), phi_vector_lmn)
             return np.abs(phi_vector_xyz[1])
 
         def z_condition(t):
             t = float(t)
-            to_star_unit_lmn = source.topocentric_function(att)(t) / np.linalg.norm(source.topocentric_function(att)(t))
+            to_star_unit_lmn = source.unit_topocentric_function(att, t)
             diff_vector = to_star_unit_lmn - att.func_x_axis_lmn(t)
             diff_vector_xyz = ft.lmn_to_xyz(att.func_attitude(t), diff_vector)
             z_threshold = np.sin(self.scan_line_height)
@@ -610,7 +612,7 @@ def phi(source, att, t):
     :return: [float] angle, alpha wrt IRS.
     """
     t = float(t)
-    u_lmn_unit = source.topocentric_function(att)(t) / np.linalg.norm(source.topocentric_function(att)(t))
+    u_lmn_unit = source.unit_topocentric_function(att, t)
     phi_value_lmn = u_lmn_unit - att.func_x_axis_lmn(t)
     phi_value_xyz = ft.lmn_to_xyz(att.func_attitude(t), phi_value_lmn)
     return np.arcsin(phi_value_xyz[1]), np.arcsin(phi_value_xyz[2])
