@@ -21,6 +21,7 @@ from quaternion import Quaternion
 import frame_transformations as ft
 import gaia_analytic_toymodel as ggs
 import constants as const
+import helpers as helpers
 
 
 def plot_attitude(att, ti, tf, n_points=1000, figsize=(9, 5)):
@@ -93,24 +94,29 @@ def plot_observations(source, satellite, scan):
 
     alphas_obs = []
     deltas_obs = []
+    radius_obs = []
+
     star_alphas = []
     star_deltas = []
+    star_radius = []
+
+    z_alphas = []
+    z_deltas = []
 
     plt.figure()
 
     # for each of the observed times we plot the position of the x-axis in lmn
-    # of the scanner, and the error is equivalent to the z-threshold values and
-    # the y-threshold values.
-    for t in scan.obs_times:
-        zalphas = []
-        zdeltas = []
+    # of the scanner
+    for i, t in enumerate(scan.obs_times):
 
         alpha, delta, radius = ft.vector_to_polar(satellite.func_x_axis_lmn(t))
         alphas_obs.append(alpha % (2 * np.pi))
         deltas_obs.append(delta)
+        # radius_obs.append(radius)
         source.set_time(t)
         star_alphas.append(source.alpha)
         star_deltas.append(source.delta)
+        # star_deltas.append(source.radius)
 
         xaxis = satellite.func_x_axis_lmn(t)
         zaxis = satellite.func_z_axis_lmn(t)
@@ -120,14 +126,18 @@ def plot_observations(source, satellite, scan):
 
         z_alpha_1, z_delta_1, z_radius_1 = ft.vector_to_polar(vectorz1)
         z_alpha_2, z_delta_2, z_radius_2 = ft.vector_to_polar(vectorz2)
-        zalphas.append(z_alpha_1)
-        zalphas.append(z_alpha_2)
-        zdeltas.append(z_delta_1)
-        zdeltas.append(z_delta_2)
-        plt.plot(zalphas, zdeltas, 'yo-')
 
-    plt.plot(alphas_obs, deltas_obs, 'ro', label='observations')
-    plt.plot(star_alphas, star_deltas, 'b*', label='star')
+        z_alphas.append([z_alpha_1, z_alpha_2])
+        z_deltas.append([z_delta_1, z_delta_2])
+
+    # For each couple of ([alpha1,alpha2],[delta1,delta2])
+    for alpha_delta in zip(z_alphas, z_deltas):
+        plt.plot(alpha_delta[0], alpha_delta[1], 'yo-')
+
+    plt.plot(alphas_obs, deltas_obs, 'ro', label='observations')  # plot observation as re dots
+    plt.plot(star_alphas, star_deltas, 'b*', label='star')  # plot stars as blu stars
+
+    # plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=2, mode="expand", borderaxespad=0.)
     plt.legend(loc='upper left')
     plt.title('%s' % source.name)
     plt.xlabel('alpha [rad]')
@@ -136,6 +146,98 @@ def plot_observations(source, satellite, scan):
     plt.tight_layout()
     plt.margins(0.1)
     plt.show()
+
+
+def plot_prediction_VS_reality(source, satellite, scan):
+    """
+    :param source: source scanned (object)
+    :param satellite: Attitude object
+    :param scan: scan object
+    :return: plot of position of observations and their error bars.
+    """
+
+    if isinstance(satellite, ggs.Attitude) is False:
+        raise TypeError('satellite is not an Attitude object.')
+    if isinstance(scan, ggs.Scanner) is False:
+        raise TypeError('scan is not an Scanner object.')
+
+    alphas_obs = []
+    deltas_obs = []
+    radius_obs = []
+    star_alphas = []
+    star_deltas = []
+    star_radius = []
+    z_alphas = []
+    z_deltas = []
+    predictions_alphas = []
+    predictions_deltas = []
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 8))
+
+    # for each of the observed times we plot the position of the x-axis in lmn
+    # of the scanner
+    for i, t in enumerate(scan.obs_times):
+
+        alpha, delta, radius = ft.vector_to_polar(satellite.func_x_axis_lmn(t))
+        alphas_obs.append(alpha % (2 * np.pi))
+        deltas_obs.append(delta)
+        # radius_obs.append(radius)
+        source.set_time(t)
+        star_alphas.append(source.alpha)
+        star_deltas.append(source.delta)
+        # star_deltas.append(source.radius)
+
+        # Axis of the satellite in the lmn frame
+        xaxis = satellite.func_x_axis_lmn(t)
+        zaxis = satellite.func_z_axis_lmn(t)
+
+        # Vectors describing the endpoints of the interval in which the source must be
+        # first in the lmn frame then in the polar one
+        vectorz1 = xaxis + scan.z_threshold * zaxis
+        z_alpha_1, z_delta_1, z_radius_1 = ft.vector_to_polar(vectorz1)
+        vectorz2 = xaxis - scan.z_threshold * zaxis
+        z_alpha_2, z_delta_2, z_radius_2 = ft.vector_to_polar(vectorz2)
+
+        z_alphas.append([z_alpha_1, z_alpha_2])
+        z_deltas.append([z_delta_1, z_delta_2])
+
+    # For each couple of ([alpha1,alpha2],[delta1,delta2])
+    alphas_deltas = list(zip(z_alphas, z_deltas))
+    for i in range(len(alphas_deltas)-1):
+        x1_x2, y1_y2 = alphas_deltas[i]
+        x3_x4, y3_y4 = alphas_deltas[i+1]
+        # compute the intersection between observations
+        intersection, error_msg = helpers.compute_intersection(x1_x2[0], y1_y2[0],
+                                                               x1_x2[1], y1_y2[1],
+                                                               x3_x4[0], y3_y4[0],
+                                                               x3_x4[1], y3_y4[1])
+        # print(error_msg)
+        if not error_msg:
+            predictions_alphas.append(intersection[0])
+            predictions_deltas.append(intersection[1])
+
+    # Plot the prediction of the positions of the stars as being the intersection of
+    # the error bands of the observations
+    print(predictions_alphas, '\n  -----  \n', predictions_deltas)
+    for ax in (ax1, ax2):
+        ax.plot(predictions_alphas, predictions_deltas, 'rx:', label='predictions')
+        # plot stars as blu stars
+        ax.plot(star_alphas, star_deltas, 'b*:', label='star')
+
+        # ax.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=2, mode="expand", borderaxespad=0.)
+        # ax.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
+        ax.legend()
+        ax.set_title('%s' % source.name)
+        ax.set_xlabel('alpha [rad]')
+        ax.set_ylabel('delta [rad]')
+        ax.axis('equal')
+        # ax.set_tight_layout()
+        ax.margins(0.1)
+
+    for alpha_delta in zip(z_alphas, z_deltas):
+        ax1.plot(alpha_delta[0], alpha_delta[1], 'yo-')
+
+    return fig
 
 
 def plot_phi(source, att, ti=0, tf=90, n=1000):

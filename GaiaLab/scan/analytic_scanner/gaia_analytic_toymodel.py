@@ -105,9 +105,9 @@ class Source:
 
         mu_alpha_dx = self.mu_alpha_dx * 4.8473097e-9 / 365     # from mas/yr to rad/day
         mu_delta = self.mu_delta * 4.848136811095e-9 / 365      # from mas/yr to rad/day
-
         # mu_alpha_dx = self.mu_alpha_dx * const.rad_per_mas / const.days_per_year     # from mas/yr to rad/day
         # mu_delta = self.mu_delta * const.rad_per_mas / const.days_per_year           # from mas/yr to rad/day
+
         self.alpha = self.__alpha0 + mu_alpha_dx*t
         self.delta = self.__delta0 + mu_delta*t
 
@@ -144,8 +144,8 @@ class Source:
         :param satellite: satellite [class object]
         :return: [array] (x,y,z) direction-vector of the star from the satellite's lmn frame.
         """
-        if isinstance(satellite, Satellite) is not True:
-            raise TypeError('arg is not Satellite object')
+        if not isinstance(satellite, Satellite):
+            raise TypeError('Expected Satellite, but got {} instead'.format(type(satellite)))
 
         p, q, r = ft.compute_pqr(self.alpha, self.delta)
 
@@ -444,9 +444,9 @@ class Scanner:
         :roots: [func] found roots
         :obs_times: the times of the roots (i.e. self.roots.x) where the star precisely crosses the line of view [days]
         """
-        self.wide_angle = wide_angle
-        self.scan_line_height = scan_line_height/2.
-        self.coarse_angle = self.scan_line_height
+        self.wide_angle = wide_angle  # Threshold for the x-axis
+        self.scan_line_height = scan_line_height/2.  # Threshold over z axis
+        self.coarse_angle = self.scan_line_height  # angle of view of the coarse scan
 
         self.z_threshold = np.sin(self.scan_line_height)
 
@@ -481,12 +481,12 @@ class Scanner:
     def wide_coarse_double_scan(self, att, source, ti=0, tf=5*const.days_per_year):
         """
         Scans sky with a dot product technique to get rough times of observation.
-        :action: self.times_deep_scan list filled with observation time windows.
+        :action: self.times_wide_scan list filled with observation time windows.
         """
-        if isinstance(att, Attitude) is not True:
-            return TypeError('first argument is not an Attitude object')
-        if isinstance(source, Source) is not True:
-            return TypeError('second argument is not a Source object')
+        if not isinstance(att, Attitude):
+            raise TypeError('Expected Attitude, but got {} instead'.format(type(att)))
+        if not isinstance(source, Source):
+            raise TypeError('Expected Source, but got {} instead'.format(type(source)))
 
         self.reset_memory()
 
@@ -500,6 +500,7 @@ class Scanner:
                 self.times_wide_scan.append(t)
         time_wide = time.time()  # time after wide scan
         print('wide scan lasted {} seconds'.format(time_wide - t_0))
+        print('Found {} times with wide scan'.format(len(self.times_wide_scan)))
 
         # # Alternative way to do it:
         # my_ts = np.arange(ti, tf, step_wide)
@@ -520,28 +521,40 @@ class Scanner:
                     self.times_coarse_scan.append(t)
         time_coarse = time.time()  # time after coarse scan
         print('Coarse scan lasted {} seconds'.format(time_coarse - t_0))
+        print('Found {} times with coarse scan'.format(len(self.times_coarse_scan)))
 
-    def fine_scan(self, att, source):
+    # fine_scan function
+    def fine_scan(self, att, source, tolerance=1e-6):
+        """
+        Find the exact time in which the source is seen. Only the times when the
+        source is in the field of view are scanned, i.e. self.times_coarse_scan.
+        :param att: [Attitude object]
+        :param source: [Source object]
+        :param tolerance: [int,float, optional] tolerance up to which we differentiate
+            two observations
+        :action: Find the observation time of the sources
+        """
 
         def phi_objective(t):
             t = float(t)
-            to_star_unit_lmn = source.unit_topocentric_function(att, t)
-            phi_vector_lmn = to_star_unit_lmn - att.func_x_axis_lmn(t)
+            u_lmn_unit = source.unit_topocentric_function(att, t)
+            phi_vector_lmn = u_lmn_unit - att.func_x_axis_lmn(t)
             phi_vector_xyz = ft.lmn_to_xyz(att.func_attitude(t), phi_vector_lmn)
             return np.abs(phi_vector_xyz[1])
 
         def z_condition(t):
             t = float(t)
-            to_star_unit_lmn = source.unit_topocentric_function(att, t)
-            diff_vector = to_star_unit_lmn - att.func_x_axis_lmn(t)
-            diff_vector_xyz = ft.lmn_to_xyz(att.func_attitude(t), diff_vector)
+            u_lmn_unit = source.unit_topocentric_function(att, t)
+            phi_vector_lmn = u_lmn_unit - att.func_x_axis_lmn(t)
+            phi_vector_xyz = ft.lmn_to_xyz(att.func_attitude(t), phi_vector_lmn)
             z_threshold = np.sin(self.scan_line_height)
-            return z_threshold - np.abs(diff_vector_xyz[2])
+            return z_threshold - np.abs(phi_vector_xyz[2])  # >= 0 for scipy.optimize.minimize
 
-        con1 = {'type': 'ineq', 'fun': z_condition}
+        con1 = {'type': 'ineq', 'fun': z_condition}  # inequality constraint: z_condition >= 0
 
         time_step = self.coarse_angle / (2 * np.pi * 4)
 
+        t_0 = time.time()  # set t_0 of the timer
         # find times where possible solutions are
         for i in self.times_coarse_scan:
             def t_condition(t):
@@ -556,15 +569,25 @@ class Scanner:
             if optimize_root.success:
                 self.times_optimize.append(float(optimize_root.x))
                 self.optimize_roots.append(optimize_root)
+        time_optimize_root = time.time()  # time after wide scan
+        print('phi_minimization lasted {} seconds'.format(time_optimize_root - t_0))
 
+        t_0 = time.time()  # reset t_0 of the timer
         # find roots for phi
         for obj in self.optimize_roots:
             root = optimize.root(phi_objective, [obj.x])
             self.roots.append(root)
             self.obs_times.append(float(root.x))
+        time_phi_root = time.time()  # time after wide scan
+        print('wide scan lasted {} seconds'.format(time_phi_root - t_0))
 
-        # remove duplicates
+        # remove identical duplicates
+        print('original obs_times: {}'.format(self.obs_times))
         self.obs_times = list(set(self.obs_times))
+        print('identical duplicates removal obs_time: {}'.format(self.obs_times))
+
+        # remove
+
         self.obs_times.sort()
 
 
@@ -610,3 +633,36 @@ def run():
     seconds = time.time() - start_time
     print('Total seconds:', seconds)
     return gaia, sirio, scanSirio, vega, scanVega, proxima, scanProxima
+
+
+################################################################################
+# # isInstance functions
+# this function should not be used
+def test_is_attitude(other):
+    """ Tests if (other) is of type attitude. Raise exception otherwise.
+    """
+    if not isinstance(other, Attitude):
+        raise TypeError('{} is not an Attitude object'.format(type(other)))
+    else:
+        pass
+
+
+# not used yet
+def test_object_type(other, type_str):
+    """
+    Tests if (other) is of type (type_str). Raise exception otherwise.
+    :param other: Variable which type should be tested
+    :param type_str: [str] string containing the object type we want to test.
+    """
+
+    possible_types = {"Source": Source,
+                      "Satellite": Satellite,
+                      "Attitude": Attitude,
+                      "Scanner": Scanner}
+    if type_str not in possible_types:
+        raise TypeError('Expected type "{}" is not part of the possible_types'.format(type_str))
+
+    expected_type = possible_types[type_str]
+
+    if not isinstance(other, expected_type):
+        raise TypeError('Type "{}" is not "{}"'.format(type(other), type_str))

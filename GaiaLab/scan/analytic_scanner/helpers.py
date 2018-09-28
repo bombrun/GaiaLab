@@ -18,6 +18,9 @@ def compute_intersection(x1, y1, x2, y2, x3, y3, x4, y4, segment=True):
 
     """
     error_msg = []
+    # Default value for the intersection point
+    x_intersection = 0
+    y_intersection = 0
     # Check wether the x-coordinates of each segment are not the same to avoid dividing by 0
     if ((x1 == x2) or (x3 == x4)):
         if ((x1 == x2) and (x3 == x4)):
@@ -51,11 +54,12 @@ def compute_intersection(x1, y1, x2, y2, x3, y3, x4, y4, segment=True):
             y_intersection = a1 * x_intersection + b1
             # equivalently y_intersection = a2 * x_intersection + b2
     if segment is True:
-        cond_1 = x_intersection < max(min(x1, x2), min(x3, x4))
-        cond_2 = x_intersection > min(max(x1, x2), max(x3, x4))
-        cond_3 = y_intersection < max(min(y1, y2), min(y3, y4))
-        cond_2 = x_intersection > min(max(y1, y2), max(y3, y4))
-        if (cond_1 or cond_2 or cond_3 or cond_4):
+        cond_1 = x_intersection > max(min(x1, x2), min(x3, x4))
+        cond_2 = x_intersection < min(max(x1, x2), max(x3, x4))
+        cond_3 = y_intersection > max(min(y1, y2), min(y3, y4))
+        cond_4 = y_intersection < min(max(y1, y2), max(y3, y4))
+        if not (cond_1 or cond_2 or cond_3 or cond_4):
             error_msg.append('No intersection point, intersection happens out of segment bounds')
+            error_msg.append('Conditions are: 1:{} 2:{} 3:{} 4:{}'.format(cond_1, cond_2, cond_3, cond_4))
 
     return (x_intersection, y_intersection), error_msg
