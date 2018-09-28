@@ -1,5 +1,5 @@
 # Specific files to ignore:
-notebooks/figures/*
+notebooks/figures/tmp/*
 
 
 # Byte-compiled / optimized / DLL files
