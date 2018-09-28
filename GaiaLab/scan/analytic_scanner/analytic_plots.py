@@ -148,7 +148,7 @@ def plot_observations(source, satellite, scan):
     plt.show()
 
 
-def plot_prediction_VS_reality(source, satellite, scan):
+def plot_prediction_VS_reality(source, satellite, scan, num_observations=0):
     """
     :param source: source scanned (object)
     :param satellite: Attitude object
@@ -174,9 +174,14 @@ def plot_prediction_VS_reality(source, satellite, scan):
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 8))
 
+    # Set the number of observations we want t0 plot
+    if num_observations != 0:
+        obs_times = scan.obs_times[0:num_observations]
+    else:
+        obs_times = scan.obs_times
     # for each of the observed times we plot the position of the x-axis in lmn
     # of the scanner
-    for i, t in enumerate(scan.obs_times):
+    for i, t in enumerate(obs_times):
 
         alpha, delta, radius = ft.vector_to_polar(satellite.func_x_axis_lmn(t))
         alphas_obs.append(alpha % (2 * np.pi))
@@ -206,37 +211,48 @@ def plot_prediction_VS_reality(source, satellite, scan):
     for i in range(len(alphas_deltas)-1):
         x1_x2, y1_y2 = alphas_deltas[i]
         x3_x4, y3_y4 = alphas_deltas[i+1]
+
+        # compute dot product between the two segments
+        dot_product = np.dot([x1_x2[0]-x1_x2[1], y1_y2[0]-y1_y2[1]],
+                             [x3_x4[0]-x3_x4[1], y3_y4[0]-y3_y4[1]])
+        angle = helpers.compute_angle([x1_x2[0]-x1_x2[1], y1_y2[0]-y1_y2[1]],
+                                      [x3_x4[0]-x3_x4[1], y3_y4[0]-y3_y4[1]])
+        # print('angle: ', angle)
+        if angle < 0.1:
+            continue
         # compute the intersection between observations
         intersection, error_msg = helpers.compute_intersection(x1_x2[0], y1_y2[0],
                                                                x1_x2[1], y1_y2[1],
                                                                x3_x4[0], y3_y4[0],
                                                                x3_x4[1], y3_y4[1])
         # print(error_msg)
+
         if not error_msg:
             predictions_alphas.append(intersection[0])
             predictions_deltas.append(intersection[1])
 
     # Plot the prediction of the positions of the stars as being the intersection of
     # the error bands of the observations
-    print(predictions_alphas, '\n  -----  \n', predictions_deltas)
+    # print(predictions_alphas, '\n  -----  \n', predictions_deltas)
     for ax in (ax1, ax2):
         ax.plot(predictions_alphas, predictions_deltas, 'rx:', label='predictions')
         # plot stars as blu stars
         ax.plot(star_alphas, star_deltas, 'b*:', label='star')
-
         # ax.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=2, mode="expand", borderaxespad=0.)
         # ax.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
-        ax.legend()
         ax.set_title('%s' % source.name)
         ax.set_xlabel('alpha [rad]')
         ax.set_ylabel('delta [rad]')
         ax.axis('equal')
+        ax.grid()
         # ax.set_tight_layout()
         ax.margins(0.1)
 
-    for alpha_delta in zip(z_alphas, z_deltas):
-        ax1.plot(alpha_delta[0], alpha_delta[1], 'yo-')
+    for i, alpha_delta in enumerate(zip(z_alphas, z_deltas)):
+        ax1.plot(alpha_delta[0], alpha_delta[1], 'o-', label='obs_'+str(i))  # ,'yo-'
 
+    ax1.legend()
+    ax2.legend()
     return fig
 
 

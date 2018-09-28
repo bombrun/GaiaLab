@@ -2,7 +2,19 @@
 #
 # Contains:
 #   - compute_intersection
+#   - compute_angle
 # LucaZampieri 2018
+
+import numpy as np
+
+
+def compute_angle(v1, v2):
+    """
+    Computes the angle between two Vectors
+    :param vi: vector between which you want to compute the angle for each i=1:2
+    :returns: [float] [deg] angle between the vectors
+    """
+    return np.arccos(np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2)))
 
 
 def compute_intersection(x1, y1, x2, y2, x3, y3, x4, y4, segment=True):

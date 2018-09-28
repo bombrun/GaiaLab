@@ -144,8 +144,8 @@ class Source:
         :param satellite: satellite [class object]
         :return: [array] (x,y,z) direction-vector of the star from the satellite's lmn frame.
         """
-        if not isinstance(satellite, Satellite):
-            raise TypeError('Expected Satellite, but got {} instead'.format(type(satellite)))
+        # if not isinstance(satellite, Satellite):
+        #     raise TypeError('Expected Satellite, but got {} instead'.format(type(satellite)))
 
         p, q, r = ft.compute_pqr(self.alpha, self.delta)
 
@@ -471,31 +471,37 @@ class Scanner:
         self.obs_times.clear()
 
     def start(self, att, source, ti=0, tf=5*const.days_per_year):
-        print('Starting wide_coarse_double_scan with time from {} to {} days'.format(ti, tf))
-        self.wide_coarse_double_scan(att, source, ti, tf)
-        print('Finished wide_coarse_double_scan!')
+        print('Starting wide_scan with time from {} to {} days'.format(ti, tf))
+        self.wide_scan(att, source, ti, tf)
+        print('Finished wide_scan!')
+
+        print('Starting coarse_scan with time from {} to {} days'.format(ti, tf))
+        self.coarse_scan(att, source, ti, tf)
+        print('Finished coarse_scan!')
+
         print('Starting fine_scan:')
         self.fine_scan(att, source)
         print('Finished fine_scan!')
 
-    def wide_coarse_double_scan(self, att, source, ti=0, tf=5*const.days_per_year):
+    def wide_scan(self, att, source, ti=0, tf=5*const.days_per_year):
         """
         Scans sky with a dot product technique to get rough times of observation.
         :action: self.times_wide_scan list filled with observation time windows.
         """
-        if not isinstance(att, Attitude):
-            raise TypeError('Expected Attitude, but got {} instead'.format(type(att)))
-        if not isinstance(source, Source):
-            raise TypeError('Expected Source, but got {} instead'.format(type(source)))
+        # if not isinstance(att, Attitude):
+        #    raise TypeError('Expected Attitude, but got {} instead'.format(type(att)))
+        # if not isinstance(source, Source):
+        #    raise TypeError('Expected Source, but got {} instead'.format(type(source)))
 
+        # Reset the memory of the previous scans
         self.reset_memory()
 
         t_0 = time.time()  # t0 of the timer
 
-        # Make the wide angle scan
-        step_wide = self.wide_angle / (2 * np.pi * 4)
-        for t in np.arange(ti, tf, step_wide):
+        self.step_wide = self.wide_angle / (2 * np.pi * 4)
+        for t in np.arange(ti, tf, self.step_wide):
             to_star_unit = source.unit_topocentric_function(att, t)
+
             if np.arccos(np.dot(to_star_unit, att.func_x_axis_lmn(t))) < self.wide_angle:
                 self.times_wide_scan.append(t)
         time_wide = time.time()  # time after wide scan
@@ -511,11 +517,12 @@ class Scanner:
         # self.times_wide_scan = list(my_ts[np.nonzero(array_map)])
         # #
 
+    def coarse_scan(self, att, source, ti=0, tf=5*const.days_per_year):
         t_0 = time.time()  # reset the  t_0 of the time
         # Make the coarse angle scan
         step_coarse = self.coarse_angle / (2 * np.pi * 4)
         for t_wide in self.times_wide_scan:
-            for t in np.arange(t_wide - step_wide / 2, t_wide + step_wide / 2, step_coarse):
+            for t in np.arange(t_wide - self.step_wide / 2, t_wide + self.step_wide / 2, step_coarse):
                 to_star_unit = source.unit_topocentric_function(att, t)
                 if np.arccos(np.dot(to_star_unit, att.func_x_axis_lmn(t))) < self.coarse_angle:
                     self.times_coarse_scan.append(t)
@@ -524,13 +531,13 @@ class Scanner:
         print('Found {} times with coarse scan'.format(len(self.times_coarse_scan)))
 
     # fine_scan function
-    def fine_scan(self, att, source, tolerance=1e-6):
+    def fine_scan(self, att, source, tolerance=1e-3):
         """
         Find the exact time in which the source is seen. Only the times when the
         source is in the field of view are scanned, i.e. self.times_coarse_scan.
         :param att: [Attitude object]
         :param source: [Source object]
-        :param tolerance: [int,float, optional] tolerance up to which we differentiate
+        :param tolerance: [int,float, optional] [days] tolerance up to which we distinguish
             two observations
         :action: Find the observation time of the sources
         """
@@ -553,6 +560,7 @@ class Scanner:
         con1 = {'type': 'ineq', 'fun': z_condition}  # inequality constraint: z_condition >= 0
 
         time_step = self.coarse_angle / (2 * np.pi * 4)
+        print('time_step: {}'.format(time_step))
 
         t_0 = time.time()  # set t_0 of the timer
         # find times where possible solutions are
@@ -586,8 +594,7 @@ class Scanner:
         self.obs_times = list(set(self.obs_times))
         print('identical duplicates removal obs_time: {}'.format(self.obs_times))
 
-        # remove
-
+        # remove close observations
         self.obs_times.sort()
 
 
