@@ -501,8 +501,8 @@ class Scanner:
         self.step_wide = self.wide_angle / (2 * np.pi * 4)
         for t in np.arange(ti, tf, self.step_wide):
             to_star_unit = source.unit_topocentric_function(att, t)
-
-            if np.arccos(np.dot(to_star_unit, att.func_x_axis_lmn(t))) < self.wide_angle:
+            angle_source_xaxis = np.arccos(np.dot(to_star_unit, att.func_x_axis_lmn(t)))
+            if angle_source_xaxis < self.wide_angle:
                 self.times_wide_scan.append(t)
         time_wide = time.time()  # time after wide scan
         print('wide scan lasted {} seconds'.format(time_wide - t_0))
@@ -611,7 +611,9 @@ def phi(source, att, t):
     u_lmn_unit = source.unit_topocentric_function(att, t)
     phi_value_lmn = u_lmn_unit - att.func_x_axis_lmn(t)
     phi_value_xyz = ft.lmn_to_xyz(att.func_attitude(t), phi_value_lmn)
-    return np.arcsin(phi_value_xyz[1]), np.arcsin(phi_value_xyz[2])
+    phi = np.arcsin(phi_value_xyz[1])
+    eta = np.arcsin(phi_value_xyz[2])
+    return phi, eta
 
 
 def run():

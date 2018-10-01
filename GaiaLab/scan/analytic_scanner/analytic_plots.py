@@ -148,11 +148,13 @@ def plot_observations(source, satellite, scan):
     plt.show()
 
 
-def plot_prediction_VS_reality(source, satellite, scan, num_observations=0):
+def plot_prediction_VS_reality(source, satellite, scan, num_observations=0, angle_tolerance=0.1):
     """
     :param source: source scanned (object)
     :param satellite: Attitude object
     :param scan: scan object
+    :param num_observations: number of observation we want to plot
+    :param
     :return: plot of position of observations and their error bars.
     """
 
@@ -218,7 +220,7 @@ def plot_prediction_VS_reality(source, satellite, scan, num_observations=0):
         angle = helpers.compute_angle([x1_x2[0]-x1_x2[1], y1_y2[0]-y1_y2[1]],
                                       [x3_x4[0]-x3_x4[1], y3_y4[0]-y3_y4[1]])
         # print('angle: ', angle)
-        if angle < 0.1:
+        if angle < angle_tolerance:
             continue
         # compute the intersection between observations
         intersection, error_msg = helpers.compute_intersection(x1_x2[0], y1_y2[0],
