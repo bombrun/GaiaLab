@@ -5,6 +5,10 @@
 #
 # Toby James 2018
 
+"""
+This is a file
+"""
+
 import numpy as np
 
 
@@ -15,21 +19,21 @@ class Quaternion():
 
     Declare a quaternion of the form q = w + xi + yj +zk by
 
-    >> q = Quaternion(w,x,y,z)
+    >>> q = Quaternion(w,x,y,z)
 
     Addition, subtraction, multiplication and division are all supported natively
     between quaternions and where appropriate with other data types.
 
     Transformation of quaternions is also supported:
 
-    Normalised unit quaternion:     >> q_u = q.unit()
-    Conjugate of q:                 >> q_c = q.conjugate()
-    Reciprocal or inverse of q:     >> q_r = q.reciprocal() or >> q_i = q.inverse(). They are equivalent.
+    Normalised unit quaternion:     >>> q_u = q.unit()
+    Conjugate of q:                 >>> q_c = q.conjugate()
+    Reciprocal or inverse of q:     >>> q_r = q.reciprocal() or >>> q_i = q.inverse(). They are equivalent.
 
     Tolerance can be applied to the unit quaternion function to determine the
     unit quaternion to a desired accuracy.
 
-    >> q_u = q.unit(tolerance=0.0001)
+    >>> q_u = q.unit(tolerance=0.0001)
 
     """
 
@@ -44,6 +48,9 @@ class Quaternion():
         return "Quaternion(%r + %r i + %r j + %r k)" % (self.w, self.x, self.y, self.z)
 
     def unit(self, tolerance=0):  # Creates the equivalent unit quaternion
+        """
+        do something
+        """
         # By default, produces unit quaternion with an arbitrary tolerance ie magnitude
         # will not perfectly be 1 - but should be sufficiently close
         # If tolerance is given, recursively divides by magnitude until the new magnitude
