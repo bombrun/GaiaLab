@@ -18,7 +18,7 @@ s_vector = np.zeros((num_sources*num_parameters_per_sources, 1))
 
 
 N_ss = np.zeros((s_vector*np.transpose(s_vector)).shape)
-print('The shape of N_ss is {}'.format(N_ss.shape))
+# print('The shape of N_ss is {}'.format(N_ss.shape))
 for i in range(N_ss.shape[0]):
     for j in range(N_ss.shape[1]):
         # for loop can be removed by looping just over i and saying N_ss[i,i]
@@ -72,7 +72,7 @@ def coordinates_direction_to_proper_direction():
     return coeff * du_ds_tilde()
 
 
-def du_ds_tilde(source, satellite, observation_times):
+def compute_du_ds_tilde(source, satellite, observation_times):
     """
     Compute dũ_ds far a given source
     :param:
@@ -87,28 +87,31 @@ def du_ds_tilde(source, satellite, observation_times):
     # Values needed to compute the derivatives
     n_i = len(observation_times)  # the number of observations
 
-    du_dalpha = np.zeros((n_i, 1))
-    du_ddelta = np.zeros((n_i, 1))
-    du_dparallax = np.zeros((n_i, 1))
-    du_dmualpha = np.zeros((n_i, 1))
-    du_dmudelta = np.zeros((n_i, 1))
+    du_dalpha = np.zeros((n_i, 3))
+    du_ddelta = np.zeros((n_i, 3))
+    du_dparallax = np.zeros((n_i, 3))
+    du_dmualpha = np.zeros((n_i, 3))
+    du_dmudelta = np.zeros((n_i, 3))
     # du_ds = np.zeros()
 
     for j, t_l in enumerate(observation_times):
         # t_l being the observation time
         p, q, r = ft.compute_pqr(source.alpha, source.delta)  # alpha delta of this source and observation
-        p[j] = p
-        q[j] = q
-        r[j] = r
+        p = np.expand_dims(p, axis=0)
+        q = np.expand_dims(q, axis=0)
+        r = np.expand_dims(r, axis=0)
+        b_G = np.expand_dims(satellite.ephemeris_bcrs(t_l), axis=0).transpose()
         t_ep = 0  # TODO: define t_ep (which time ha been chosen?) here 0 by default
-        t_B = t_l + np.transpose(r) * satellite.ephemeris_bcrs(t_l) / const.c
+        t_B = t_l + np.dot(r, b_G) / const.c
         tau = t_B - t_ep
         Au = 1  # TODO: Check what kind of au we should use
 
         # Compute derivatives
         du_dalpha[j] = p
         du_ddelta[j] = q
-        du_dparallax[j] = (np.eye(3) - r * np.transpose(r)) * satellite.ephemeris_bcrs(t_l) / Au
+        tmp = (np.eye(3) - r @ np.transpose(r)) @ b_G / Au
+        print('shape tmp: {}'.format(t_B.shape))
+        du_dparallax[j] = tmp.transpose()
         du_dmualpha[j] = p*tau
         du_dmudelta[j] = q*tau
 
@@ -117,6 +120,8 @@ def du_ds_tilde(source, satellite, observation_times):
                       du_dparallax,
                       du_dmualpha,
                       du_dmudelta])
+    print('du_dalpha.shape: {}'.format(du_dalpha.shape))
+    print('du_ds.shape: {}'.format(du_ds.shape))
     return du_ds
 
 
