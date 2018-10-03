@@ -6,8 +6,11 @@
 # LucaZampieri 2018
 
 import numpy as np
+import matplotlib.pylab as plt
+import scipy.sparse as sps
 
 
+# Only need numpy as np
 def compute_angle(v1, v2):
     """
     Computes the angle between two Vectors
@@ -17,6 +20,7 @@ def compute_angle(v1, v2):
     return np.arccos(np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2)))
 
 
+# Only need numpy as np
 def compute_intersection(x1, y1, x2, y2, x3, y3, x4, y4, segment=True):
     """
     Return intersection of two lines (or segments) if it exists, raise an error otherwise.
@@ -75,3 +79,12 @@ def compute_intersection(x1, y1, x2, y2, x3, y3, x4, y4, segment=True):
             error_msg.append('Conditions are: 1:{} 2:{} 3:{} 4:{}'.format(cond_1, cond_2, cond_3, cond_4))
 
     return (x_intersection, y_intersection), error_msg
+
+
+# import matplotlib.pylab as plt
+# import scipy.sparse as sps
+def plot_sparse():
+    A = sps.rand(10000, 10000, density=0.00001)
+    M = sps.csr_matrix(A)
+    plt.spy(M)
+    plt.show()
