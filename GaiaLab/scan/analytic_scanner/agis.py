@@ -85,12 +85,14 @@ def du_ds_tilde(source, satellite, observation_times):
     # TODO: Consider writing this function with autograd
     # In this function consider all u as being ũ! (for notation we call them here u)
     # Values needed to compute the derivatives
+    n_i = len(observation_times)  # the number of observations
 
-    du_dalpha = np.zeros(())
-    du_ddelta =
-    du_dparallax =
-    du_dmualpha = p*tau
-    du_dmudelta = q*tau
+    du_dalpha = np.zeros((n_i, 1))
+    du_ddelta = np.zeros((n_i, 1))
+    du_dparallax = np.zeros((n_i, 1))
+    du_dmualpha = np.zeros((n_i, 1))
+    du_dmudelta = np.zeros((n_i, 1))
+    # du_ds = np.zeros()
 
     for j, t_l in enumerate(observation_times):
         # t_l being the observation time
@@ -98,15 +100,17 @@ def du_ds_tilde(source, satellite, observation_times):
         p[j] = p
         q[j] = q
         r[j] = r
-
+        t_ep = 0  # TODO: define t_ep (which time ha been chosen?) here 0 by default
         t_B = t_l + np.transpose(r) * satellite.ephemeris_bcrs(t_l) / const.c
-        tau = t_B - t_ep  # TODO: define t_ep!
-    # Compute derivatives
-    du_dalpha = p
-    du_ddelta = q
-    du_dparallax = (np.eye(3) - r * np.transpose(r)) * b_G(t_l) / A_u
-    du_dmualpha = p*tau
-    du_dmudelta = q*tau
+        tau = t_B - t_ep
+        Au = 1  # TODO: Check what kind of au we should use
+
+        # Compute derivatives
+        du_dalpha[j] = p
+        du_ddelta[j] = q
+        du_dparallax[j] = (np.eye(3) - r * np.transpose(r)) * satellite.ephemeris_bcrs(t_l) / Au
+        du_dmualpha[j] = p*tau
+        du_dmudelta[j] = q*tau
 
     du_ds = np.array([du_dalpha,
                       du_ddelta,
