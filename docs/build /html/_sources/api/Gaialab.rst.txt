@@ -1,0 +1,13 @@
+Gaialab package
+===================
+
+Submodules
+----------
+
+Module contents
+---------------
+
+.. automodule:: Gaialab
+    :members:
+    :undoc-members:
+    :show-inheritance:

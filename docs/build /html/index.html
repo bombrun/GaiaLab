@@ -1,0 +1,180 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Welcome to gaia_toymodel’s documentation! &#8212; gaia_toymodel 0.0.1 documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script async="async" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="welcome-to-gaia-toymodel-s-documentation">
+<h1>Welcome to gaia_toymodel’s documentation!<a class="headerlink" href="#welcome-to-gaia-toymodel-s-documentation" title="Permalink to this headline">¶</a></h1>
+<div class="toctree-wrapper compound">
+</div>
+<div class="section" id="documentation-for-the-code">
+<h2>Documentation for the Code<a class="headerlink" href="#documentation-for-the-code" title="Permalink to this headline">¶</a></h2>
+</div>
+</div>
+<div class="section" id="useful-1-auto-members">
+<h1>useful #1 – auto members<a class="headerlink" href="#useful-1-auto-members" title="Permalink to this headline">¶</a></h1>
+<p>This is something I want to say that is not in the docstring.</p>
+<span class="target" id="module-GaiaLab.scan.analytic_scanner.constants"></span><dl class="function">
+<dt id="GaiaLab.scan.analytic_scanner.constants.test__">
+<code class="descclassname">GaiaLab.scan.analytic_scanner.constants.</code><code class="descname">test__</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/GaiaLab/scan/analytic_scanner/constants.html#test__"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#GaiaLab.scan.analytic_scanner.constants.test__" title="Permalink to this definition">¶</a></dt>
+<dd><p>This is a test</p>
+</dd></dl>
+
+</div>
+<div class="section" id="useful-2-explicit-members">
+<h1>useful #2 – explicit members<a class="headerlink" href="#useful-2-explicit-members" title="Permalink to this headline">¶</a></h1>
+<p>This is something I want to say that is not in the docstring.</p>
+<span class="target" id="module-GaiaLab.scan.analytic_scanner.quaternion"></span><p>This is a file</p>
+<dl class="class">
+<dt id="GaiaLab.scan.analytic_scanner.quaternion.Quaternion">
+<em class="property">class </em><code class="descclassname">GaiaLab.scan.analytic_scanner.quaternion.</code><code class="descname">Quaternion</code><span class="sig-paren">(</span><em>w</em>, <em>x</em>, <em>y</em>, <em>z</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/GaiaLab/scan/analytic_scanner/quaternion.html#Quaternion"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#GaiaLab.scan.analytic_scanner.quaternion.Quaternion" title="Permalink to this definition">¶</a></dt>
+<dd><p>Quaternion class implemented to allow manipulation of quaternions with
+each other, matrices (including, where appropriate, vectors) and scalars.</p>
+<p>Declare a quaternion of the form q = w + xi + yj +zk by</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">q</span> <span class="o">=</span> <span class="n">Quaternion</span><span class="p">(</span><span class="n">w</span><span class="p">,</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">,</span><span class="n">z</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Addition, subtraction, multiplication and division are all supported natively
+between quaternions and where appropriate with other data types.</p>
+<p>Transformation of quaternions is also supported:</p>
+<p>Normalised unit quaternion:     &gt;&gt;&gt; q_u = q.unit()
+Conjugate of q:                 &gt;&gt;&gt; q_c = q.conjugate()
+Reciprocal or inverse of q:     &gt;&gt;&gt; q_r = q.reciprocal() or &gt;&gt;&gt; q_i = q.inverse(). They are equivalent.</p>
+<p>Tolerance can be applied to the unit quaternion function to determine the
+unit quaternion to a desired accuracy.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">q_u</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">unit</span><span class="p">(</span><span class="n">tolerance</span><span class="o">=</span><span class="mf">0.0001</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="method">
+<dt id="GaiaLab.scan.analytic_scanner.quaternion.Quaternion.unit">
+<code class="descname">unit</code><span class="sig-paren">(</span><em>tolerance=0</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/GaiaLab/scan/analytic_scanner/quaternion.html#Quaternion.unit"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#GaiaLab.scan.analytic_scanner.quaternion.Quaternion.unit" title="Permalink to this definition">¶</a></dt>
+<dd><p>do something</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt>
+<em class="property">class </em><code class="descclassname">GaiaLab.scan.analytic_scanner.quaternion.</code><code class="descname">Quaternion</code><span class="sig-paren">(</span><em>w</em>, <em>x</em>, <em>y</em>, <em>z</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/GaiaLab/scan/analytic_scanner/quaternion.html#Quaternion"><span class="viewcode-link">[source]</span></a></dt>
+<dd><p>Quaternion class implemented to allow manipulation of quaternions with
+each other, matrices (including, where appropriate, vectors) and scalars.</p>
+<p>Declare a quaternion of the form q = w + xi + yj +zk by</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">q</span> <span class="o">=</span> <span class="n">Quaternion</span><span class="p">(</span><span class="n">w</span><span class="p">,</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">,</span><span class="n">z</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Addition, subtraction, multiplication and division are all supported natively
+between quaternions and where appropriate with other data types.</p>
+<p>Transformation of quaternions is also supported:</p>
+<p>Normalised unit quaternion:     &gt;&gt;&gt; q_u = q.unit()
+Conjugate of q:                 &gt;&gt;&gt; q_c = q.conjugate()
+Reciprocal or inverse of q:     &gt;&gt;&gt; q_r = q.reciprocal() or &gt;&gt;&gt; q_i = q.inverse(). They are equivalent.</p>
+<p>Tolerance can be applied to the unit quaternion function to determine the
+unit quaternion to a desired accuracy.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">q_u</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">unit</span><span class="p">(</span><span class="n">tolerance</span><span class="o">=</span><span class="mf">0.0001</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="method">
+<dt>
+<code class="descname">unit</code><span class="sig-paren">(</span><em>tolerance=0</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/GaiaLab/scan/analytic_scanner/quaternion.html#Quaternion.unit"><span class="viewcode-link">[source]</span></a></dt>
+<dd><p>do something</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h1>
+<ul class="simple">
+<li><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></li>
+<li><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></li>
+<li><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></li>
+</ul>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="#">gaia_toymodel</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="#">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2018, Alex Bombrun, Toby James, mdelvallevaro, LucaZampieri.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.11</a>
+      
+      |
+      <a href="_sources/index.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
