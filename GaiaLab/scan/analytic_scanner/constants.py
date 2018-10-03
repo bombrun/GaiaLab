@@ -14,6 +14,7 @@ rad_per_mas = 2*np.pi/(1000*360*3600)  # [radiants/mas] radiants per milli-arcse
 km_per_pc = 3.24078e-14  # [km/pc] kilometers per parsec
 sec_per_day = 3600*24  # [sec/day] seconds per day
 AU_per_pc = 4.8481705933824e-6  # [au/pc] austronomical unit per parsec
+c = 299.792458e6  # [m/s]
 
 # # Proper to Gaia
 # constant specific to gaia that have been chosen. (see e.g. )

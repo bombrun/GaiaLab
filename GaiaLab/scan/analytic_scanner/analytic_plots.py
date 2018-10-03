@@ -176,7 +176,7 @@ def plot_prediction_VS_reality(source, satellite, scan, num_observations=0, angl
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 8))
 
-    # Set the number of observations we want t0 plot
+    # Set the number of observations we want to plot
     if num_observations != 0:
         obs_times = scan.obs_times[0:num_observations]
     else:

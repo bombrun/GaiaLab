@@ -224,6 +224,7 @@ class Satellite:
         """
         Defines the orbit of the satellite around the sun
         Returns the barycentric ephemeris of the Gaia satellite at time t.
+        Equivalently written b_G(t)
 
         :param t: float [days]
         :return: 3D np.array [AU]
@@ -592,10 +593,8 @@ class Scanner:
         # remove identical duplicates
         print('original obs_times: {}'.format(self.obs_times))
         self.obs_times = list(set(self.obs_times))
+        self.obs_times.sort()  # to leave them in increasing order
         print('identical duplicates removal obs_time: {}'.format(self.obs_times))
-
-        # remove close observations
-        self.obs_times.sort()
 
 
 def phi(source, att, t):
