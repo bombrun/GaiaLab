@@ -1,10 +1,12 @@
-# # Constant storage file
-#
-# File containing the constants that will be used in the other files. This will
-# allow to avoid "magic numbers" in the code and also to easily change these
-# constants if we later need them more or less precises
-#
-# Luca Zampieri 2018
+"""
+Constant storage file
+
+File containing the constants that will be used in the other files. This will
+allow to avoid "magic numbers" in the code and also to easily change these
+constants if we later need them more or less precises
+
+author:: Luca Zampieri 2018
+"""
 
 import numpy as np
 
@@ -25,3 +27,10 @@ Gamma_c = 106.5  # [deg] basic angle, Gamma_c = arccos(f_p' f_F)
 xi = 55  # [deg] angle between the z-axis and s (s being the nominal sun direction)
 S = 4.035  # [deg/day] for a xi of 55°. S=|dz/dlambda|
 w_z = 120  # [arcsec/s] z component of the inertial spin vector w (small omega)
+
+
+def test__():
+    """
+    This is a test
+    """
+    pass
