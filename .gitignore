@@ -1,5 +1,6 @@
 # Specific files to ignore:
 notebooks/figures/tmp/*
+data/*
 
 
 # Byte-compiled / optimized / DLL files
