@@ -72,6 +72,18 @@ def coordinates_direction_to_proper_direction():
     return coeff * du_ds_tilde()
 
 
+def compute_coordinate_direction(source):
+    """
+    Compute ũ_i(t) which is the coordinate direction. Once taken into account the
+    aberration of light this represents the proper direction of the source.
+    All in the xyz frame (ICRS)
+    """
+    p, q, r = ft.compute_pqr(source.alpha, source.delta)
+    my_vector = r + (t_B - t_ep) * (p * mu_alpha + q * mu_delta + r * mu_r) - parallax * b_G / Au
+    my_direction = my_vector/np.norm(my_vector)
+    return my_direction
+
+
 def compute_du_ds_tilde(source, satellite, observation_times):
     """
     Compute dũ_ds far a given source

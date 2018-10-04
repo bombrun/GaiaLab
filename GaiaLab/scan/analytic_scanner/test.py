@@ -1,8 +1,11 @@
-# # test.py
-#
-# test for the autograd module
-#
-# #
+"""
+test.py
+
+test for the autograd module
+
+author: LucaZampieri
+"""
+
 from __future__ import absolute_import
 from __future__ import print_function
 import autograd.numpy as np   # Thinly-wrapped version of Numpy
@@ -74,7 +77,9 @@ if __name__ == '__main__':
         return np.sum(lse)
 
     grad_of_example = grad(example_func)
-    print("Gradient: \n", grad_of_example(npr.randn(10)))
+    my_array = np.linspace(-10, 10, 10)
+    print(my_array.shape)
+    print("Gradient: \n", grad_of_example(my_array))
 
     # Check the gradients numerically, just to be safe.
-check_grads(example_func, modes=['rev'])(npr.randn(10))
+check_grads(example_func, modes=['rev'])(my_array)

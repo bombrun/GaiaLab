@@ -11,8 +11,6 @@ Contain the classes:
 - Source
 - Scanner
 - Satellite
-- Attitude <-- child of Satellite
-
 This work has been inspired by what has been found in the following notes and
 papers:
 - (Lindegren, SAG-LL-14)
