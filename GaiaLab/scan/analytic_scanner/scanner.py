@@ -65,11 +65,9 @@ class Scanner:
         self.wide_scan(sat, source, ti, tf)
         print('Finished wide_scan!')
 
-        print('Starting coarse_scan with time from {} to {} days'.format(ti, tf))
         self.coarse_scan(sat, source, ti, tf)
         print('Finished coarse_scan!')
 
-        print('Starting fine_scan:')
         self.fine_scan(sat, source)
         print('Finished fine_scan!')
 
@@ -95,8 +93,8 @@ class Scanner:
             if angle_source_xaxis < self.wide_angle:
                 self.times_wide_scan.append(t)
         time_wide = time.time()  # time after wide scan
-        print('wide scan lasted {} seconds'.format(time_wide - t_0))
-        print('Found {} times with wide scan'.format(len(self.times_wide_scan)))
+        print('wide scan lasted {} seconds, found {} times with wide scan'
+              .format(time_wide - t_0, len(self.times_wide_scan)))
 
         # # Alternative way to do it:
         # my_ts = np.arange(ti, tf, step_wide)
@@ -117,8 +115,8 @@ class Scanner:
                 if np.arccos(np.dot(to_star_unit, sat.func_x_axis_lmn(t))) < self.coarse_angle:
                     self.times_coarse_scan.append(t)
         time_coarse = time.time()  # time after coarse scan
-        print('Coarse scan lasted {} seconds'.format(time_coarse - t_0))
-        print('Found {} times with coarse scan'.format(len(self.times_coarse_scan)))
+        print('Coarse scan lasted {} seconds, found {} times with coarse scan'
+              .format(time_coarse - t_0, len(self.times_coarse_scan)))
 
     # fine_scan function
     def fine_scan(self, sat, source, tolerance=1e-3):
@@ -167,6 +165,8 @@ class Scanner:
             if optimize_root.success:
                 self.times_optimize.append(float(optimize_root.x))
                 self.optimize_roots.append(optimize_root)
+                # TODO: optimize the z-coordinate
+                # optimize_z = optimize.minimize(z, i, method='COBYLA', constraints=[con1, con2])
         time_optimize_root = time.time()  # time after wide scan
         print('phi_minimization lasted {} seconds'.format(time_optimize_root - t_0))
 
@@ -180,7 +180,7 @@ class Scanner:
         print('wide scan lasted {} seconds'.format(time_phi_root - t_0))
 
         # remove identical duplicates
-        print('original obs_times: {}'.format(self.obs_times))
+        print('original obs_times: {}'.format(len(self.obs_times)))
         self.obs_times = list(set(self.obs_times))
         self.obs_times.sort()  # to leave them in increasing order
-        print('identical duplicates removal obs_time: {}'.format(self.obs_times))
+        print('identical duplicates removal obs_time: {}'.format(len(self.obs_times)))

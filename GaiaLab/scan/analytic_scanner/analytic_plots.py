@@ -16,6 +16,7 @@ import matplotlib as mpl
 from matplotlib import collections as mc
 import numpy as np
 import matplotlib.pyplot as plt
+import mpl_toolkits.mplot3d.axes3d
 
 # Local imports
 import constants as const
@@ -262,6 +263,7 @@ def plot_prediction_VS_reality(source, satellite, scan, num_observations=0, angl
 
 
 def plot_phi(source, sat, ti=0, tf=90, n=1000):
+    styles = ['b.--', 'r.']
     times_total = np.linspace(ti, tf, n)
     phi_list = []
     eta_list = []
@@ -270,19 +272,19 @@ def plot_phi(source, sat, ti=0, tf=90, n=1000):
         eta_list.append(eta_value)
         phi_list.append(phi_value)
 
-    plt.figure(1)
-    plt.plot(times_total, phi_list, 'b.')
+    fig1 = plt.figure(1)
+    plt.plot(times_total, phi_list, styles[0])
     plt.hlines(0, xmin=times_total[0], xmax=times_total[-1], color='g')
     plt.xlabel('time [days]')
     plt.ylabel('Phi [rad]')
 
-    plt.figure(2)
-    plt.plot(times_total, eta_list, 'r.')
+    fig2 = plt.figure(2)
+    plt.plot(times_total, eta_list, styles[1])
     plt.hlines(0, xmin=times_total[0], xmax=times_total[-1], color='g')
     plt.xlabel('time [days]')
     plt.ylabel('Eta[rad]')
 
-    plt.show()
+    return fig1, fig2
 
 
 def plot_eta_over_phi(source, sat, ti=0, tf=90, n=1000):
