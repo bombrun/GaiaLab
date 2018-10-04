@@ -1,10 +1,16 @@
-# # Helper functions for the analytic scanner
-#
-# Contains:
-#   - compute_intersection
-#   - compute_angle
-# LucaZampieri 2018
+"""
+File helpers.py
 
+Helper functions for the analytic scanner
+
+Contains:
+    - compute_intersection
+    - compute_angle
+
+author: LucaZampieri 2018
+"""
+
+# # Imports
 import numpy as np
 import matplotlib.pylab as plt
 import scipy.sparse as sps

@@ -8,6 +8,7 @@ constants if we later need them more or less precises
 author:: Luca Zampieri 2018
 """
 
+# # Imports
 import numpy as np
 
 # General
