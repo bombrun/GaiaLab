@@ -10,28 +10,31 @@ modified by: LucaZampieri
 Plot helper functions, and other helper functions
 """
 
-# lib imports
+# # Imports
+# Global imports
 import matplotlib as mpl
 from matplotlib import collections as mc
 import numpy as np
 import matplotlib.pyplot as plt
 
-# local imports
-from quaternion import Quaternion
-import frame_transformations as ft
-import gaia_analytic_toymodel as ggs
+# Local imports
 import constants as const
 import helpers as helpers
+import frame_transformations as ft
+from quaternion import Quaternion
+from source import Source
+from satellite import Satellite
+from scanner import Scanner
 
 
-def plot_attitude(att, ti, tf, n_points=1000, figsize=(9, 5)):
+def plot_attitude(sat, ti, tf, n_points=1000, figsize=(9, 5)):
     """
     L.Lindegren, SAG_LL_35, Figure 1.
-    %run: plot_attitude(att, 0, 80, 0.01)
+    %run: plot_Satellite(sat, 0, 80, 0.01)
     L.Lindegren, SAG_LL_35, Figure 2.
-    %run: plot_attitude(att, 0, 1, 0.01)
+    %run: plot_Satellite(sat, 0, 1, 0.01)
 
-    :param att: gaia satellite, attitude object
+    :param sat: gaia satellite, Satellite object
     :param ti: initial time [days]
     :param tf: final time [days]
     :param n_points: number of points to be plotted of the function
@@ -46,10 +49,10 @@ def plot_attitude(att, ti, tf, n_points=1000, figsize=(9, 5)):
      the numerical methods calculation for geometric_plots.plot_attitude
      function.
     """
-    if isinstance(att, ggs.Attitude) is False:
-        raise TypeError('att is not an Attitude object.')
+    if isinstance(sat, Satellite) is False:
+        raise TypeError('sat is not an Satellite object.')
     times = np.linspace(ti, tf, n_points)
-    attitudes = [att.func_attitude(t) for t in times]
+    attitudes = [sat.func_attitude(t) for t in times]
 
     qw_list = [obj.w for obj in attitudes]
     qx_list = [obj.x for obj in attitudes]
@@ -82,14 +85,14 @@ def plot_attitude(att, ti, tf, n_points=1000, figsize=(9, 5)):
 def plot_observations(source, satellite, scan):
     """
     :param source: source scanned (object)
-    :param satellite: Attitude object
+    :param satellite: Satellite object
     :param scan: scan object
     :return: plot of position of observations and their error bars.
     """
 
-    if isinstance(satellite, ggs.Attitude) is False:
-        raise TypeError('satellite is not an Attitude object.')
-    if isinstance(scan, ggs.Scanner) is False:
+    if isinstance(satellite, Satellite) is False:
+        raise TypeError('satellite is not an Satellite object.')
+    if isinstance(scan, Scanner) is False:
         raise TypeError('scan is not an Scanner object.')
 
     alphas_obs = []
@@ -151,16 +154,16 @@ def plot_observations(source, satellite, scan):
 def plot_prediction_VS_reality(source, satellite, scan, num_observations=0, angle_tolerance=0.1):
     """
     :param source: source scanned (object)
-    :param satellite: Attitude object
+    :param satellite: Satellite object
     :param scan: scan object
     :param num_observations: number of observation we want to plot
     :param
     :return: plot of position of observations and their error bars.
     """
 
-    if isinstance(satellite, ggs.Attitude) is False:
-        raise TypeError('satellite is not an Attitude object.')
-    if isinstance(scan, ggs.Scanner) is False:
+    if isinstance(satellite, Satellite) is False:
+        raise TypeError('satellite is not an Satellite object.')
+    if isinstance(scan, Scanner) is False:
         raise TypeError('scan is not an Scanner object.')
 
     alphas_obs = []
@@ -258,12 +261,12 @@ def plot_prediction_VS_reality(source, satellite, scan, num_observations=0, angl
     return fig
 
 
-def plot_phi(source, att, ti=0, tf=90, n=1000):
+def plot_phi(source, sat, ti=0, tf=90, n=1000):
     times_total = np.linspace(ti, tf, n)
     phi_list = []
     eta_list = []
     for t in times_total:
-        phi_value, eta_value = ggs.phi(source, att, t)
+        phi_value, eta_value = phi(source, sat, t)
         eta_list.append(eta_value)
         phi_list.append(phi_value)
 
@@ -282,12 +285,12 @@ def plot_phi(source, att, ti=0, tf=90, n=1000):
     plt.show()
 
 
-def plot_eta_over_phi(source, att, ti=0, tf=90, n=1000):
+def plot_eta_over_phi(source, sat, ti=0, tf=90, n=1000):
     times_total = np.linspace(ti, tf, n)
     phi_list = []
     eta_list = []
     for t in times_total:
-        phi_value, eta_value = ggs.phi(source, att, t)
+        phi_value, eta_value = phi(source, sat, t)
         eta_list.append(eta_value)
         phi_list.append(phi_value)
 
@@ -299,15 +302,15 @@ def plot_eta_over_phi(source, att, ti=0, tf=90, n=1000):
     plt.show()
 
 
-def plot_eta_over_phi_day(source, att, ti=0, tf=90, n=1000, day=45):
+def plot_eta_over_phi_day(source, sat, ti=0, tf=90, n=1000, day=45):
     times_total = np.linspace(ti, tf, n)
     phi_list = []
     eta_list = []
     for t in times_total:
-        phi_value, eta_value = ggs.phi(source, att, t)
+        phi_value, eta_value = phi(source, sat, t)
         eta_list.append(eta_value)
         phi_list.append(phi_value)
-    phi_actual, eta_actual = ggs.phi(source, att, day)
+    phi_actual, eta_actual = phi(source, sat, day)
 
     p = plt.figure(1)
     plt.plot(phi_list, eta_list, 'b,')
@@ -321,15 +324,15 @@ def plot_eta_over_phi_day(source, att, ti=0, tf=90, n=1000, day=45):
 def plot_stars_trajectory(source, satellite):
     """
     :param source: source object
-    :param satellite: attitude object
+    :param satellite: Satellite object
     :param t_total: total time for which the trajectory is desired [days] from
      J2000.
     :return: plot of the star trajectory in the lmn-frame.
     """
-    if isinstance(source, ggs.Source) is False:
+    if isinstance(source, Source) is False:
         raise TypeError('source is not an Source object.')
-    if isinstance(satellite, ggs.Attitude) is False:
-        raise TypeError('satellite is not an Attitude object.')
+    if isinstance(satellite, Satellite) is False:
+        raise TypeError('satellite is not an Satellite object.')
 
     time_total = satellite.storage[-1][0]
 
@@ -386,15 +389,15 @@ def plot_stars_trajectory(source, satellite):
 def plot_stars_trajectory_3D(source, satellite):
     """
     :param source: source object
-    :param satellite: attitude object
+    :param satellite: Satellite object
     :param t_total: total time for which the trajectory is desired [days] from
      J2000.
     :return: plot of the star trajectory in the lmn-frame.
     """
-    if isinstance(source, ggs.Source) is False:
+    if isinstance(source, Source) is False:
         raise TypeError('source is not an Source object.')
-    if isinstance(satellite, ggs.Attitude) is False:
-        raise TypeError('satellite is not an Attitude object.')
+    if isinstance(satellite, Satellite) is False:
+        raise TypeError('satellite is not an Satellite object.')
 
     time_total = satellite.storage[-1][0]
 
@@ -432,11 +435,11 @@ def plot_stars_trajectory_3D(source, satellite):
     plt.show()
 
 
-def plot_3D_scanner_pos(att, axis, ti, tf, n_points=1000, elevation=10, azimuth=10):
+def plot_3D_scanner_pos(sat, axis, ti, tf, n_points=1000, elevation=10, azimuth=10):
     """
-    %run: plot_3D_scanner_pos(att, 'X', 0, 365*5, 0.1)
+    %run: plot_3D_scanner_pos(sat, 'X', 0, 365*5, 0.1)
 
-    :param att: attitude object
+    :param sat: Satellite object
     :param ti: initial time [float][days]
     :param tf: final time [float][days]
     :param n_points: number of points to be plotted [int]
@@ -445,8 +448,8 @@ def plot_3D_scanner_pos(att, axis, ti, tf, n_points=1000, elevation=10, azimuth=
     :return: plot of the position of the given axis (unitary) of the scanner wrt
      LMN frame.
     """
-    if isinstance(att, ggs.Attitude) is False:
-        raise TypeError('att is not an Attitude object.')
+    if isinstance(sat, Satellite) is False:
+        raise TypeError('sat is not an Satellite object.')
     if type(ti) not in [int, float]:
         raise TypeError('ti must be non-negative real numbers.')
     if type(tf) not in [int, float]:
@@ -464,11 +467,11 @@ def plot_3D_scanner_pos(att, axis, ti, tf, n_points=1000, elevation=10, azimuth=
 
     times = np.linspace(ti, tf, n_points)
     if axis == 'X':
-        axis_list = [att.func_x_axis_lmn(t) for t in times]
+        axis_list = [sat.func_x_axis_lmn(t) for t in times]
         label_ = 'X vector rotation'
         style_ = 'b,'
     elif axis == 'Z':
-        axis_list = [att.func_z_axis_lmn(t) for t in times]
+        axis_list = [sat.func_z_axis_lmn(t) for t in times]
         label_ = 'Z vector rotation'
         style_ = 'r,'
 
@@ -494,19 +497,83 @@ def plot_3D_scanner_pos(att, axis, ti, tf, n_points=1000, elevation=10, azimuth=
 
 
 # Draft of helper functions
-"""
-def get_var_name(var):
-    dict((name, eval(name)) for name in ['Source', 'sirio'])
-    return var_name
+def phi(source, sat, t):
+    """
+    Calculates the diference between the x-axis of the satellite and the direction vector to the star.
+    Once this is calculated, it checks how far away is in the alpha direction (i.e. the y-component) wrt IRS.
+    :param source: Source [object]
+    :param sat: Satellite [object]
+    :param t: time [float][days]
+    :return: [float] angle, alpha wrt IRS.
+    """
+    t = float(t)
+    u_lmn_unit = source.unit_topocentric_function(sat, t)
+    phi_value_lmn = u_lmn_unit - sat.func_x_axis_lmn(t)
+    phi_value_xyz = ft.lmn_to_xyz(sat.func_attitude(t), phi_value_lmn)
+    phi = np.arcsin(phi_value_xyz[1])
+    eta = np.arcsin(phi_value_xyz[2])
+    return phi, eta
 
-def f(x):
-    return {
-        'a': 1,
-        'b': 2
-    }.get(x, 9)    # 9 is default if x not found
+################################################################################
+# Undefined functions
 
-def test_if_object(object, Instance_str):
-    if Instance_str == 'Source'
-        if not isinstance(object, Instance):
-            raise TypeError("Unable to broadcast object of type {} to type {}.".format(type(object), type(Instance)))
-"""
+
+def run():
+    """
+    Create the objects source for Sirio, Vega and Proxima as well
+    as the corresponding scanners and the satellite object of Gaia.
+    Then scan the sources from Gaia and print the time.
+    :return: gaia, sirio, scanSirio, vega, scanVega, proxima, scanProxima
+    """
+    start_time = time.time()
+    sirio = Source("sirio", 101.28, -16.7161, 379.21, -546.05, -1223.14, -7.6)
+    vega = Source("vega", 279.2333, 38.78, 128.91, 201.03, 286.23, -13.9)
+    proxima = Source("proxima", 217.42, -62, 768.7, 3775.40, 769.33, 21.7)
+
+    scanSirio = Scanner(np.radians(20), np.radians(2))
+    scanVega = Scanner(np.radians(20), np.radians(2))
+    scanProxima = Scanner(np.radians(20), np.radians(2))
+    gaia = Satellite()
+    print(time.time() - start_time)
+
+    scanSirio.start(gaia, sirio)
+    scanVega.start(gaia, vega)
+    scanProxima.start(gaia, proxima)
+    print(time.time() - start_time)
+
+    seconds = time.time() - start_time
+    print('Total seconds:', seconds)
+    return gaia, sirio, scanSirio, vega, scanVega, proxima, scanProxima
+
+
+################################################################################
+# # isInstance functions
+# this function should not be used
+def test_is_satellite(other):
+    """ Tests if (other) is of type satellite. Raise exception otherwise.
+    """
+    if not isinstance(other, Satellite):
+        raise TypeError('{} is not an Satellite object'.format(type(other)))
+    else:
+        pass
+
+
+# not used yet
+def test_object_type(other, type_str):
+    """
+    Tests if (other) is of type (type_str). Raise exception otherwise.
+    :param other: Variable which type should be tested
+    :param type_str: [str] string containing the object type we want to test.
+    """
+
+    possible_types = {"Source": Source,
+                      "Satellite": Satellite,
+                      "Satellite": Satellite,
+                      "Scanner": Scanner}
+    if type_str not in possible_types:
+        raise TypeError('Expected type "{}" is not part of the possible_types'.format(type_str))
+
+    expected_type = possible_types[type_str]
+
+    if not isinstance(other, expected_type):
+        raise TypeError('Type "{}" is not "{}"'.format(type(other), type_str))
