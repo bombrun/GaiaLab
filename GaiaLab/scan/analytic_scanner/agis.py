@@ -14,7 +14,7 @@ import frame_transformations as ft
 import constants as const
 from satellite import Satellite
 from source import Source
-from analytic_plots import phi
+from agis_functions import *
 
 # global modules
 import numpy as np
@@ -62,7 +62,7 @@ class Agis:
         Also contains:
         **Temporary variables**
         self.astro_param : the astronometric parameters for the source we're examining
-        self.obs_times
+        self.obs_times : the observation times for a given source
         **Variables**
         """
         self.verbose = verbose
@@ -72,19 +72,35 @@ class Agis:
         num_parameters_per_sources = 5  # the astronomic parameters
         s_vector = np.zeros((len(self.sources)*num_parameters_per_sources, 1))
         self.N_ss = np.zeros((s_vector*np.transpose(s_vector)).shape)
-        self.__init_N_ss()
+        # Call self.init_blocks()
         # print('The shape of N_ss is {}'.format(N_ss.shape))
 
         # N_aa =
+    def init_blocks(self):
+        """
+        Initialize the block
+        """
+        if self.verbose:
+            print('initializing N_ss of shape: {}'.format(self.N_ss.shape))
+        self.__init_N_ss()
+        self.__init_N_aa()
+
     def __init_N_ss(self):
-        for i in range(self.N_ss.shape[0]):
-            for j in range(self.N_ss.shape[1]):
-                # for loop can be removed by looping just over i and saying N_ss[i,i]
-                # (i.e. no need for "if" neither)
-                if i == j:
-                    self.N_ss[i, j] = 0  #
-                else:
-                    self.N_ss[i, j] = 0
+        """ initialize the matrix N_ss """
+
+        for i in range(0, self.N_ss.shape[0], 5):  # Nss is symmetric and square
+            dR_ds_AL, dR_ds_AC = self.dR_ds()
+            dR_ds = dR_ds_AC  # TODO: this is a simplicfication, make it real later
+            W = np.eye(5)  # TODO: implement the weighting factor
+            self.N_ss[i*5:i*5+5, i*5:i*5+5] = dR_ds.transpose() @ dR_ds @ W  # should we use np.sum?
+            # The rest of N_ss are zero by initialisation
+
+    def __init_N_aa(self):
+        """
+
+        """
+        pass
+
 
     def compute_source_observations_parameters(self, obs_times, source_num=0):
         """
@@ -196,6 +212,13 @@ class Agis:
             print('S_du_ds shape: {}'.format(S_du_ds.shape))
         return S_du_ds
 
+    def du_ds(self):
+        """
+        returns the derivative of the proper direction w.r.t. the astronomic
+        parameters.
+        """
+        return self.coordinates_direction_to_proper_direction()
+
     def C_du_ds_to_S_du_ds(self, C_du_ds):
         """
         rotate the frame from CoRMS (lmn) to SRS (xyz) for du_ds
@@ -208,19 +231,36 @@ class Agis:
 
         return S_du_ds
 
-    def dR_ds(self, kind='AL'):
+    def dR_ds_L(self):
+        """
+        Computes the derivative of the error (R^AL_l) wrt the 5 astronomic parameters
+        s_i transposed. Per each observation L
+        """
+
+    def dR_ds(self):
         """
         Computes the derivative of the error (R^AL_l) wrt the 5 astronomic parameters
         s_i transposed.
         :param kind: either AL for ALong scan direction or AC for ACross scan direction
         :returns:
         """
+
         def sec(x):
+            """Should be stable since x close to 0"""
             return 1/np.cos(x)
-        if kind == 'AL':
-            dR_ds = -m*self.du_ds()*sec(xi)  # TODO: dont forget the quaternion multiplication
-        elif kind == 'AC':
-            dR_ds = -n*self.du_ds()  # TODO:  dont forget the quaternion multiplication p18
-        else:
-            raise ValueError('parameter "kind" can be either "AL" or "AC", but not {}'.format(kind))
-        return dR_ds
+        source = self.sources[0]  # TODO: make it for multiple sources
+        du_ds = self.du_ds()
+        dR_ds_AL = np.zeros((len(self.obs_times), 5))
+        dR_ds_AC = np.zeros(dR_ds_AL.shape)
+
+        for i, t_L in enumerate(self.obs_times):
+            eta, xi = compute_field_angles(source, self.sat, t_L)
+            m, n, u = compute_mnu(eta, xi)
+            dR_ds_AL[i, :] = -m @ du_ds[:, :, i].transpose() * sec(xi)
+            dR_ds_AC[i, :] = -n @ du_ds[:, :, i].transpose()
+
+        return dR_ds_AL, dR_ds_AC
+
+
+if __name__ == '__main__':
+    print('Executing agis.py as main file')
