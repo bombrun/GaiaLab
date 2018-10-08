@@ -26,6 +26,7 @@ from quaternion import Quaternion
 from source import Source
 from satellite import Satellite
 from scanner import Scanner
+from agis_functions import *
 
 
 def plot_attitude(sat, ti, tf, n_points=1000, figsize=(9, 5)):
@@ -81,6 +82,45 @@ def plot_attitude(sat, ti, tf, n_points=1000, figsize=(9, 5)):
 
     plt.rcParams.update({'font.size': 22})
     plt.show()
+
+
+def plot_star(source, satellite, scan):
+    """
+    :param source: source scanned (object)
+    :param satellite: Satellite object
+    :param scan: scan object
+    :return: plot of position of observations and their error bars.
+    """
+
+    alphas_obs = []
+    deltas_obs = []
+    radius_obs = []
+
+    star_alphas = []
+    star_deltas = []
+    star_radius = []
+
+    z_alphas = []
+    z_deltas = []
+
+    fig = plt.figure()
+
+    for i, t in enumerate(scan.obs_times):
+        source.set_time(t)
+        star_alphas.append(source.alpha)
+        star_deltas.append(source.delta)
+
+    plt.plot(star_alphas, star_deltas, 'b*', label='star')
+    plt.plot([star_alphas[0], star_alphas[-1]], [star_deltas[0], star_deltas[-1]], 'r-', alpha=0.2)
+
+    plt.legend(loc='upper left')
+    plt.title('%s' % source.name)
+    plt.xlabel('alpha [rad]')
+    plt.ylabel('delta [rad]')
+    plt.axis('equal')
+    plt.tight_layout()
+    plt.margins(0.1)
+    return fig
 
 
 def plot_observations(source, satellite, scan):
@@ -287,6 +327,106 @@ def plot_phi(source, sat, ti=0, tf=90, n=1000):
     return fig1, fig2
 
 
+def plot_field_angles(source, sat, obs_times=[], ti=0, tf=90, n=1000):
+    styles = ['b.', 'rs']
+    xi_limit = np.radians(0.5)
+    eta_limit = np.radians(0.5)
+    y_limit = (-xi_limit*10, xi_limit*10)
+    times_total = np.linspace(ti, tf, n)
+    eta_list = []
+    xi_list = []
+    xi_sol_list = []
+    eta_sol_list = []
+    for t in times_total:
+        eta_value, xi_value = compute_field_angles(source, sat, t)
+        eta_list.append(eta_value)
+        xi_list.append(xi_value)
+    for t in obs_times:
+        eta_value, xi_value = compute_field_angles(source, sat, t)
+        eta_sol_list.append(eta_value)
+        xi_sol_list.append(xi_value)
+
+    xi_fig = plt.figure(1)
+    plt.plot(times_total, xi_list, styles[0], label='xi path', alpha=0.5)
+    plt.plot(obs_times, xi_sol_list, styles[1], label='solutions')
+    plt.hlines(0, xmin=times_total[0], xmax=times_total[-1], color='g')
+    plt.hlines(xi_limit, xmin=times_total[0], xmax=times_total[-1], color='g', linestyle='dotted',
+               label='field of view limitation (5°)')
+    plt.hlines(-xi_limit, xmin=times_total[0], xmax=times_total[-1], color='g', linestyle='dotted')
+    plt.xlim(ti, tf)
+    # plt.ylim(y_limit)
+    plt.xlabel('time [days]')
+    plt.ylabel('xi [rad]')
+    plt.grid()
+    plt.legend()
+
+    eta_fig = plt.figure(2)
+    plt.plot(times_total, eta_list, styles[0], label='eta path')
+    plt.plot(obs_times, eta_sol_list, styles[1], label='solutions')
+    plt.hlines(0, xmin=times_total[0], xmax=times_total[-1], color='g')
+    plt.hlines(eta_limit, xmin=times_total[0], xmax=times_total[-1], color='g', linestyle='dotted',
+               label='field of view limitation (5°)')
+    plt.hlines(-eta_limit, xmin=times_total[0], xmax=times_total[-1], color='g', linestyle='dotted')
+    plt.xlim(ti, tf)
+    # plt.ylim(y_limit)
+    plt.xlabel('time [days]')
+    plt.ylabel('Eta[rad]')
+    plt.grid()
+    plt.legend()
+
+    return xi_fig, eta_fig
+
+
+def plot_phi_solutions(source, sat, obs_times, ti=0, tf=90, n=1000):
+    styles = ['b.', 'rs']
+    phi_limit = np.radians(0.5)
+    eta_limit = np.radians(0.5)
+    y_limit = (-phi_limit*10, phi_limit*10)
+    times_total = np.linspace(ti, tf, n)
+    phi_list = []
+    eta_list = []
+    phi_sol_list = []
+    eta_sol_list = []
+    for t in times_total:
+        phi_value, eta_value = phi(source, sat, t)
+        eta_list.append(eta_value)
+        phi_list.append(phi_value)
+    for t in obs_times:
+        phi_value, eta_value = phi(source, sat, t)
+        eta_sol_list.append(eta_value)
+        phi_sol_list.append(phi_value)
+
+    fig1 = plt.figure(1)
+    plt.plot(times_total, phi_list, styles[0], label='phi path', alpha=0.5)
+    plt.plot(obs_times, phi_sol_list, styles[1], label='solutions')
+    plt.hlines(0, xmin=times_total[0], xmax=times_total[-1], color='g')
+    plt.hlines(phi_limit, xmin=times_total[0], xmax=times_total[-1], color='g', linestyle='dotted',
+               label='field of view limitation (5°)')
+    plt.hlines(-phi_limit, xmin=times_total[0], xmax=times_total[-1], color='g', linestyle='dotted')
+    plt.xlim(ti, tf)
+    plt.ylim(y_limit)
+    plt.xlabel('time [days]')
+    plt.ylabel('Phi [rad]')
+    plt.grid()
+    plt.legend()
+
+    fig2 = plt.figure(2)
+    plt.plot(times_total, eta_list, styles[0], label='eta path')
+    plt.plot(obs_times, eta_sol_list, styles[1], label='solutions')
+    plt.hlines(0, xmin=times_total[0], xmax=times_total[-1], color='g')
+    plt.hlines(eta_limit, xmin=times_total[0], xmax=times_total[-1], color='g', linestyle='dotted',
+               label='field of view limitation (5°)')
+    plt.hlines(-eta_limit, xmin=times_total[0], xmax=times_total[-1], color='g', linestyle='dotted')
+    plt.xlim(ti, tf)
+    plt.ylim(y_limit)
+    plt.xlabel('time [days]')
+    plt.ylabel('Eta[rad]')
+    plt.grid()
+    plt.legend()
+
+    return fig1, fig2
+
+
 def plot_eta_over_phi(source, sat, ti=0, tf=90, n=1000):
     times_total = np.linspace(ti, tf, n)
     phi_list = []
@@ -323,7 +463,7 @@ def plot_eta_over_phi_day(source, sat, ti=0, tf=90, n=1000, day=45):
     return p
 
 
-def plot_stars_trajectory(source, satellite):
+def plot_stars_trajectory(source, satellite, obs_times=[]):
     """
     :param source: source object
     :param satellite: Satellite object
@@ -340,17 +480,26 @@ def plot_stars_trajectory(source, satellite):
 
     alphas = []
     deltas = []
+    alphas_sol = []
+    deltas_sol = []
+    times_sol = []
+
     for i in np.arange(0, time_total, 1):
         alpha_obs, delta_obs, delta_alpha_dx_mas, delta_delta_mas = source.topocentric_angles(satellite, i)
         alphas.append(delta_alpha_dx_mas)
         deltas.append(delta_delta_mas)
-
+    for t in obs_times:
+        alpha_obs, delta_obs, delta_alpha_dx_mas, delta_delta_mas = source.topocentric_angles(satellite, t)
+        alphas_sol.append(delta_alpha_dx_mas)
+        deltas_sol.append(delta_delta_mas)
+        times_sol.append(t/const.days_per_year + 2000)  # +2000 do the fact that the reference epoch is J2000
     n = len(alphas)
     times = np.linspace(2000, 2000 + time_total/const.days_per_year, n)
 
     # Styles for the plots
-    path_style = 'b:s'
+    path_style = 'b,'
     origin_style = 'kx'
+    sol_style = 'rs'
 
     fig = plt.figure(figsize=(16, 9))
     ax = fig.add_subplot(121)
@@ -362,6 +511,7 @@ def plot_stars_trajectory(source, satellite):
     ax.plot(alphas, deltas, path_style,
             label=r'%s path' % (source.name), lw=2)
     ax.plot(alphas[0], deltas[0], origin_style, label='origin')
+    ax.plot(alphas_sol, deltas_sol, sol_style, label='solutions')
     ax.set_xlabel(r'$\Delta\alpha*$ [mas]')
     ax.set_ylabel(r'$\Delta\delta$ [mas]')
     ax.axhline(y=0, c='gray', lw=1)
@@ -372,6 +522,7 @@ def plot_stars_trajectory(source, satellite):
     ax1dra = fig.add_subplot(222)
     ax1dra.plot(times, alphas, path_style)
     ax1dra.plot(times[0], alphas[0], origin_style, label='origin')
+    ax1dra.plot(times_sol, alphas_sol, sol_style, label='solutions')
     ax1dra.axhline(y=0, c='gray', lw=1)
     # ax1dra.set_xlabel(r'Time [yr]')
     ax1dra.set_ylabel(r'$\Delta\alpha*$ [mas]')
@@ -381,6 +532,7 @@ def plot_stars_trajectory(source, satellite):
     ax1ddec.axhline(y=0, c='gray', lw=1)
     ax1ddec.plot(times, deltas, path_style)
     ax1ddec.plot(times[0], deltas[0], origin_style, label='origin')
+    ax1ddec.plot(times_sol, deltas_sol, sol_style, label='solutions')
     ax1ddec.set_xlabel(r'Time [yr]')
     ax1ddec.set_ylabel(r'$\Delta\delta$ [mas]')
 
@@ -388,7 +540,7 @@ def plot_stars_trajectory(source, satellite):
     plt.show()
 
 
-def plot_stars_trajectory_3D(source, satellite):
+def plot_stars_trajectory_3D(source, satellite, obs_times=[]):
     """
     :param source: source object
     :param satellite: Satellite object
@@ -405,17 +557,27 @@ def plot_stars_trajectory_3D(source, satellite):
 
     alphas = []
     deltas = []
+    alphas_sol = []
+    deltas_sol = []
+    times_sol = []
+
     for i in np.arange(0, time_total, 1):
         alpha_obs, delta_obs, delta_alpha_dx_mas, delta_delta_mas = source.topocentric_angles(satellite, i)
         alphas.append(delta_alpha_dx_mas)
         deltas.append(delta_delta_mas)
+    for t in obs_times:
+        alpha_obs, delta_obs, delta_alpha_dx_mas, delta_delta_mas = source.topocentric_angles(satellite, t)
+        alphas_sol.append(delta_alpha_dx_mas)
+        deltas_sol.append(delta_delta_mas)
+        times_sol.append(t/const.days_per_year + 2000)  # +2000 do the fact that the reference epoch is J2000
 
     n = len(alphas)
     times = np.linspace(2000, 2000 + time_total/const.days_per_year, n)
 
     # Styles for the plots
-    path_style = 'b:s'
+    path_style = 'b,'
     origin_style = 'kx'
+    sol_style = 'rs'
 
     fig = plt.figure(figsize=(16, 9))
     ax = fig.gca(projection='3d')
@@ -425,6 +587,8 @@ def plot_stars_trajectory_3D(source, satellite):
                  fontsize=20)
 
     ax.plot(alphas, deltas, times, path_style,
+            label=r'%s path' % (source.name), lw=2)
+    ax.plot(alphas_sol, deltas_sol, times_sol, sol_style,
             label=r'%s path' % (source.name), lw=2)
     # ax.plot(alphas[0], deltas[0], times[0], origin_style, label='origin')
     ax.set_xlabel(r'$\Delta\alpha*$ [mas]')
@@ -437,7 +601,7 @@ def plot_stars_trajectory_3D(source, satellite):
     plt.show()
 
 
-def plot_3D_scanner_pos(sat, axis, ti, tf, n_points=1000, elevation=10, azimuth=10):
+def plot_3D_scanner_pos(sat, axis, ti, tf, n_points=1000, elevation=10, azimuth=10, figsize=(12, 12)):
     """
     %run: plot_3D_scanner_pos(sat, 'X', 0, 365*5, 0.1)
 
@@ -483,7 +647,7 @@ def plot_3D_scanner_pos(sat, axis, ti, tf, n_points=1000, elevation=10, azimuth=
 
     mpl.rcParams['legend.fontsize'] = 10
 
-    fig = plt.figure()
+    fig = plt.figure(figsize=figsize)
     ax = fig.gca(projection='3d')
 
     ax.plot(listx, listy, listz, style_, label=label_)
@@ -495,26 +659,7 @@ def plot_3D_scanner_pos(sat, axis, ti, tf, n_points=1000, elevation=10, azimuth=
     ax.azim = azimuth
     ax.elev = elevation
 
-    plt.show()
-
-
-# Draft of helper functions
-def phi(source, sat, t):
-    """
-    Calculates the diference between the x-axis of the satellite and the direction vector to the star.
-    Once this is calculated, it checks how far away is in the alpha direction (i.e. the y-component) wrt IRS.
-    :param source: Source [object]
-    :param sat: Satellite [object]
-    :param t: time [float][days]
-    :return: [float] angle, alpha wrt IRS.
-    """
-    t = float(t)
-    u_lmn_unit = source.unit_topocentric_function(sat, t)
-    phi_value_lmn = u_lmn_unit - sat.func_x_axis_lmn(t)
-    phi_value_xyz = ft.lmn_to_xyz(sat.func_attitude(t), phi_value_lmn)
-    phi = np.arcsin(phi_value_xyz[1])
-    eta = np.arcsin(phi_value_xyz[2])
-    return phi, eta
+    return fig  # plt.show()
 
 ################################################################################
 # Undefined functions
