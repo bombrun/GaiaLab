@@ -38,11 +38,10 @@ def compute_field_angles(source, sat, t):
     return eta, xi
 
 
-def compute_mnu(source, sat, t):
+def compute_mnu(eta, xi):
     """
     return column vectors of the S'[m_l, n_l, u_l] matrix
     """
-    eta, xi = compute_field_angles(source, sat, t)
     phi = eta  # # TODO: implement the correct version (phi != eta)
     # S_mnu = np.zeros((3,3))
     m_l = np.array([-np.sin(phi), np.cos(phi), 0])
