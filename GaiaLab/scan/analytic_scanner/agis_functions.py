@@ -16,9 +16,10 @@ from quaternion import Quaternion
 from source import Source
 from satellite import Satellite
 from scanner import Scanner
+from source import get_Cu
 
 
-def compute_field_angles(source, sat, t):
+def observed_field_angles(source, sat, t):
     """
     Return field angles according to Lindegren eq. 12
     eta: along-scan field angle
@@ -32,10 +33,68 @@ def compute_field_angles(source, sat, t):
     phi = np.arctan2(Su_y, Su_x)
     if phi >= np.pi or phi < -np.pi:
         raise ValueError('phi should be -pi <= phi < pi, instead it is: {}'.format(phi))
-    xi = np.arctan2(Su_z, np.sqrt(Su_x**2+Su_y**2))
+    zeta = np.arctan2(Su_z, np.sqrt(Su_x**2+Su_y**2))
     field_index = np.sign(phi)
     eta = phi - field_index * Gamma_c / 2
-    return eta, xi
+    return eta, zeta
+
+
+def compute_field_angles(calc_source, sat, i):
+    """
+    Return field angles according to Lindegren eq. 12
+    eta: along-scan field angle
+    """
+    Gamma_c = 0  # angle between the two scanners # TODO: implement gamma_c
+    alpha, delta, parallax, mu_alpha, mu_delta = calc_source.s_params[:]
+    params = np.array([alpha, delta, parallax, mu_alpha, mu_delta, calc_source.mu_radial])
+    t = calc_source.obs_times[i]
+    Cu = get_Cu(params, sat, t)  # u in CoMRS frame
+    my_attitude = Quaternion(calc_source.a_params[0], calc_source.a_params[1],
+                             calc_source.a_params[2], calc_source.a_params[3])
+    Su = ft.lmn_to_xyz(my_attitude, Cu)  # u in SRS frame
+    Su_x = Su[0]
+    Su_y = Su[1]
+    Su_z = Su[2]
+    phi = np.arctan2(Su_y, Su_x)
+    if phi >= np.pi or phi < -np.pi:
+        raise ValueError('phi should be -pi <= phi < pi, instead it is: {}'.format(phi))
+    zeta = np.arctan2(Su_z, np.sqrt(Su_x**2+Su_y**2))
+    field_index = np.sign(phi)
+    eta = phi - field_index * Gamma_c / 2
+    return eta, zeta
+
+
+"""
+def get_Cu(astro_parameters, sat, t):
+
+    Compute the topocentric_function direction i.e. ũ
+    The horizontal coordinate system, also known as topocentric coordinate
+    system, is a celestial coordinate system that uses the observer's local
+    horizon as the fundamental plane. Coordinates of an object in the sky are
+    expressed in terms of altitude (or elevation) angle and azimuth.
+
+    :return: [array] (x,y,z) direction-vector of the star from the satellite's lmn frame.
+
+    # if not isinstance(satellite, Satellite):
+    #     raise TypeError('Expected Satellite, but got {} instead'.format(type(satellite)))
+    alpha, delta, parallax, mu_alpha_dx, mu_delta, mu_radial = astro_parameters[:]
+    p, q, r = ft.compute_pqr(alpha, delta)
+
+    mu_alpha_dx = mu_alpha_dx * const.rad_per_mas / const.days_per_year   # mas/yr to rad/day
+    mu_delta = mu_delta * const.rad_per_mas / const.days_per_year  # mas/yr to rad/day
+    # km/s to aproximation rad/day
+    parallax = parallax * const.rad_per_mas
+    mu_radial = parallax * mu_radial * const.km_per_pc * const.sec_per_day
+
+    # WARNING: barycentric coordinate is not defined in the same way!
+    # topocentric_function direction
+    t_B = t  # + r.transpose() @ b_G / const.c  # # TODO: replace t_B with its real value
+    b_G = sat.ephemeris_bcrs(t)
+    topocentric = r + t * (p * mu_alpha_dx + q * mu_delta + r * mu_radial) - parallax * b_G * const.AU_per_pc
+    norm_topocentric = np.linalg.norm(topocentric)
+
+    return topocentric / norm_topocentric
+"""
 
 
 def compute_mnu(eta, xi):
