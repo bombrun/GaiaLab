@@ -329,34 +329,34 @@ def plot_phi(source, sat, ti=0, tf=90, n=1000):
 
 def plot_field_angles(source, sat, obs_times=[], ti=0, tf=90, n=1000):
     styles = ['b.', 'rs']
-    xi_limit = np.radians(0.5)
+    zeta_limit = np.radians(0.5)
     eta_limit = np.radians(0.5)
-    y_limit = (-xi_limit*10, xi_limit*10)
+    y_limit = (-zeta_limit*10, zeta_limit*10)
     times_total = np.linspace(ti, tf, n)
     eta_list = []
-    xi_list = []
-    xi_sol_list = []
+    zeta_list = []
+    zeta_sol_list = []
     eta_sol_list = []
     for t in times_total:
-        eta_value, xi_value = compute_field_angles(source, sat, t)
+        eta_value, zeta_value = compute_field_angles(source, sat, t)
         eta_list.append(eta_value)
-        xi_list.append(xi_value)
+        zeta_list.append(zeta_value)
     for t in obs_times:
-        eta_value, xi_value = compute_field_angles(source, sat, t)
+        eta_value, zeta_value = compute_field_angles(source, sat, t)
         eta_sol_list.append(eta_value)
-        xi_sol_list.append(xi_value)
+        zeta_sol_list.append(zeta_value)
 
-    xi_fig = plt.figure(1)
-    plt.plot(times_total, xi_list, styles[0], label='xi path', alpha=0.5)
-    plt.plot(obs_times, xi_sol_list, styles[1], label='solutions')
+    zeta_fig = plt.figure(1)
+    plt.plot(times_total, zeta_list, styles[0], label='zeta path', alpha=0.5)
+    plt.plot(obs_times, zeta_sol_list, styles[1], label='solutions')
     plt.hlines(0, xmin=times_total[0], xmax=times_total[-1], color='g')
-    plt.hlines(xi_limit, xmin=times_total[0], xmax=times_total[-1], color='g', linestyle='dotted',
+    plt.hlines(zeta_limit, xmin=times_total[0], xmax=times_total[-1], color='g', linestyle='dotted',
                label='field of view limitation (5°)')
-    plt.hlines(-xi_limit, xmin=times_total[0], xmax=times_total[-1], color='g', linestyle='dotted')
+    plt.hlines(-zeta_limit, xmin=times_total[0], xmax=times_total[-1], color='g', linestyle='dotted')
     plt.xlim(ti, tf)
     # plt.ylim(y_limit)
     plt.xlabel('time [days]')
-    plt.ylabel('xi [rad]')
+    plt.ylabel('zeta [rad]')
     plt.grid()
     plt.legend()
 
@@ -374,7 +374,7 @@ def plot_field_angles(source, sat, obs_times=[], ti=0, tf=90, n=1000):
     plt.grid()
     plt.legend()
 
-    return xi_fig, eta_fig
+    return zeta_fig, eta_fig
 
 
 def plot_phi_solutions(source, sat, obs_times, ti=0, tf=90, n=1000):
