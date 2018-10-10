@@ -67,11 +67,9 @@ class Satellite:
         # For Gaia, the current choice is 55º.
         self.xi = xi
         self.wz = wz * const.sec_per_day * const.AU_per_pc  # to [rad/day]
-        # self.wz = wz * 60 * 60 * 24. * 0.0000048481368110954  # to [rad/day]
 
         # Nominal longitud of the sun in the ecliptic plane
         self.lambda_dot = 2 * np.pi / const.days_per_year  # [rad/day] (lambda dot set as const)
-        # self.ldot = 2 * np.pi / const.days_per_year  # [rad/day] (lambda dot set as const)
 
     def ephemeris_bcrs(self, t):
         """
@@ -188,16 +186,17 @@ class Satellite:
         t_list = []
         for obj in self.storage:
             t_list.append(obj[0])
-            w_list.append(obj[4].w)
             x_list.append(obj[4].x)
             y_list.append(obj[4].y)
             z_list.append(obj[4].z)
+            w_list.append(obj[4].w)
 
-        # Splines for each coordinates i, i_list at each time in t_list of order k
-        self.s_x = interpolate.InterpolatedUnivariateSpline(t_list, x_list, k=4)
-        self.s_y = interpolate.InterpolatedUnivariateSpline(t_list, y_list, k=4)
-        self.s_z = interpolate.InterpolatedUnivariateSpline(t_list, z_list, k=4)
-        self.s_w = interpolate.InterpolatedUnivariateSpline(t_list, w_list, k=4)
+        # Splines for each coordinates i, i_list at each time in t_list of degree k (order = k+1)
+        k = 4
+        self.s_x = interpolate.InterpolatedUnivariateSpline(t_list, x_list, k=k)
+        self.s_y = interpolate.InterpolatedUnivariateSpline(t_list, y_list, k=k)
+        self.s_z = interpolate.InterpolatedUnivariateSpline(t_list, z_list, k=k)
+        self.s_w = interpolate.InterpolatedUnivariateSpline(t_list, w_list, k=k)
 
         # Attitude
         self.func_attitude = lambda t: Quaternion(float(self.s_w(t)), float(self.s_x(t)), float(self.s_y(t)),
@@ -226,7 +225,7 @@ class Satellite:
             tf (float): integrating time upper limit [days]
             dt (float): step discretness of integration.
         Notes:
-            stored in: attitude.storage
+            stored in: satellite.storage
         '''
 
         if len(self.storage) == 0:
