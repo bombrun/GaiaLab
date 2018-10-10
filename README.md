@@ -23,3 +23,5 @@ In particular the following notes and papers:
 and software implementation, L.Lindegren et al.
 
 The codestyle tries to follow PEP8 guidelines, for example using linter 2.2 codestyle package. (see https://atom.io/packages/linter as of 20.09.2018)
+
+The documentation can be created setting up the **doc** folder. See http://www.sphinx-doc.org/en/master/usage/extensions/viewcode.html for setting up the :source: link!
