@@ -15,6 +15,37 @@ from quaternion import Quaternion
 from satellite import Satellite
 
 
+def get_Cu(astro_parameters, sat, t):
+    """
+    Compute the topocentric_function direction i.e. ũ
+    The horizontal coordinate system, also known as topocentric coordinate
+    system, is a celestial coordinate system that uses the observer's local
+    horizon as the fundamental plane. Coordinates of an object in the sky are
+    expressed in terms of altitude (or elevation) angle and azimuth.
+
+    :return: [array] (x,y,z) direction-vector of the star from the satellite's lmn frame.
+    """
+    # if not isinstance(satellite, Satellite):
+    #     raise TypeError('Expected Satellite, but got {} instead'.format(type(satellite)))
+    alpha, delta, parallax, mu_alpha_dx, mu_delta, mu_radial = astro_parameters[:]
+    p, q, r = ft.compute_pqr(alpha, delta)
+
+    mu_alpha_dx = mu_alpha_dx * const.rad_per_mas / const.days_per_year   # mas/yr to rad/day
+    mu_delta = mu_delta * const.rad_per_mas / const.days_per_year  # mas/yr to rad/day
+    # km/s to aproximation rad/day
+    parallax = parallax * const.rad_per_mas
+    mu_radial = parallax * mu_radial * const.km_per_pc * const.sec_per_day
+
+    # WARNING: barycentric coordinate is not defined in the same way!
+    # topocentric_function direction
+    t_B = t  # + r.transpose() @ b_G / const.c  # # TODO: replace t_B with its real value
+    b_G = sat.ephemeris_bcrs(t)
+    topocentric = r + t * (p * mu_alpha_dx + q * mu_delta + r * mu_radial) - parallax * b_G * const.AU_per_pc
+    norm_topocentric = np.linalg.norm(topocentric)
+
+    return topocentric / norm_topocentric
+
+
 class Source:
     """
     Source class implemented to represent a source object in the sky
@@ -120,7 +151,7 @@ class Source:
         """
         # if not isinstance(satellite, Satellite):
         #     raise TypeError('Expected Satellite, but got {} instead'.format(type(satellite)))
-
+        """
         p, q, r = ft.compute_pqr(self.alpha, self.delta)
 
         mu_alpha_dx = self.mu_alpha_dx * const.rad_per_mas / const.days_per_year   # mas/yr to rad/day
@@ -133,7 +164,10 @@ class Source:
             - satellite.ephemeris_bcrs(t) * const.AU_per_pc
         norm_topocentric = np.linalg.norm(topocentric)
 
-        return topocentric / norm_topocentric
+        return topocentric / norm_topocentric """
+        self.set_time(float(t))
+        param = np.array([self.alpha, self.delta, self.parallax, self.mu_alpha_dx, self.mu_delta, self.mu_radial])
+        return get_Cu(param, satellite, t)
 
     def topocentric_angles(self, satellite, t):
         """
