@@ -338,11 +338,11 @@ def plot_field_angles(source, sat, obs_times=[], ti=0, tf=90, n=1000):
     zeta_sol_list = []
     eta_sol_list = []
     for t in times_total:
-        eta_value, zeta_value = compute_field_angles(source, sat, t)
+        eta_value, zeta_value = observed_field_angles(source, sat, t)
         eta_list.append(eta_value)
         zeta_list.append(zeta_value)
     for t in obs_times:
-        eta_value, zeta_value = compute_field_angles(source, sat, t)
+        eta_value, zeta_value = observed_field_angles(source, sat, t)
         eta_sol_list.append(eta_value)
         zeta_sol_list.append(zeta_value)
 

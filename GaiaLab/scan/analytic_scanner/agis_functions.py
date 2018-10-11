@@ -39,7 +39,7 @@ def observed_field_angles(source, sat, t):
     return eta, zeta
 
 
-def compute_field_angles(calc_source, sat, i):
+def compute_field_angles(calc_source, sat, t):
     """
     Return field angles according to Lindegren eq. 12
     eta: along-scan field angle
@@ -47,11 +47,11 @@ def compute_field_angles(calc_source, sat, i):
     Gamma_c = 0  # angle between the two scanners # TODO: implement gamma_c
     alpha, delta, parallax, mu_alpha, mu_delta = calc_source.s_params[:]
     params = np.array([alpha, delta, parallax, mu_alpha, mu_delta, calc_source.mu_radial])
-    t = calc_source.obs_times[i]
     Cu = get_Cu(params, sat, t)  # u in CoMRS frame
     my_attitude = Quaternion(calc_source.a_params[0], calc_source.a_params[1],
                              calc_source.a_params[2], calc_source.a_params[3])
-    Su = ft.lmn_to_xyz(my_attitude, Cu)  # u in SRS frame
+    # WARNING: we should not use func_attitude here
+    Su = ft.lmn_to_xyz(sat.func_attitude(t), Cu)  # u in SRS frame
     Su_x = Su[0]
     Su_y = Su[1]
     Su_z = Su[2]
@@ -128,3 +128,23 @@ def phi(source, sat, t):
     # phi = np.arctan2(direction_xyz[1], direction_xyz[0])
     # xi = np.arctan2(direction_xyz[2], np.sqrt(direction_xyz[0] ** 2 + direction_xyz[1] ** 2))
     return phi, eta
+
+
+################################################################################
+# Unused functions
+
+def eta0_fng(mu, f, n, g):
+    # = eta0_ng
+    # TODO: define Y_FPA, F
+    return -Y_FPA[n, g]/F
+
+
+def xi0_fng(mu, f, n, g):
+    """
+    :attribute X_FPA[n]: physical AC coordinate of the nominal center of the nth CCD
+    :attribute Y_FPA[n,g]: physical AL coordinate of the nominal observation line for gate g on the nth CCD
+    :attribute Xcentre_FPA[f]:
+    """
+    mu_c = 996.5
+    p_AC = 30  # [micrometers]
+    return -(X_FPA[n] - (mu - mu_c) * p_AC - Xcenter_FPA[f])/F
