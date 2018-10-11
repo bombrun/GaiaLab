@@ -19,36 +19,8 @@ from agis_functions import *
 # global modules
 import numpy as np
 
-# TODO: implement all the functions
-
-
-def eta_obs():
-    pass
-
-
-def f_obs():  # xi_obs():
-    pass
-
-
-def f_calc():
-    pass
-
-
-def eta0_fng(mu, f, n, g):
-    # = eta0_ng
-    # TODO: define Y_FPA, F
-    return -Y_FPA[n, g]/F
-
-
-def xi0_fng(mu, f, n, g):
-    """
-    :attribute X_FPA[n]: physical AC coordinate of the nominal center of the nth CCD
-    :attribute Y_FPA[n,g]: physical AL coordinate of the nominal observation line for gate g on the nth CCD
-    :attribute Xcentre_FPA[f]:
-    """
-    mu_c = 996.5
-    p_AC = 30  # [micrometers]
-    return -(X_FPA[n] - (mu - mu_c) * p_AC - Xcenter_FPA[f])/F
+# TODO: implement all the functionsto compute condition number of the matrix: numpy.linalg.cond(x)
+#
 
 
 class Calc_source:
@@ -87,22 +59,25 @@ class Agis:
         # self.a = np.zeros(0)  # attitude parameters
         # self.c = np.zeros(0)  # Calibration parameters
         # self.g = np.zeros(0)  # Global parameters
-
         num_parameters_per_sources = 5  # the astronomic parameters
         total_number_of_observations = 0
         for source in self.calc_sources:
             total_number_of_observations += len(source.obs_times)
         s_vector = np.zeros((len(self.calc_sources)*num_parameters_per_sources, 1))
         self.N_ss = np.zeros((len(self.calc_sources)*5, len(self.calc_sources)*5))  # 5 source params
-        self.N_aa = np.zeros((4, 4))  # 4 attitude params
+        self.N_aa = np.zeros((4, 4))  # 4 attitude params  # WARNING: not the correct shpe
         # Call self.init_blocks()
         # print('The shape of N_ss is {}'.format(N_ss.shape))
 
-    def init_attitude_param(self):
-        N = self.sat.s_x.get_coeffs().shape[0]
-        a = np.zeros((N, 4))
-        # a[:,0] =
-        # a[:]
+        self.a_params = np.zeros((self.sat.s_x.get_coeffs().shape[0], 4))
+        self.init_attitude_params()
+        # self.func_attitude = lambda t: Quaternion(float(self.s_w(t)), float(self.s_x(t)), float(self.s_y(t), float(self.s_z(t))).unit()
+
+    def init_attitude_params(self):
+        self.a_params[:, 0] = self.sat.s_x.get_coeffs()
+        self.a_params[:, 1] = self.sat.s_y.get_coeffs()
+        self.a_params[:, 2] = self.sat.s_z.get_coeffs()
+        self.a_params[:, 3] = self.sat.s_w.get_coeffs()
 
     def init_blocks(self):
         """
@@ -157,10 +132,31 @@ class Agis:
         """
         error = 0
         for source_index, s in enumerate(self.calc_sources):
+            print('source: {}'.format(s.s_params))
             for j, t_L in enumerate(s.obs_times):
-                R_L = self.R_L(source_index, j, t_L)
-                error += R_L
+                # R_L = self.eta_obs_plus_zeta_obs(self.real_sources[source_index], t_L) - self.eta_calc_plus_zeta_calc(s, t_L)
+                R_L = self.R_L(source_index, t_L)
+                error += R_L ** 2
+                # print('R_L: {}'.format(R_L))
+                # print(error)
         return error
+
+    def eta_obs_plus_zeta_obs(self, source, t):
+        # WARNING: maybe source is not in the field of vision of sat at time t!
+        eta, zeta = observed_field_angles(source, self.sat, t)
+        return eta + zeta
+
+    def eta_calc_plus_zeta_calc(self, calc_source, t):
+        # WARNING: maybe source is not in the field of vision of sat at time t!
+        eta, zeta = compute_field_angles(calc_source, self.sat, t)
+        return eta + zeta
+
+    def R_L(self, source_index, t):
+        """ R = eta_obs + xi_obs - eta_calc - xi_calc """
+        obs = self.eta_obs_plus_zeta_obs(self.real_sources[source_index], t)
+        calc = self.eta_calc_plus_zeta_calc(self.calc_sources[source_index], t)
+        R_L = obs - calc
+        return R_L
 
     def iterate(self):
         self.iter_counter += 1
@@ -175,6 +171,19 @@ class Agis:
         """ Performs the update of the source parameters """
         for i, s in enumerate(self.calc_sources):
             self.update_block_S(i)
+
+    def update_block_S(self, source_index):
+        calc_source = self.calc_sources[source_index]
+        A = self.block_S_error_rate_matrix(source_index)
+        W = np.eye(len(calc_source.obs_times))
+        h = self.compute_h(source_index)
+        LHS = A.transpose() @ W @ A
+        RHS = A.transpose() @ W @ h
+        d = np.linalg.solve(LHS, RHS)
+        if self.verbose:
+            print('dim d: {}'.format(d.flatten().shape))
+            print('dim s:', self.calc_sources[source_index].s_params.shape)
+        self.calc_sources[source_index].s_params[:] += d.flatten()
 
     def der_topocentric_function(self, calc_source):
         """
@@ -252,10 +261,12 @@ class Agis:
         S_du_ds = np.zeros(C_du_ds.shape)
         for i in range(C_du_ds.shape[0]):  # TODO: remove these ugly for loop
             for j in range(C_du_ds.shape[-1]):
+                t_L = calc_source.obs_times[j]
                 # gaia attitude at time t_l
                 attitude = Quaternion(calc_source.a_params[0], calc_source.a_params[1],
                                       calc_source.a_params[1], calc_source.a_params[3])
-                S_du_ds[i, :, j] = ft.lmn_to_xyz(attitude, C_du_ds[i, :, j])
+                # WARNING: we should not use func_attitude here
+                S_du_ds[i, :, j] = ft.lmn_to_xyz(self.sat.func_attitude(t_L), C_du_ds[i, :, j])
 
         return S_du_ds
 
@@ -295,45 +306,14 @@ class Agis:
         """error matrix for the block update S"""
         return -self.dR_ds(source_index)
 
-    def eta_obs_plus_zeta_obs(self, source, t):
-        """ For the moment it returns the exact eta of the defined source"""
-        # WARNING: maybe source is not in the field of vision of sat at time t!
-        eta, zeta = observed_field_angles(source, self.sat, t)
-        return eta + zeta
-
-    def eta_calc_plus_zeta_calc(self, calc_source, i):
-        """ For the moment it returns the exact eta of the defined source"""
-        # WARNING: maybe source is not in the field of vision of sat at time t!
-        eta, zeta = compute_field_angles(calc_source, self.sat, i)
-        return eta + zeta
-
-    def R_L(self, source_index, i, t):
-        """ R = eta_obs + xi_obs - eta_calc - xi_calc """
-        R_L = self.eta_obs_plus_zeta_obs(self.real_sources[source_index], t)
-        - self.eta_calc_plus_zeta_calc(self.calc_sources[source_index], i)
-        return R_L
-
     def compute_h(self, source_index):
         calc_source = self.calc_sources[source_index]
         h = np.zeros((len(calc_source.obs_times), 1))
         for i, t_L in enumerate(calc_source.obs_times):
-            h[i, 0] = self.R_L(source_index, i, t_L)
+            h[i, 0] = self.R_L(source_index, t_L)
         if self.verbose:
             print('h: {}'.format(h))
         return h
-
-    def update_block_S(self, source_index):
-        calc_source = self.calc_sources[source_index]
-        A = self.block_S_error_rate_matrix(source_index)
-        W = np.eye(len(calc_source.obs_times))
-        h = self.compute_h(source_index)
-        LHS = A.transpose() @ W @ A
-        RHS = A.transpose() @ W @ h
-        d = np.linalg.solve(LHS, RHS)
-        if self.verbose:
-            print('dim d: {}'.format(d.flatten().shape))
-            print(self.calc_sources[source_index].s_params.shape)
-        self.calc_sources[source_index].s_params[:] += d.flatten()
 
     def compute_coordinate_direction(self):
         """
