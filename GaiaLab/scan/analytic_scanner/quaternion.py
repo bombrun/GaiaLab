@@ -49,12 +49,11 @@ class Quaternion():
 
     def unit(self, tolerance=0):  # Creates the equivalent unit quaternion
         """
-        do something
-        """
         # By default, produces unit quaternion with an arbitrary tolerance ie magnitude
         # will not perfectly be 1 - but should be sufficiently close
         # If tolerance is given, recursively divides by magnitude until the new magnitude
         # is sufficiently close to 1 as desired
+        """
         if not tolerance:
             return Quaternion(self.w/self.magnitude,
                               self.x/self.magnitude,
