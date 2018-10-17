@@ -94,3 +94,7 @@ def plot_sparse():
     M = sps.csr_matrix(A)
     plt.spy(M)
     plt.show()
+
+
+def ephemeris_bcrs(t):
+    pass

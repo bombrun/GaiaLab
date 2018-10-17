@@ -19,6 +19,20 @@ from scanner import Scanner
 from source import get_Cu
 
 
+def rotation_matrix_from_alpha_delta(source, sat, t):
+    Cu = source.unit_topocentric_function(sat, t)
+    Su = np.array([1, 0, 0])
+    r = ft.get_rotation_matrix(Cu, Su)
+    return r
+
+
+def attitude_from_alpha_delta(source, sat, t):
+    Cu = source.unit_topocentric_function(sat, t)
+    Su = np.array([1, 0, 0])
+    vector, angle = ft.get_rotation_vector_and_angle(Cu, Su)
+    return ft.rotation_to_quat(vector, angle)
+
+
 def observed_field_angles(source, sat, t):
     """
     Return field angles according to Lindegren eq. 12
@@ -26,10 +40,19 @@ def observed_field_angles(source, sat, t):
     """
     Gamma_c = 0  # angle between the two scanners # TODO: implement gamma_c
     Cu = source.unit_topocentric_function(sat, t)  # u in CoMRS frame
-    Su = ft.lmn_to_xyz(sat.func_attitude(t), Cu)  # u in SRS frame
+    alpha, delta, _, _ = source.topocentric_angles(sat, t)
+    # Su = ft.lmn_to_xyz(sat.func_attitude(t), Cu)  # u in SRS frame
+    r = rotation_matrix_from_alpha_delta(source, sat, t)
+    # print(r@Cu.T)
+    Su = np.array(r@Cu.T)
+    attitude = attitude_from_alpha_delta(source, sat, t)
+    # Su = ft.lmn_to_xyz(attitude, Cu)
+    # print(Su.shape)
+    # print(Su)
     Su_x = Su[0]
     Su_y = Su[1]
     Su_z = Su[2]
+
     phi = np.arctan2(Su_y, Su_x)
     if phi >= np.pi or phi < -np.pi:
         raise ValueError('phi should be -pi <= phi < pi, instead it is: {}'.format(phi))
@@ -39,7 +62,7 @@ def observed_field_angles(source, sat, t):
     return eta, zeta
 
 
-def compute_field_angles(calc_source, sat, t):
+def compute_field_angles(calc_source, source, sat, t):
     """
     Return field angles according to Lindegren eq. 12
     eta: along-scan field angle
@@ -48,10 +71,10 @@ def compute_field_angles(calc_source, sat, t):
     alpha, delta, parallax, mu_alpha, mu_delta = calc_source.s_params[:]
     params = np.array([alpha, delta, parallax, mu_alpha, mu_delta, calc_source.mu_radial])
     Cu = get_Cu(params, sat, t)  # u in CoMRS frame
-    my_attitude = Quaternion(calc_source.a_params[0], calc_source.a_params[1],
-                             calc_source.a_params[2], calc_source.a_params[3])
-    # WARNING: we should not use func_attitude here
-    Su = ft.lmn_to_xyz(sat.func_attitude(t), Cu)  # u in SRS frame
+    # Su = ft.lmn_to_xyz(sat.func_attitude(t), Cu)  # u in SRS frame
+    r = rotation_matrix_from_alpha_delta(source, sat, t)
+    Su = np.array(r@Cu.T)
+
     Su_x = Su[0]
     Su_y = Su[1]
     Su_z = Su[2]

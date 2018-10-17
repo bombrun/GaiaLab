@@ -25,6 +25,7 @@ def get_Cu(astro_parameters, sat, t):
 
     :return: [array] (x,y,z) direction-vector of the star from the satellite's lmn frame.
     """
+
     # if not isinstance(satellite, Satellite):
     #     raise TypeError('Expected Satellite, but got {} instead'.format(type(satellite)))
     alpha, delta, parallax, mu_alpha_dx, mu_delta, mu_radial = astro_parameters[:]
@@ -33,14 +34,14 @@ def get_Cu(astro_parameters, sat, t):
     mu_alpha_dx = mu_alpha_dx * const.rad_per_mas / const.days_per_year   # mas/yr to rad/day
     mu_delta = mu_delta * const.rad_per_mas / const.days_per_year  # mas/yr to rad/day
     # km/s to aproximation rad/day
-    parallax = parallax * const.rad_per_mas
-    mu_radial = parallax * mu_radial * const.km_per_pc * const.sec_per_day
+    # parallax = parallax * const.rad_per_mas
+    mu_radial = parallax * const.rad_per_mas * mu_radial * const.km_per_pc * const.sec_per_day
 
     # WARNING: barycentric coordinate is not defined in the same way!
     # topocentric_function direction
     t_B = t  # + r.transpose() @ b_G / const.c  # # TODO: replace t_B with its real value
     b_G = sat.ephemeris_bcrs(t)
-    topocentric = r + t * (p * mu_alpha_dx + q * mu_delta + r * mu_radial) - parallax * b_G * const.AU_per_pc
+    topocentric = r + t * (p * mu_alpha_dx + q * mu_delta + r * mu_radial) - b_G * const.AU_per_pc  # * parallax
     norm_topocentric = np.linalg.norm(topocentric)
 
     return topocentric / norm_topocentric
@@ -149,9 +150,12 @@ class Source:
         :param satellite: satellite [class object]
         :return: [array] (x,y,z) direction-vector of the star from the satellite's lmn frame.
         """
+        """
         # if not isinstance(satellite, Satellite):
         #     raise TypeError('Expected Satellite, but got {} instead'.format(type(satellite)))
-        """
+        # WARNING: added next 2 lines for test
+        t = float(t)
+        self.set_time(t)
         p, q, r = ft.compute_pqr(self.alpha, self.delta)
 
         mu_alpha_dx = self.mu_alpha_dx * const.rad_per_mas / const.days_per_year   # mas/yr to rad/day
@@ -159,12 +163,14 @@ class Source:
         # km/s to aproximation rad/day
         mu_radial = self.parallax * const.rad_per_mas * self.mu_radial * const.km_per_pc * const.sec_per_day
 
+        # print('bar: {} // r: {}'.format(self.barycentric_coor(0), r))
         # topocentric_function direction
         topocentric = self.barycentric_coor(0) + t*(p*mu_alpha_dx + q * mu_delta + r*mu_radial) \
             - satellite.ephemeris_bcrs(t) * const.AU_per_pc
         norm_topocentric = np.linalg.norm(topocentric)
 
-        return topocentric / norm_topocentric """
+        return topocentric / norm_topocentric
+        """
         self.set_time(float(t))
         param = np.array([self.alpha, self.delta, self.parallax, self.mu_alpha_dx, self.mu_delta, self.mu_radial])
         return get_Cu(param, satellite, t)
@@ -176,7 +182,6 @@ class Source:
         :param t: [days]
         :return: alpha, delta, delta alpha, delta delta [mas]
         """
-        # mastorad = 2 * np.pi / (1000 * 360 * 3600)
 
         u_lmn_unit = self.unit_topocentric_function(satellite, t)
         alpha_obs, delta_obs, radius = ft.vector_to_polar(u_lmn_unit)
