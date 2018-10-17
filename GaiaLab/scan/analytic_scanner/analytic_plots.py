@@ -327,7 +327,7 @@ def plot_phi(source, sat, ti=0, tf=90, n=1000):
     return fig1, fig2
 
 
-def plot_field_angles(source, sat, obs_times=[], ti=0, tf=90, n=1000):
+def plot_field_angles(source, sat, obs_times=[], ti=0, tf=90, n=1000, limit=False):
     styles = ['b.', 'rs']
     zeta_limit = np.radians(0.5)
     eta_limit = np.radians(0.5)
@@ -354,7 +354,8 @@ def plot_field_angles(source, sat, obs_times=[], ti=0, tf=90, n=1000):
                label='field of view limitation (5°)')
     plt.hlines(-zeta_limit, xmin=times_total[0], xmax=times_total[-1], color='g', linestyle='dotted')
     plt.xlim(ti, tf)
-    # plt.ylim(y_limit)
+    if limit:
+        plt.ylim(y_limit)
     plt.xlabel('time [days]')
     plt.ylabel('zeta [rad]')
     plt.grid()
@@ -368,7 +369,8 @@ def plot_field_angles(source, sat, obs_times=[], ti=0, tf=90, n=1000):
                label='field of view limitation (5°)')
     plt.hlines(-eta_limit, xmin=times_total[0], xmax=times_total[-1], color='g', linestyle='dotted')
     plt.xlim(ti, tf)
-    # plt.ylim(y_limit)
+    if limit:
+        plt.ylim(y_limit)
     plt.xlabel('time [days]')
     plt.ylabel('Eta[rad]')
     plt.grid()
@@ -461,6 +463,81 @@ def plot_eta_over_phi_day(source, sat, ti=0, tf=90, n=1000, day=45):
     plt.ylabel('Eta [rad]')
 
     return p
+
+
+def plot_stars_trajectory_for_agis(source, satellite, obs_times=[]):
+    """
+    :param source: source object
+    :param satellite: Satellite object
+    :param t_total: total time for which the trajectory is desired [days] from
+     J2000.
+    :return: plot of the star trajectory in the lmn-frame.
+    """
+
+    time_total = satellite.storage[-1][0]
+
+    alphas = []
+    deltas = []
+    alphas_sol = []
+    deltas_sol = []
+    times_sol = []
+
+    for i in np.arange(0, time_total, 1):
+        alpha_obs, delta_obs, delta_alpha_dx_mas, delta_delta_mas = source.topocentric_angles(satellite, i)
+        alphas.append(delta_alpha_dx_mas)
+        deltas.append(delta_delta_mas)
+
+    for t in obs_times:
+        alpha_obs, delta_obs, delta_alpha_dx_mas, delta_delta_mas = source.topocentric_angles(satellite, t)
+        alphas_sol.append(delta_alpha_dx_mas)
+        deltas_sol.append(delta_delta_mas)
+        times_sol.append(t/const.days_per_year + 2000)  # +2000 do the fact that the reference epoch is J2000
+    n = len(alphas)
+    times = np.linspace(2000, 2000 + time_total/const.days_per_year, n)
+
+    # Styles for the plots
+    path_style = 'b,'
+    origin_style = 'kx'
+    sol_style = 'rs'
+
+    fig = plt.figure(figsize=(16, 9))
+    ax = fig.add_subplot(121)
+
+    fig.suptitle(r'$\varpi={%.2f}$, $\mu_{{\alpha*}}={%.2f}$, $\mu_\delta={%.2f}$'
+                 % (source.parallax, source.mu_alpha_dx, source.mu_delta),
+                 fontsize=20)
+
+    ax.plot(alphas, deltas, path_style,
+            label=r'%s path' % (source.name), lw=2)
+    ax.plot(alphas[0], deltas[0], origin_style, label='origin')
+    ax.plot(alphas_sol, deltas_sol, sol_style, label='solutions')
+    ax.set_xlabel(r'$\Delta\alpha*$ [mas]')
+    ax.set_ylabel(r'$\Delta\delta$ [mas]')
+    ax.axhline(y=0, c='gray', lw=1)
+    ax.axvline(x=0, c='gray', lw=1)
+    ax.legend(fontsize=12, facecolor='#000000',
+              framealpha=0.1)
+    # Top right subplot
+    ax1dra = fig.add_subplot(222)
+    ax1dra.plot(times, alphas, path_style)
+    ax1dra.plot(times[0], alphas[0], origin_style, label='origin')
+    ax1dra.plot(times_sol, alphas_sol, sol_style, label='solutions')
+    ax1dra.axhline(y=0, c='gray', lw=1)
+    # ax1dra.set_xlabel(r'Time [yr]')
+    ax1dra.set_ylabel(r'$\Delta\alpha*$ [mas]')
+
+    # Top left subplot
+    ax1ddec = fig.add_subplot(224, sharex=ax1dra)
+    ax1ddec.axhline(y=0, c='gray', lw=1)
+    ax1ddec.plot(times, deltas, path_style)
+    ax1ddec.plot(times[0], deltas[0], origin_style, label='origin')
+    ax1ddec.plot(times_sol, deltas_sol, sol_style, label='solutions')
+    ax1ddec.set_xlabel(r'Time [yr]')
+    ax1ddec.set_ylabel(r'$\Delta\delta$ [mas]')
+
+    # plt.tight_layout()
+    plt.show()
+
 
 
 def plot_stars_trajectory(source, satellite, obs_times=[]):
@@ -660,6 +737,34 @@ def plot_3D_scanner_pos(sat, axis, ti, tf, n_points=1000, elevation=10, azimuth=
     ax.elev = elevation
 
     return fig  # plt.show()
+
+
+def plot_longitud_latitude(sat, ti, tf, dt):
+    """
+    L. Lindegren, SAG_LL_014, Figure 6.
+    %run: plot_longitud_latitude(att, 0, 365*5, 3/24)
+
+    :param att: attitude object
+    :param ti: initial time [days]
+    :param tf: final time [days]
+    :param dt: step time for calculating the data point [days]
+    :return: plots the longitud and latitude angles in degrees of the z-axis of the scanner
+    with respect to the LMN frame.
+    """
+
+    sat.reset(ti, tf, dt)
+    # sat.__create_storage(ti, tf, dt)
+    long_list = [i[5] % (2 * np.pi) for i in sat.storage]
+    alt_list = [i[6] for i in sat.storage]
+
+    plt.figure()
+    plt.plot(np.degrees(long_list), np.degrees(alt_list), 'b.')
+    plt.xlabel('Longitud [deg]')
+    plt.ylabel('Lattitude [deg] ')
+
+    plt.rcParams.update({'font.size': 22})
+    plt.title('Revolving scanning')
+    plt.show()
 
 ################################################################################
 # Undefined functions
