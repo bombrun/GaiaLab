@@ -30,7 +30,7 @@ class Calc_source:
     def __init__(self, name, obs_times, source_params, attitude_params, mu_radial):
         """ Initial guess of the parameters"""
         self.name = name
-        self.obs_times = obs_times  # times at which it has been observerd
+        self.obs_times = obs_times  # times at which it has been observed
         self.a_params = attitude_params  # attitude at which it should be observed
         self.s_params = source_params  # position at which it has been observed
         self.mu_radial = mu_radial  # not considered an unknown of the problem
@@ -55,29 +55,26 @@ class Agis:
         self.iter_counter = 0
 
         # The four parameter vector
-        # self.s = np.zeros(0)  # source parameters
-        # self.a = np.zeros(0)  # attitude parameters
-        # self.c = np.zeros(0)  # Calibration parameters
-        # self.g = np.zeros(0)  # Global parameters
+        # self.s_param = np.zeros(0)  # source parameters
+        # self.a_param = np.zeros(0)  # attitude parameters
+        # self.c_param = np.zeros(0)  # Calibration parameters
+        # self.g_param = np.zeros(0)  # Global parameters
+
         num_parameters_per_sources = 5  # the astronomic parameters
         total_number_of_observations = 0
         for source in self.calc_sources:
             total_number_of_observations += len(source.obs_times)
         s_vector = np.zeros((len(self.calc_sources)*num_parameters_per_sources, 1))
+
         self.N_ss = np.zeros((len(self.calc_sources)*5, len(self.calc_sources)*5))  # 5 source params
         self.N_aa = np.zeros((4, 4))  # 4 attitude params  # WARNING: not the correct shpe
-        # Call self.init_blocks()
-        # print('The shape of N_ss is {}'.format(N_ss.shape))
+
+        self.s_old = []
+        self.s_old.append(self.calc_sources[0].s_params)
+        self.errors = []
 
         self.a_params = np.zeros((self.sat.s_x.get_coeffs().shape[0], 4))
-        self.init_attitude_params()
-        # self.func_attitude = lambda t: Quaternion(float(self.s_w(t)), float(self.s_x(t)), float(self.s_y(t), float(self.s_z(t))).unit()
-
-    def init_attitude_params(self):
-        self.a_params[:, 0] = self.sat.s_x.get_coeffs()
-        self.a_params[:, 1] = self.sat.s_y.get_coeffs()
-        self.a_params[:, 2] = self.sat.s_z.get_coeffs()
-        self.a_params[:, 3] = self.sat.s_w.get_coeffs()
+        self.init_blocks()
 
     def init_blocks(self):
         """
@@ -102,11 +99,15 @@ class Agis:
         """
         Initialize the matrix N_aa
         N_aa
-
         for n in range(0, self.N_aa.shape[0], 4):
         """
-
         pass
+
+    def reset_iterations(self):
+        self.init_blocks()
+        self.iter_counter = 0
+        self.s_old = []
+        self.errors = []
 
     def compute_source_observations_parameters(self, source_num=0):
         """
@@ -134,38 +135,37 @@ class Agis:
         for source_index, s in enumerate(self.calc_sources):
             print('source: {}'.format(s.s_params))
             for j, t_L in enumerate(s.obs_times):
-                # R_L = self.eta_obs_plus_zeta_obs(self.real_sources[source_index], t_L) - self.eta_calc_plus_zeta_calc(s, t_L)
                 R_L = self.R_L(source_index, t_L)
                 error += R_L ** 2
-                # print('R_L: {}'.format(R_L))
-                # print(error)
         return error
-
-    def eta_obs_plus_zeta_obs(self, source, t):
-        # WARNING: maybe source is not in the field of vision of sat at time t!
-        eta, zeta = observed_field_angles(source, self.sat, t)
-        return eta + zeta
-
-    def eta_calc_plus_zeta_calc(self, calc_source, t):
-        # WARNING: maybe source is not in the field of vision of sat at time t!
-        eta, zeta = compute_field_angles(calc_source, self.sat, t)
-        return eta + zeta
 
     def R_L(self, source_index, t):
         """ R = eta_obs + xi_obs - eta_calc - xi_calc """
-        obs = self.eta_obs_plus_zeta_obs(self.real_sources[source_index], t)
-        calc = self.eta_calc_plus_zeta_calc(self.calc_sources[source_index], t)
+        # WARNING: maybe source is not in the field of vision of sat at time t!
+        eta_obs, zeta_obs = observed_field_angles(self.real_sources[source_index],
+                                                  self.sat, t)
+        obs = eta_obs + zeta_obs
+        eta_calc, zeta_calc = compute_field_angles(self.calc_sources[source_index],
+                                                   self.real_sources[source_index],
+                                                   self.sat, t)
+        calc = eta_calc + zeta_calc
         R_L = obs - calc
         return R_L
 
-    def iterate(self):
-        self.iter_counter += 1
-        print('***** Iteration: {} *****'.format(self.iter_counter))
-        self.init_blocks()
-        print('Error before iteration: {}'.format(self.error_function()))
-        self.update_S_block()
-        # self.update_A_block()
-        print('Error after iteration: {}'.format(self.error_function()))
+    def iterate(self, num):
+        """
+        Do _num_ iterations
+        """
+        for i in range(num):
+            self.iter_counter += 1
+            print('***** Iteration: {} *****'.format(self.iter_counter))
+            # self.init_blocks()
+            print('Error before iteration: {}'.format(self.error_function()))
+            self.update_S_block()
+            self.s_old.append(self.calc_sources[0].s_params.copy())
+            self.errors.append(self.error_function())
+            # self.update_A_block()
+            print('Error after iteration: {}'.format(self.error_function()))
 
     def update_S_block(self):
         """ Performs the update of the source parameters """
@@ -181,6 +181,9 @@ class Agis:
         RHS = A.transpose() @ W @ h
         d = np.linalg.solve(LHS, RHS)
         if self.verbose:
+            print('dim A: {}'.format(A.shape))
+            print('dim W: {}'.format(W.shape))
+            print('dim h: {}'.format(h.shape))
             print('dim d: {}'.format(d.flatten().shape))
             print('dim s:', self.calc_sources[source_index].s_params.shape)
         self.calc_sources[source_index].s_params[:] += d.flatten()
@@ -238,7 +241,9 @@ class Agis:
         return du_ds
 
     def compute_der_proper_direction(self, calc_source):
-        """take into account aberrationn of light
+        """
+        Compute proper direction
+        take into account aberrationn of light
         :param du_ds_tilde: in the CoRMS frame (lmn)
         :returns du_ds: in the SRS frame (xyz)
         """
@@ -262,11 +267,10 @@ class Agis:
         for i in range(C_du_ds.shape[0]):  # TODO: remove these ugly for loop
             for j in range(C_du_ds.shape[-1]):
                 t_L = calc_source.obs_times[j]
-                # gaia attitude at time t_l
-                attitude = Quaternion(calc_source.a_params[0], calc_source.a_params[1],
-                                      calc_source.a_params[1], calc_source.a_params[3])
                 # WARNING: we should not use func_attitude here
-                S_du_ds[i, :, j] = ft.lmn_to_xyz(self.sat.func_attitude(t_L), C_du_ds[i, :, j])
+                # S_du_ds[i, :, j] = ft.lmn_to_xyz(self.sat.func_attitude(t_L), C_du_ds[i, :, j])
+                R = rotation_matrix_from_alpha_delta(self.real_sources[0], self.sat, t_L)
+                S_du_ds[i, :, j] = np.array(R@C_du_ds[i, :, j].T)
 
         return S_du_ds
 
@@ -286,7 +290,7 @@ class Agis:
         """
 
         def sec(x):
-            """Should be stable since x close to 0"""
+            """ Compute secant. Should be stable since x close to 0"""
             return 1/np.cos(x)
 
         calc_source = self.calc_sources[source_index]
@@ -295,7 +299,7 @@ class Agis:
         dR_ds_AC = np.zeros(dR_ds_AL.shape)
 
         for i, t_L in enumerate(calc_source.obs_times):
-            eta, zeta = compute_field_angles(calc_source, self.sat, i)
+            eta, zeta = compute_field_angles(calc_source, self.real_sources[0], self.sat, i)
             m, n, u = compute_mnu(eta, zeta)
             dR_ds_AL[i, :] = -m @ du_ds[:, :, i].transpose() * sec(zeta)
             dR_ds_AC[i, :] = -n @ du_ds[:, :, i].transpose()
