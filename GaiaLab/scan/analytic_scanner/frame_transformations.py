@@ -32,6 +32,8 @@ def get_rotation_matrix(v1, v2):
 
 
 def get_rotation_vector_and_angle(v1, v2):
+    v1 = v1/np.linalg.norm(v1)  # # NOTE: it should be useless to normalize
+    v2 = v2/np.linalg.norm(v2)
     angle = np.arccos(np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2)))
     vector = np.cross(v1 / np.linalg.norm(v1), v2 / np.linalg.norm(v2))
     vector = vector / np.linalg.norm(vector)
@@ -82,12 +84,28 @@ def adp_to_cartesian(alpha, delta, parallax):
     :return: [parsec](x, y, z) array in parsecs.
     """
     parallax = parallax/1000  # from mas to arcsec
-
+    # WARNING: but why parallax??
     x = (1/parallax)*np.cos(delta)*np.cos(alpha)
     y = (1/parallax)*np.cos(delta)*np.sin(alpha)
     z = (1/parallax)*np.sin(delta)
 
     return np.array([x, y, z])
+
+
+def vector_to_adp(vector, tolerance=1e-6):
+    """
+    :return: alpha, delta in radians
+    """
+    x, y, z = vector[:]
+    delta = np.arcsin(z)
+    alpha_1 = np.arccos(x/np.cos(delta))
+    alpha_2 = np.arccos(x/np.cos(delta))
+    diff_a1_a2 = alpha_1 - alpha_2
+    mean_alpha = (alpha_1 + alpha_2) / 2
+    relative_error = diff_a1_a2/mean_alpha
+    if relative_error > tolerance:
+        raise ValueError('relative difference in alpha of {} is too big'.format(relative_error))
+    return mean_alpha, delta
 
 
 def compute_ljk(epsilon):
@@ -134,6 +152,15 @@ def rotation_to_quat(vector, angle):
     z = np.sin(angle/2.) * vector[2]
 
     return Quaternion(t, x, y, z)
+
+
+def rotate_by_quaternion(quaternion, vector):
+    """
+    rotate vector by quaternion
+    """
+    q_vector = vector_to_quaternion(vector)
+    q_rotated_vector = quaternion * q_vector * quaternion.conjugate()
+    return q_rotated_vector.to_vector()
 
 
 def xyz_to_lmn(attitude, vector):
