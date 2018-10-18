@@ -116,6 +116,9 @@ class test_helpers(unittest.TestCase):
 
 class test_frame_transformations(unittest.TestCase):
 
+    def setUp(self):
+        pass
+
     def test_get_rotation_matrix(self):
         v1 = np.random.rand(3)
         v2 = np.random.rand(3)
@@ -145,6 +148,23 @@ class test_frame_transformations(unittest.TestCase):
         v2_bis = ft.rotate_by_quaternion(quat, v1)
         for i in range(vector.shape[0]):
             self.assertAlmostEqual(v2[i], v2_bis[i])
+
+    def test_rotation_against_quat(self):
+        """ Test that rotating with quaternion or matrix is equivalent"""
+        v1 = np.random.rand(3)
+        v2 = np.random.rand(3)
+        v1 = v1/np.linalg.norm(v1)
+        v2 = v2/np.linalg.norm(v2)
+
+        rot = ft.get_rotation_matrix(v1, v2)
+        vector, angle = ft.get_rotation_vector_and_angle(v1, v2)
+        quat = ft.rotation_to_quat(vector, angle).unit()
+        rot_quat = quat.basis()
+        for x_row, y_row in zip(rot, rot_quat):
+            for a, b in zip(x_row, y_row):
+                self.assertAlmostEqual(a, b)
+        # v2_bis = rot@v1.T
+        # v2_tris = rot_quat@v1.T
 
 
 if __name__ == '__main__':
