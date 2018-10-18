@@ -33,6 +33,15 @@ def attitude_from_alpha_delta(source, sat, t):
     return ft.rotation_to_quat(vector, angle)
 
 
+def spin_axis_from_alpha_delta(source, sat, t):
+    Cu = source.unit_topocentric_function(sat, t)
+    Su = np.array([1, 0, 0])
+    vector, angle = ft.get_rotation_vector_and_angle(Cu, Su)
+    # vector = vector/np.linalg.norm(vector)
+    # satellite_position = sat.ephemeris_bcrs(t)
+    return vector
+
+
 def observed_field_angles(source, sat, t):
     """
     Return field angles according to Lindegren eq. 12
@@ -44,9 +53,9 @@ def observed_field_angles(source, sat, t):
     # Su = ft.lmn_to_xyz(sat.func_attitude(t), Cu)  # u in SRS frame
     r = rotation_matrix_from_alpha_delta(source, sat, t)
     # print(r@Cu.T)
-    Su = np.array(r@Cu.T)
+    # Su = np.array(r@Cu.T)
     attitude = attitude_from_alpha_delta(source, sat, t)
-    # Su = ft.lmn_to_xyz(attitude, Cu)
+    Su = ft.rotate_by_quaternion(attitude, Cu)
     # print(Su.shape)
     # print(Su)
     Su_x = Su[0]
@@ -73,7 +82,9 @@ def compute_field_angles(calc_source, source, sat, t):
     Cu = get_Cu(params, sat, t)  # u in CoMRS frame
     # Su = ft.lmn_to_xyz(sat.func_attitude(t), Cu)  # u in SRS frame
     r = rotation_matrix_from_alpha_delta(source, sat, t)
-    Su = np.array(r@Cu.T)
+    # Su = np.array(r@Cu.T)
+    attitude = attitude_from_alpha_delta(source, sat, t)
+    Su = ft.rotate_by_quaternion(attitude, Cu)
 
     Su_x = Su[0]
     Su_y = Su[1]
@@ -107,7 +118,7 @@ def get_Cu(astro_parameters, sat, t):
     mu_delta = mu_delta * const.rad_per_mas / const.days_per_year  # mas/yr to rad/day
     # km/s to aproximation rad/day
     parallax = parallax * const.rad_per_mas
-    mu_radial = parallax * mu_radial * const.km_per_pc * const.sec_per_day
+    mu_radial = parallax * mu_radial * const.pc_per_km * const.sec_per_day
 
     # WARNING: barycentric coordinate is not defined in the same way!
     # topocentric_function direction
@@ -120,15 +131,15 @@ def get_Cu(astro_parameters, sat, t):
 """
 
 
-def compute_mnu(eta, xi):
+def compute_mnu(eta, zeta):
     """
     return column vectors of the S'[m_l, n_l, u_l] matrix
     """
-    phi = eta  # # TODO: implement the correct version (phi != eta)
+    phi = eta  # # WARNING:  implement the correct version (phi != eta)
     # S_mnu = np.zeros((3,3))
     m_l = np.array([-np.sin(phi), np.cos(phi), 0])
-    n_l = np.array([-np.sin(xi)*np.cos(phi), np.sin(xi)*np.sin(phi), np.cos(xi)])
-    u_l = np.array([np.cos(xi)*np.cos(phi), np.cos(xi)*np.sin(phi), np.sin(xi)])
+    n_l = np.array([-np.sin(zeta)*np.cos(phi), np.sin(zeta)*np.sin(phi), np.cos(zeta)])
+    u_l = np.array([np.cos(zeta)*np.cos(phi), np.cos(zeta)*np.sin(phi), np.sin(zeta)])
     return np.array([m_l, n_l, u_l])
 
 

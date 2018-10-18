@@ -27,13 +27,14 @@ class Calc_source:
     """
     Contains the calculated parameters per source
     """
-    def __init__(self, name, obs_times, source_params, attitude_params, mu_radial):
+    def __init__(self, name, obs_times, source_params, mu_radial):
         """ Initial guess of the parameters"""
         self.name = name
         self.obs_times = obs_times  # times at which it has been observed
-        self.a_params = attitude_params  # attitude at which it should be observed
         self.s_params = source_params  # position at which it has been observed
         self.mu_radial = mu_radial  # not considered an unknown of the problem
+        self.s_old = []
+        self.errors = []
 
 
 class Agis:
@@ -49,31 +50,27 @@ class Agis:
         self.verbose = verbose
         self.calc_sources = calc_sources
         self.real_sources = real_sources
-        # self.a_params = self.init_attitude_param()
         self.sat = sat
         self.consider_stellar_aberation = False
         self.iter_counter = 0
 
+        num_sources = len(self.real_sources)
+
         # The four parameter vector
-        # self.s_param = np.zeros(0)  # source parameters
+        # self.s_param = np.zeros((num_sources, 5))  # source parameters
         # self.a_param = np.zeros(0)  # attitude parameters
         # self.c_param = np.zeros(0)  # Calibration parameters
         # self.g_param = np.zeros(0)  # Global parameters
 
         num_parameters_per_sources = 5  # the astronomic parameters
         total_number_of_observations = 0
-        for source in self.calc_sources:
-            total_number_of_observations += len(source.obs_times)
+        for calc_source in self.calc_sources:
+            total_number_of_observations += len(calc_source.obs_times)
+            calc_source.s_old.append(calc_source.s_params)
         s_vector = np.zeros((len(self.calc_sources)*num_parameters_per_sources, 1))
-
-        self.N_ss = np.zeros((len(self.calc_sources)*5, len(self.calc_sources)*5))  # 5 source params
+        self.N_ss = np.zeros((num_sources*5, num_sources*5))  # 5 source params
         self.N_aa = np.zeros((4, 4))  # 4 attitude params  # WARNING: not the correct shpe
 
-        self.s_old = []
-        self.s_old.append(self.calc_sources[0].s_params)
-        self.errors = []
-
-        self.a_params = np.zeros((self.sat.s_x.get_coeffs().shape[0], 4))
         self.init_blocks()
 
     def init_blocks(self):
@@ -106,26 +103,9 @@ class Agis:
     def reset_iterations(self):
         self.init_blocks()
         self.iter_counter = 0
-        self.s_old = []
-        self.errors = []
-
-    def compute_source_observations_parameters(self, source_num=0):
-        """
-        Computes parameters corresponding to the observation times
-        :param obs_times: [list of floats] list with the observation times
-        :param source_num: the index of the source of interest
-        """
-
-        if source_num >= len(self.real_sources):
-            raise ValueError('there is no source number {}'.format(source_num))
-
-        obs_times = self.calc_sources[source_num].obs_times
-        source = self.real_sources[source_num]
-        self.astro_param = np.zeros((len(obs_times), 5))
-        for i, t_l in enumerate(obs_times):
-            alpha, delta, mu_alpha, mu_delta = source.topocentric_angles(self.sat, t_l)
-            parallax = source.parallax
-            self.astro_param[i, :] = [alpha, delta, parallax, mu_alpha, mu_delta]
+        for calc_source in self.calc_sources:
+            calc_source.s_old = []
+            calc_source.errors = []
 
     def error_function(self):
         """
@@ -133,14 +113,15 @@ class Agis:
         """
         error = 0
         for source_index, s in enumerate(self.calc_sources):
-            print('source: {}'.format(s.s_params))
+            if self.verbose:
+                print('source: {}'.format(s.s_params))
             for j, t_L in enumerate(s.obs_times):
                 R_L = self.R_L(source_index, t_L)
                 error += R_L ** 2
         return error
 
     def R_L(self, source_index, t):
-        """ R = eta_obs + xi_obs - eta_calc - xi_calc """
+        """ R = eta_obs + zeta_obs - eta_calc - zeta_calc """
         # WARNING: maybe source is not in the field of vision of sat at time t!
         eta_obs, zeta_obs = observed_field_angles(self.real_sources[source_index],
                                                   self.sat, t)
@@ -158,21 +139,23 @@ class Agis:
         """
         for i in range(num):
             self.iter_counter += 1
-            print('***** Iteration: {} *****'.format(self.iter_counter))
+            if self.verbose:
+                print('***** Iteration: {} *****'.format(self.iter_counter))
+                print('Error before iteration: {}'.format(self.error_function()))
             # self.init_blocks()
-            print('Error before iteration: {}'.format(self.error_function()))
             self.update_S_block()
-            self.s_old.append(self.calc_sources[0].s_params.copy())
-            self.errors.append(self.error_function())
             # self.update_A_block()
-            print('Error after iteration: {}'.format(self.error_function()))
+            if self.verbose:
+                print('Error after iteration: {}'.format(self.error_function()))
 
     def update_S_block(self):
         """ Performs the update of the source parameters """
-        for i, s in enumerate(self.calc_sources):
-            self.update_block_S(i)
+        for i, calc_source in enumerate(self.calc_sources):
+            calc_source.s_old.append(calc_source.s_params.copy())
+            calc_source.errors.append(self.error_function())
+            self.update_block_S_i(i)
 
-    def update_block_S(self, source_index):
+    def update_block_S_i(self, source_index):
         calc_source = self.calc_sources[source_index]
         A = self.block_S_error_rate_matrix(source_index)
         W = np.eye(len(calc_source.obs_times))
@@ -186,6 +169,7 @@ class Agis:
             print('dim h: {}'.format(h.shape))
             print('dim d: {}'.format(d.flatten().shape))
             print('dim s:', self.calc_sources[source_index].s_params.shape)
+        print('d: ', d[3:-1].flatten())
         self.calc_sources[source_index].s_params[:] += d.flatten()
 
     def der_topocentric_function(self, calc_source):
@@ -236,13 +220,15 @@ class Agis:
                           du_dparallax.transpose(),
                           du_dmualpha.transpose(),
                           du_dmudelta.transpose()])
-        print('du_dalpha.shape: {}'.format(du_dalpha.shape))
-        print('du_ds.shape: {}'.format(du_ds.shape))
+        if self.verbose:
+            print('du_dalpha.shape: {}'.format(du_dalpha.shape))
+            print('du_ds.shape: {}'.format(du_ds.shape))
         return du_ds
 
-    def compute_der_proper_direction(self, calc_source):
+    def du_ds(self, calc_source):
         """
-        Compute proper direction
+        returns the derivative of the proper direction w.r.t. the astronomic
+        parameters.
         take into account aberrationn of light
         :param du_ds_tilde: in the CoRMS frame (lmn)
         :returns du_ds: in the SRS frame (xyz)
@@ -273,13 +259,6 @@ class Agis:
                 S_du_ds[i, :, j] = np.array(R@C_du_ds[i, :, j].T)
 
         return S_du_ds
-
-    def du_ds(self, calc_source):
-        """
-        returns the derivative of the proper direction w.r.t. the astronomic
-        parameters.
-        """
-        return self.compute_der_proper_direction(calc_source)
 
     def dR_ds(self, source_index):
         """
