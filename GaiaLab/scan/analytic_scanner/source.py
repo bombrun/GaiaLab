@@ -31,11 +31,11 @@ def get_Cu(astro_parameters, sat, t):
     alpha, delta, parallax, mu_alpha_dx, mu_delta, mu_radial = astro_parameters[:]
     p, q, r = ft.compute_pqr(alpha, delta)
 
-    mu_alpha_dx = mu_alpha_dx * const.rad_per_mas / const.days_per_year   # mas/yr to rad/day
-    mu_delta = mu_delta * const.rad_per_mas / const.days_per_year  # mas/yr to rad/day
+    mu_alpha_dx = mu_alpha_dx
+    mu_delta = mu_delta
     # km/s to aproximation rad/day
     # parallax = parallax * const.rad_per_mas
-    mu_radial = parallax * const.rad_per_mas * mu_radial * const.km_per_pc * const.sec_per_day
+    mu_radial = parallax * const.rad_per_mas * mu_radial/const.km_per_Au * const.sec_per_day
 
     # WARNING: barycentric coordinate is not defined in the same way!
     # topocentric_function direction
@@ -88,8 +88,8 @@ class Source:
         self.__alpha0 = np.radians(alpha0)
         self.__delta0 = np.radians(delta0)
         self.parallax = parallax
-        self.mu_alpha_dx = mu_alpha*np.cos(self.__delta0)
-        self.mu_delta = mu_delta
+        self.mu_alpha_dx = mu_alpha * const.rad_per_mas / const.days_per_year * np.cos(self.__delta0)
+        self.mu_delta = mu_delta * const.rad_per_mas / const.days_per_year     # from mas/yr to rad/day
         self.mu_radial = mu_radial
 
     def reset(self):
@@ -111,8 +111,8 @@ class Source:
 
         # mu_alpha_dx = self.mu_alpha_dx * 4.8473097e-9 / 365     # from mas/yr to rad/day
         # mu_delta = self.mu_delta * 4.848136811095e-9 / 365      # from mas/yr to rad/day
-        mu_alpha_dx = self.mu_alpha_dx * const.rad_per_mas / const.days_per_year     # from mas/yr to rad/day
-        mu_delta = self.mu_delta * const.rad_per_mas / const.days_per_year           # from mas/yr to rad/day
+        mu_alpha_dx = self.mu_alpha_dx
+        mu_delta = self.mu_delta
 
         self.alpha = self.__alpha0 + mu_alpha_dx*t
         self.delta = self.__delta0 + mu_delta*t
@@ -161,7 +161,7 @@ class Source:
         mu_alpha_dx = self.mu_alpha_dx * const.rad_per_mas / const.days_per_year   # mas/yr to rad/day
         mu_delta = self.mu_delta * const.rad_per_mas / const.days_per_year  # mas/yr to rad/day
         # km/s to aproximation rad/day
-        mu_radial = self.parallax * const.rad_per_mas * self.mu_radial * const.km_per_pc * const.sec_per_day
+        mu_radial = self.parallax * const.rad_per_mas * self.mu_radial * const.pc_per_km * const.sec_per_day
 
         # print('bar: {} // r: {}'.format(self.barycentric_coor(0), r))
         # topocentric_function direction
