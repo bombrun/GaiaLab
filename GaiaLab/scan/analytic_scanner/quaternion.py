@@ -1,12 +1,10 @@
-# # Quaternion class implementation for python.
-#
-# Offers native integration of operators between quaternions generated and
-# numpy data structures.
-#
-# Toby James 2018
-
 """
-This is a file
+Quaternion class implementation for python.
+
+Offers native integration of operators between quaternions generated and
+numpy data structures.
+
+Toby James 2018
 """
 
 import numpy as np
@@ -64,6 +62,34 @@ class Quaternion():
             while abs(1 - new_q.magnitude) > tolerance:
                 new_q = new_q.unit()
             return new_q
+
+    def reset_with_matrix(self, m):
+        raise ValueError('this function is incorrectly implemented')
+        if m[2, 2] < 0:
+            if m[0, 0] > m[1, 1]:
+                trace = 1 + m[0, 0] - m[1, 1] - m[2, 2]
+                x = m[0, 1]+m[1, 0]
+                y = m[2, 0]+m[0, 2]
+                z = m[1, 2]-m[2, 1]
+                quat = Quaternion(x, y, z, trace)
+            else:
+                trace = 1 - m[0, 0] + m[1, 1] - m[2, 2]
+                quat = Quaternion(trace, m[1, 2]+m[2, 1], m[2, 0]-m[0, 2], m[0, 1]+m[1, 0])
+        else:
+            if m[0, 0] < -m[1, 1]:
+                trace = 1 - m[0, 0] - m[1, 1] + m[2, 2]
+                x = m[2, 0]+m[0, 2]
+                y = m[1, 2]+m[2, 1]
+                z = m[0, 1]-m[1, 0]
+                quat = Quaternion(y, trace, z, x)
+            else:
+                trace = 1 + m[0, 0] + m[1, 1] + m[2, 2]
+                x = m[1, 2]-m[2, 1]
+                y = m[2, 0]-m[0, 2]
+                z = m[0, 1]-m[1, 0]
+                quat = Quaternion(y, z, trace, x)
+        quat = quat*0.5/np.sqrt(trace)
+        return quat
 
     def conjugate(self):            # Create the quaternion conjugate
         return Quaternion(self.w,
@@ -157,18 +183,25 @@ class Quaternion():
         return np.array([self.x, self.y, self.z])
 
     def basis(self):
-        a_11 = 1 - 2*((self.y)**2 + (self.z)**2)
-        a_12 = 2*(self.x*self.y + self.z*self.w)
-        a_13 = 2*(self.x*self.z-self.y*self.w)
-        a_21 = 2*(self.x*self.y - self.z*self.w)
-        a_22 = 1 - 2*((self.x)**2 + (self.z)**2)
-        a_23 = 2*(self.y*self.z + self.x*self.w)
-        a_31 = 2*(self.x*self.z + self.y*self.w)
-        a_32 = 2*(self.y*self.z - self.x*self.w)
-        a_33 = 1 - 2*((self.x)**2 + (self.y)**2)
+        """
+        Rotation matrix associated with quaternion.
+        See https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation
+        """
+        s = self.magnitude
+        a_11 = 1 - 2*s*((self.y)**2 + (self.z)**2)
+        a_12 = 2*s*(self.x*self.y - self.z*self.w)
+        a_13 = 2*s*(self.x*self.z + self.y*self.w)
+        a_21 = 2*s*(self.x*self.y + self.z*self.w)
+        a_22 = 1 - 2*s*((self.x)**2 + (self.z)**2)
+        a_23 = 2*s*(self.y*self.z - self.x*self.w)
+        a_31 = 2*s*(self.x*self.z - self.y*self.w)
+        a_32 = 2*s*(self.y*self.z + self.x*self.w)
+        a_33 = 1 - 2*s*((self.x)**2 + (self.y)**2)
 
-        A = np.array([a_11, a_12, a_13, a_21, a_22, a_23, a_31, a_32, a_33])
+        A = np.array([[a_11, a_12, a_13],
+                      [a_21, a_22, a_23],
+                      [a_31, a_32, a_33]])
 
-        return A.reshape(3, 3)
+        return A  # A.reshape(3, 3)
 
     __array_priority__ = 10000  # big number so numpy respects left matrix multiplication with quaternions
