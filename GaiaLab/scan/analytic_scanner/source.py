@@ -65,13 +65,22 @@ class Source:
         :param mu_delta: mas/yr
         :param mu_radial: km/s
         """
-        self.init_param(alpha0, delta0, parallax, mu_alpha, mu_delta, mu_radial)
+        self.test_type_input_param(alpha0, delta0, parallax, mu_alpha, mu_delta, mu_radial)
         self.name = name
+        self.__alpha0 = np.radians(alpha0)
+        self.__delta0 = np.radians(delta0)
+        self.parallax = parallax
+        self.mu_alpha_dx = mu_alpha * const.rad_per_mas / const.days_per_year * np.cos(self.__delta0)
+        self.mu_delta = mu_delta * const.rad_per_mas / const.days_per_year     # from mas/yr to rad/day
+        self.mu_radial = mu_radial
+
         self.alpha = self.__alpha0
         self.delta = self.__delta0
 
-    def init_param(self, alpha0, delta0, parallax, mu_alpha, mu_delta, mu_radial):
-
+    def test_type_input_param(self, alpha0, delta0, parallax, mu_alpha, mu_delta, mu_radial):
+        """
+        Tests if the input parameters are of the right type
+        """
         if type(alpha0) not in [int, float]:
             raise TypeError('alpha0 need to be int or float')
         if type(delta0) not in [int, float]:
@@ -84,13 +93,12 @@ class Source:
             raise TypeError('mu_delta need to be int or float')
         if type(mu_radial) not in [int, float]:
             raise TypeError('mu_radial need to be int or float')
+        pass
 
-        self.__alpha0 = np.radians(alpha0)
-        self.__delta0 = np.radians(delta0)
-        self.parallax = parallax
-        self.mu_alpha_dx = mu_alpha * const.rad_per_mas / const.days_per_year * np.cos(self.__delta0)
-        self.mu_delta = mu_delta * const.rad_per_mas / const.days_per_year     # from mas/yr to rad/day
-        self.mu_radial = mu_radial
+    def get_parameters(self, t=0):
+        self.set_time(t)
+
+        return np.array([self.alpha, self.delta, self.parallax, self.mu_alpha, self.mu_delta])
 
     def reset(self):
         """
