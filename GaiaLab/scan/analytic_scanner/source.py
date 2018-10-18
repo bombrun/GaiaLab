@@ -109,10 +109,10 @@ class Source:
         if t < 0:
             raise Warning('t is negative')
 
-        mu_alpha_dx = self.mu_alpha_dx * 4.8473097e-9 / 365     # from mas/yr to rad/day
-        mu_delta = self.mu_delta * 4.848136811095e-9 / 365      # from mas/yr to rad/day
-        # mu_alpha_dx = self.mu_alpha_dx * const.rad_per_mas / const.days_per_year     # from mas/yr to rad/day
-        # mu_delta = self.mu_delta * const.rad_per_mas / const.days_per_year           # from mas/yr to rad/day
+        # mu_alpha_dx = self.mu_alpha_dx * 4.8473097e-9 / 365     # from mas/yr to rad/day
+        # mu_delta = self.mu_delta * 4.848136811095e-9 / 365      # from mas/yr to rad/day
+        mu_alpha_dx = self.mu_alpha_dx * const.rad_per_mas / const.days_per_year     # from mas/yr to rad/day
+        mu_delta = self.mu_delta * const.rad_per_mas / const.days_per_year           # from mas/yr to rad/day
 
         self.alpha = self.__alpha0 + mu_alpha_dx*t
         self.delta = self.__delta0 + mu_delta*t
