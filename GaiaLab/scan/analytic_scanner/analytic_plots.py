@@ -7,7 +7,7 @@ Created on Mon Jun 18 14:59:19 2018
 
 modified by: LucaZampieri
 
-Plot helper functions, and other helper functions
+Plot functions
 """
 
 # # Imports
@@ -465,82 +465,7 @@ def plot_eta_over_phi_day(source, sat, ti=0, tf=90, n=1000, day=45):
     return p
 
 
-def plot_stars_trajectory_for_agis(source, satellite, obs_times=[]):
-    """
-    :param source: source object
-    :param satellite: Satellite object
-    :param t_total: total time for which the trajectory is desired [days] from
-     J2000.
-    :return: plot of the star trajectory in the lmn-frame.
-    """
-
-    time_total = satellite.storage[-1][0]
-
-    alphas = []
-    deltas = []
-    alphas_sol = []
-    deltas_sol = []
-    times_sol = []
-
-    for i in np.arange(0, time_total, 1):
-        alpha_obs, delta_obs, delta_alpha_dx_mas, delta_delta_mas = source.topocentric_angles(satellite, i)
-        alphas.append(delta_alpha_dx_mas)
-        deltas.append(delta_delta_mas)
-
-    for t in obs_times:
-        alpha_obs, delta_obs, delta_alpha_dx_mas, delta_delta_mas = source.topocentric_angles(satellite, t)
-        alphas_sol.append(delta_alpha_dx_mas)
-        deltas_sol.append(delta_delta_mas)
-        times_sol.append(t/const.days_per_year + 2000)  # +2000 do the fact that the reference epoch is J2000
-    n = len(alphas)
-    times = np.linspace(2000, 2000 + time_total/const.days_per_year, n)
-
-    # Styles for the plots
-    path_style = 'b,'
-    origin_style = 'kx'
-    sol_style = 'rs'
-
-    fig = plt.figure(figsize=(16, 9))
-    ax = fig.add_subplot(121)
-
-    fig.suptitle(r'$\varpi={%.2f}$, $\mu_{{\alpha*}}={%.2f}$, $\mu_\delta={%.2f}$'
-                 % (source.parallax, source.mu_alpha_dx, source.mu_delta),
-                 fontsize=20)
-
-    ax.plot(alphas, deltas, path_style,
-            label=r'%s path' % (source.name), lw=2)
-    ax.plot(alphas[0], deltas[0], origin_style, label='origin')
-    ax.plot(alphas_sol, deltas_sol, sol_style, label='solutions')
-    ax.set_xlabel(r'$\Delta\alpha*$ [mas]')
-    ax.set_ylabel(r'$\Delta\delta$ [mas]')
-    ax.axhline(y=0, c='gray', lw=1)
-    ax.axvline(x=0, c='gray', lw=1)
-    ax.legend(fontsize=12, facecolor='#000000',
-              framealpha=0.1)
-    # Top right subplot
-    ax1dra = fig.add_subplot(222)
-    ax1dra.plot(times, alphas, path_style)
-    ax1dra.plot(times[0], alphas[0], origin_style, label='origin')
-    ax1dra.plot(times_sol, alphas_sol, sol_style, label='solutions')
-    ax1dra.axhline(y=0, c='gray', lw=1)
-    # ax1dra.set_xlabel(r'Time [yr]')
-    ax1dra.set_ylabel(r'$\Delta\alpha*$ [mas]')
-
-    # Top left subplot
-    ax1ddec = fig.add_subplot(224, sharex=ax1dra)
-    ax1ddec.axhline(y=0, c='gray', lw=1)
-    ax1ddec.plot(times, deltas, path_style)
-    ax1ddec.plot(times[0], deltas[0], origin_style, label='origin')
-    ax1ddec.plot(times_sol, deltas_sol, sol_style, label='solutions')
-    ax1ddec.set_xlabel(r'Time [yr]')
-    ax1ddec.set_ylabel(r'$\Delta\delta$ [mas]')
-
-    # plt.tight_layout()
-    plt.show()
-
-
-
-def plot_stars_trajectory(source, satellite, obs_times=[]):
+def plot_stars_trajectory(source, satellite, obs_times=[], equatorial=False):
     """
     :param source: source object
     :param satellite: Satellite object
@@ -562,20 +487,28 @@ def plot_stars_trajectory(source, satellite, obs_times=[]):
     times_sol = []
 
     for i in np.arange(0, time_total, 1):
-        alpha_obs, delta_obs, delta_alpha_dx_mas, delta_delta_mas = source.topocentric_angles(satellite, i)
-        alphas.append(delta_alpha_dx_mas)
-        deltas.append(delta_delta_mas)
+        alpha, delta, delta_alpha_dx_mas, delta_delta_mas = source.topocentric_angles(satellite, i)
+        if equatorial is False:
+            alphas.append(delta_alpha_dx_mas)
+            deltas.append(delta_delta_mas)
+        else:
+            alphas.append(alpha)
+            deltas.append(delta)
     for t in obs_times:
-        alpha_obs, delta_obs, delta_alpha_dx_mas, delta_delta_mas = source.topocentric_angles(satellite, t)
-        alphas_sol.append(delta_alpha_dx_mas)
-        deltas_sol.append(delta_delta_mas)
         times_sol.append(t/const.days_per_year + 2000)  # +2000 do the fact that the reference epoch is J2000
+        alpha_obs, delta_obs, delta_alpha_dx_mas, delta_delta_mas = source.topocentric_angles(satellite, t)
+        if equatorial is False:
+            alphas_sol.append(delta_alpha_dx_mas)
+            deltas_sol.append(delta_delta_mas)
+        else:
+            alphas_sol.append(alpha_obs)
+            deltas_sol.append(delta_obs)
     n = len(alphas)
     times = np.linspace(2000, 2000 + time_total/const.days_per_year, n)
 
     # Styles for the plots
     path_style = 'b,'
-    origin_style = 'kx'
+    origin_style = 'ks'
     sol_style = 'rs'
 
     fig = plt.figure(figsize=(16, 9))
@@ -584,29 +517,53 @@ def plot_stars_trajectory(source, satellite, obs_times=[]):
     fig.suptitle(r'$\varpi={%.2f}$, $\mu_{{\alpha*}}={%.2f}$, $\mu_\delta={%.2f}$'
                  % (source.parallax, source.mu_alpha_dx, source.mu_delta),
                  fontsize=20)
+    # cmaps: 'jet', 'winter', 'viridis'
+    ax.scatter(alphas, deltas, c=times, marker='.', s=(72./fig.dpi)**2, cmap='jet', alpha=0.5,
+               label=r'%s path' % (source.name), lw=2)
 
-    ax.plot(alphas, deltas, path_style,
-            label=r'%s path' % (source.name), lw=2)
+    # ax.plot(alphas, deltas, path_style, label=r'%s path' % (source.name), lw=2)
+
     ax.plot(alphas[0], deltas[0], origin_style, label='origin')
     ax.plot(alphas_sol, deltas_sol, sol_style, label='solutions')
-    ax.set_xlabel(r'$\Delta\alpha*$ [mas]')
-    ax.set_ylabel(r'$\Delta\delta$ [mas]')
-    ax.axhline(y=0, c='gray', lw=1)
-    ax.axvline(x=0, c='gray', lw=1)
-    ax.legend(fontsize=12, facecolor='#000000',
-              framealpha=0.1)
+    scaling_factor = 1 / 4
+    scale_alpha = (np.max(alphas) - np.min(alphas)) * scaling_factor
+    scale_delta = (np.max(deltas) - np.min(deltas)) * scaling_factor
+    length = np.array([scale_alpha, scale_delta])
+    for i, (t, a, d) in enumerate(zip(times, alphas_sol, deltas_sol)):
+        point = np.array([a, d])
+        vector = spin_axis_from_alpha_delta(source, satellite, t)
+        adp = ft.vector_to_adp(vector)
+        directions = helpers.rescaled_direction(adp, point, length)
+        to_plot_x = [point[0], directions[0]]
+        to_plot_y = [point[1], directions[1]]
+        ax.plot(to_plot_x, to_plot_y, 'k-')
+        ax.quiver(point[0], point[1], point[0]+directions[0], point[1]+directions[1], color=['r'], scale=21)
+
+    if equatorial is False:
+        ax.axhline(y=0, c='gray', lw=1)
+        ax.axvline(x=0, c='gray', lw=1)
+        ax.set_xlabel(r'$\Delta\alpha*$ [mas]')
+        ax.set_ylabel(r'$\Delta\delta$ [mas]')
+    else:
+        ax.set_xlim(np.min(alphas), np.max(alphas))
+        ax.set_ylim(np.min(deltas), np.max(deltas))
+        ax.set_xlabel(r'$\alpha*$ [rad]')
+        ax.set_ylabel(r'$\delta$ [rad]')
+    ax.legend(fontsize=12, facecolor='#000000', framealpha=0.1)
     # Top right subplot
     ax1dra = fig.add_subplot(222)
     ax1dra.plot(times, alphas, path_style)
     ax1dra.plot(times[0], alphas[0], origin_style, label='origin')
     ax1dra.plot(times_sol, alphas_sol, sol_style, label='solutions')
-    ax1dra.axhline(y=0, c='gray', lw=1)
+    if equatorial is False:
+        ax1dra.axhline(y=0, c='gray', lw=1)
     # ax1dra.set_xlabel(r'Time [yr]')
     ax1dra.set_ylabel(r'$\Delta\alpha*$ [mas]')
 
     # Top left subplot
     ax1ddec = fig.add_subplot(224, sharex=ax1dra)
-    ax1ddec.axhline(y=0, c='gray', lw=1)
+    if equatorial is False:
+        ax1ddec.axhline(y=0, c='gray', lw=1)
     ax1ddec.plot(times, deltas, path_style)
     ax1ddec.plot(times[0], deltas[0], origin_style, label='origin')
     ax1ddec.plot(times_sol, deltas_sol, sol_style, label='solutions')
