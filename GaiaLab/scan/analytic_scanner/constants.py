@@ -19,7 +19,9 @@ pc_per_km = 3.24078e-14  # [km/pc] kilometers per parsec
 sec_per_day = 3600*24  # [sec/day] seconds per day
 km_per_Au = 149598000  # number of kilometers in one Au
 AU_per_pc = 4.8481705933824e-6  # [au/pc] austronomical unit per parsec
+Au_per_km = 1/km_per_Au
 c = 299.792458e6  # [m/s]
+Au_per_Au = 1  # useless, just to make computations explicit?
 # km_per_au = 149597870.700  # [km/au]
 # pc_per_au = 4.8481e-6
 
