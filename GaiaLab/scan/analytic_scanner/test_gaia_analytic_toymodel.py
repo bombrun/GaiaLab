@@ -49,6 +49,10 @@ class test_source(unittest.TestCase):
         self.source = Source('test', 0, 1, 2, 3, 4, 5)
 
     def test_init_param_types(self):
+        self.assertRaises(TypeError, self.source.alpha, 3 + 5j)
+        self.assertRaises(TypeError, self.source.alpha, True)
+        self.assertRaises(TypeError, self.source.alpha, 'string')
+
         self.assertRaises(TypeError, self.source.parallax, 3 + 5j)
         self.assertRaises(TypeError, self.source.parallax, True)
         self.assertRaises(TypeError, self.source.parallax, 'string')
