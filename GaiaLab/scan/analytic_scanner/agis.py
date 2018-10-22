@@ -28,7 +28,10 @@ class Calc_source:
     Contains the calculated parameters per source
     """
     def __init__(self, name, obs_times, source_params, mu_radial):
-        """ Initial guess of the parameters"""
+        """
+        Initial guess of the parameters
+        :source_params: alpha, delta, parallax, mu_alpha, mu_delta
+        """
         self.name = name
         self.obs_times = obs_times  # times at which it has been observed
         self.s_params = source_params  # position at which it has been observed
@@ -88,8 +91,8 @@ class Agis:
 
         for i in range(0, self.N_ss.shape[0], 5):  # Nss is symmetric and square
             dR_ds = self.dR_ds(i)  # i being the source index
-            W = np.eye(5)  # TODO: implement the weighting factor
-            self.N_ss[i*5:i*5+5, i*5:i*5+5] = dR_ds.transpose() @ dR_ds @ W  # should we use np.sum?
+            # W = np.eye(5)  # TODO: implement the weighting factor
+            self.N_ss[i*5:i*5+5, i*5:i*5+5] = dR_ds.transpose() @ dR_ds  # @ W  # should we use np.sum?
             # The rest of N_ss are zero by initialisation
 
     def __init_N_aa(self):
@@ -123,14 +126,16 @@ class Agis:
     def R_L(self, source_index, t):
         """ R = eta_obs + zeta_obs - eta_calc - zeta_calc """
         # WARNING: maybe source is not in the field of vision of sat at time t!
+        R_eta = 0
+        R_zeta = 0
         eta_obs, zeta_obs = observed_field_angles(self.real_sources[source_index],
                                                   self.sat, t)
-        obs = eta_obs + zeta_obs
         eta_calc, zeta_calc = compute_field_angles(self.calc_sources[source_index],
                                                    self.real_sources[source_index],
                                                    self.sat, t)
-        calc = eta_calc + zeta_calc
-        R_L = obs - calc
+        R_eta = eta_obs - eta_calc  # AL
+        R_zeta = zeta_obs - zeta_calc  # AC
+        R_L = R_eta + R_zeta
         return R_L
 
     def iterate(self, num):
@@ -154,6 +159,7 @@ class Agis:
             calc_source.s_old.append(calc_source.s_params.copy())
             calc_source.errors.append(self.error_function())
             self.update_block_S_i(i)
+            print('parallax: ', self.calc_sources[i].s_params[2])
 
     def update_block_S_i(self, source_index):
         calc_source = self.calc_sources[source_index]
@@ -199,19 +205,22 @@ class Agis:
         for j, t_l in enumerate(calc_source.obs_times):
             # t_l being the observation time
             # using alpha delta of this source and observation
-            p, q, r = ft.compute_pqr(calc_source.s_params[0], calc_source.s_params[1])
+            alpha_tmp = calc_source.s_params[0] + calc_source.s_params[3]*t_l
+            delta_tmp = calc_source.s_params[1] + calc_source.s_params[4]*t_l
+            p, q, r = ft.compute_pqr(alpha_tmp, delta_tmp)
+            # p, q, r = ft.compute_pqr(calc_source.s_params[0], calc_source.s_params[1])
             p = np.expand_dims(p, axis=0)
             q = np.expand_dims(q, axis=0)
             r = np.expand_dims(r, axis=0)
             b_G = np.expand_dims(self.sat.ephemeris_bcrs(t_l), axis=0).transpose()
-            t_B = t_l + np.dot(r, b_G) / const.c
+            t_B = t_l  # + np.dot(r, b_G) / const.c
             tau = t_B - const.t_ep
-            Au = 1/const.AU_per_pc  # 1  # TODO: Check what kind of au we should use, might be constant only in our case
+            Au = const.Au_per_Au  # 1/const.km_per_Au  # 1
 
             # Compute derivatives
             du_dalpha[j] = p
             du_ddelta[j] = q
-            du_dparallax[j] = ((np.eye(3) - r @ np.transpose(r)) @ b_G / Au).transpose()
+            du_dparallax[j] = ((np.eye(3) - r @ r.T) @ b_G * Au).transpose()
             du_dmualpha[j] = p*tau
             du_dmudelta[j] = q*tau
 
@@ -253,7 +262,7 @@ class Agis:
         for i in range(C_du_ds.shape[0]):  # TODO: remove these ugly for loop
             for j in range(C_du_ds.shape[-1]):
                 t_L = calc_source.obs_times[j]
-                # WARNING: we should not use func_attitude here
+                # WARNING: we should use quaternion object!
                 # S_du_ds[i, :, j] = ft.lmn_to_xyz(self.sat.func_attitude(t_L), C_du_ds[i, :, j])
                 R = rotation_matrix_from_alpha_delta(self.real_sources[0], self.sat, t_L)
                 S_du_ds[i, :, j] = np.array(R@C_du_ds[i, :, j].T)
@@ -278,7 +287,7 @@ class Agis:
         dR_ds_AC = np.zeros(dR_ds_AL.shape)
 
         for i, t_L in enumerate(calc_source.obs_times):
-            eta, zeta = compute_field_angles(calc_source, self.real_sources[0], self.sat, i)
+            eta, zeta = compute_field_angles(calc_source, self.real_sources[source_index], self.sat, i)
             m, n, u = compute_mnu(eta, zeta)
             dR_ds_AL[i, :] = -m @ du_ds[:, :, i].transpose() * sec(zeta)
             dR_ds_AC[i, :] = -n @ du_ds[:, :, i].transpose()
@@ -308,6 +317,7 @@ class Agis:
 
         # TODO: generalise for more sources
         p, q, r = ft.compute_pqr(self.source.alpha, self.source.delta)
+        Au = 1/const.km_per_Au
         my_vector = r + (t_B - t_ep) * (p * mu_alpha + q * mu_delta + r * mu_r) - parallax * b_G / Au
         my_direction = my_vector/np.norm(my_vector)
         return my_direction

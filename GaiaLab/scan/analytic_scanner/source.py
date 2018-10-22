@@ -29,19 +29,20 @@ def get_Cu(astro_parameters, sat, t):
     # if not isinstance(satellite, Satellite):
     #     raise TypeError('Expected Satellite, but got {} instead'.format(type(satellite)))
     alpha, delta, parallax, mu_alpha_dx, mu_delta, mu_radial = astro_parameters[:]
-    p, q, r = ft.compute_pqr(alpha, delta)
+
+    p, q, r = ft.compute_pqr(alpha+mu_alpha_dx*t, delta+mu_delta*t)
 
     mu_alpha_dx = mu_alpha_dx
     mu_delta = mu_delta
     # km/s to aproximation rad/day
     # parallax = parallax * const.rad_per_mas
-    mu_radial = parallax * const.rad_per_mas * mu_radial/const.km_per_Au * const.sec_per_day
+    mu_radial = mu_radial
 
     # WARNING: barycentric coordinate is not defined in the same way!
     # topocentric_function direction
     t_B = t  # + r.transpose() @ b_G / const.c  # # TODO: replace t_B with its real value
-    b_G = sat.ephemeris_bcrs(t)
-    topocentric = r + t * (p * mu_alpha_dx + q * mu_delta + r * mu_radial) - b_G * const.AU_per_pc  # * parallax
+    b_G = sat.ephemeris_bcrs(t)  # [Au]
+    topocentric = r + t * (p * mu_alpha_dx + q * mu_delta + r * mu_radial) - b_G * const.Au_per_Au  # * parallax
     norm_topocentric = np.linalg.norm(topocentric)
 
     return topocentric / norm_topocentric
@@ -56,24 +57,30 @@ class Source:
         >>> sirio = Source("sirio", 101.28, -16.7161, 379.21, -546.05, -1223.14, -7.6)
     """
 
-    def __init__(self, name, alpha0, delta0, parallax, mu_alpha, mu_delta, mu_radial):
+    def __init__(self, name, alpha0, delta0, parallax, mu_alpha, mu_delta, radial_velocity):
         """
         :param alpha0: deg
         :param delta0: deg
         :param parallax: mas
         :param mu_alpha: mas/yr
         :param mu_delta: mas/yr
-        :param mu_radial: km/s
+        :param radial_velocity: km/s
+        Transforms in rads/day or rads
+        [alpha] = rads
+        [delta] = rads
+        [parallax] = rads
+        [mu_alpha_dx] = rads/days
+        [mu_delta] = rads/days
+        [mu_radial] = rads/days?
         """
-        self.test_type_input_param(alpha0, delta0, parallax, mu_alpha, mu_delta, mu_radial)
+        self.test_type_input_param(alpha0, delta0, parallax, mu_alpha, mu_delta, radial_velocity)
         self.name = name
         self.__alpha0 = np.radians(alpha0)
         self.__delta0 = np.radians(delta0)
         self.parallax = parallax
         self.mu_alpha_dx = mu_alpha * const.rad_per_mas / const.days_per_year * np.cos(self.__delta0)
         self.mu_delta = mu_delta * const.rad_per_mas / const.days_per_year     # from mas/yr to rad/day
-        self.mu_radial = mu_radial
-
+        self.mu_radial = radial_velocity * parallax * const.rad_per_mas * const.Au_per_km * const.sec_per_day
         self.alpha = self.__alpha0
         self.delta = self.__delta0
 
@@ -179,7 +186,7 @@ class Source:
 
         return topocentric / norm_topocentric
         """
-        self.set_time(float(t))
+        self.set_time(0)  # (float(t))
         param = np.array([self.alpha, self.delta, self.parallax, self.mu_alpha_dx, self.mu_delta, self.mu_radial])
         return get_Cu(param, satellite, t)
 
