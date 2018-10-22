@@ -78,7 +78,7 @@ class Satellite:
         Equivalently written b_G(t)
 
         :param t: float [days]
-        :return: 3D np.array [AU]
+        :return: 3D np.array [AU]!
         """
         # Assuming it is a circle tilted by epsilon:
         b_x_bcrs = self.orbital_radius*np.cos(2*np.pi/self.orbital_period*t)*np.cos(self.epsilon)
