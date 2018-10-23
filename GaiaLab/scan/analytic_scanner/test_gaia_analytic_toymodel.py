@@ -8,6 +8,7 @@ from agis import Calc_source
 from agis import Agis
 import frame_transformations as ft
 from quaternion import Quaternion
+import agis_functions as af
 
 import numpy as np
 
@@ -81,6 +82,40 @@ class test_satellite(unittest.TestCase):
 class test_scanner(unittest.TestCase):
     def setUp(self):
         self.scan = Scanner()
+
+
+class test_agis_functions(unittest.TestCase):
+
+    def test_compute_du_dparallax(self):
+        b_G = [1, 2, 3]
+        r = np.random.rand(3)
+        self.assertRaises(TypeError, af.compute_du_dparallax, r, b_G)
+        b_G = np.random.rand(3)
+        self.assertRaises(ValueError, af.compute_du_dparallax, r, b_G)
+        r.shape = (3, 1)
+        result = af.compute_du_dparallax(r, b_G)
+        b1, b2, b3 = b_G[:]
+        r1, r2, r3 = r.flatten()[0], r.flatten()[1], r.flatten()[2]
+        desired_result = -np.array([(1-r1**2)*b1 + (-r1*r2)*b2 + (-r1*r3)*b3,
+                                   (-r2*r1)*b1 + (1-r2**2)*b2 + (-r2*r3)*b3,
+                                   (-r3*r1)*b1 + (-r3*r2)*b2 + (1-r3**2)*b3])
+        desired_result.shape = 3
+        np.testing.assert_equal(result, desired_result)
+
+    def test_compute_field_angles(self):
+        Su = [1, 0, 0, 0]
+        self.assertRaises(TypeError, af.compute_field_angles, Su)
+        Su = np.array(Su)
+        self.assertRaises(ValueError, af.compute_field_angles, Su)
+        Su_list = [np.array([1, 0, 0]),
+                   np.array([0, 1, 0]),
+                   np.array([0, 0, 1])]
+        etas_res = [0, np.pi/2, 0]
+        zetas_res = [0, 0, np.pi/2]
+        for Su, eta_res, zeta_res in zip(Su_list, etas_res, zetas_res):
+            eta, zeta = af.compute_field_angles(Su)
+            self.assertEqual(eta, eta_res)
+            self.assertEqual(zeta, zeta_res)
 
 
 class test_agis(unittest.TestCase):

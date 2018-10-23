@@ -19,7 +19,7 @@ from agis_functions import *
 # global modules
 import numpy as np
 
-# TODO: implement all the functionsto compute condition number of the matrix: numpy.linalg.cond(x)
+# TODO: implement all the functions to compute condition number of the matrix: numpy.linalg.cond(x)
 #
 
 
@@ -49,6 +49,11 @@ class Agis:
         self.astro_param : the astronometric parameters for the source we're examining
         self.obs_times : the observation times for a given source
         **Variables**
+        # The four parameter vector
+        # self.s_param = np.zeros((num_sources, 5))  # source parameters
+        # self.a_param = np.zeros(0)  # attitude parameters
+        # self.c_param = np.zeros(0)  # Calibration parameters
+        # self.g_param = np.zeros(0)  # Global parameters
         """
         self.verbose = verbose
         self.calc_sources = calc_sources
@@ -59,56 +64,24 @@ class Agis:
 
         num_sources = len(self.real_sources)
 
-        # The four parameter vector
-        # self.s_param = np.zeros((num_sources, 5))  # source parameters
-        # self.a_param = np.zeros(0)  # attitude parameters
-        # self.c_param = np.zeros(0)  # Calibration parameters
-        # self.g_param = np.zeros(0)  # Global parameters
-
         num_parameters_per_sources = 5  # the astronomic parameters
         total_number_of_observations = 0
         for calc_source in self.calc_sources:
             total_number_of_observations += len(calc_source.obs_times)
             calc_source.s_old.append(calc_source.s_params)
         s_vector = np.zeros((len(self.calc_sources)*num_parameters_per_sources, 1))
-        self.N_ss = np.zeros((num_sources*5, num_sources*5))  # 5 source params
-        self.N_aa = np.zeros((4, 4))  # 4 attitude params  # WARNING: not the correct shpe
-
-        self.init_blocks()
-
-    def init_blocks(self):
-        """
-        Initialize the block
-        """
-        if self.verbose:
-            print('initializing N_ss of shape: {}'.format(self.N_ss.shape))
-            print('initializing N_aa of shape: {}'.format(self.N_aa.shape))
-        self.__init_N_ss()
-        self.__init_N_aa()
-
-    def __init_N_ss(self):
-        """ initialize the matrix N_ss """
-
-        for i in range(0, self.N_ss.shape[0], 5):  # Nss is symmetric and square
-            dR_ds = self.dR_ds(i)  # i being the source index
-            # W = np.eye(5)  # TODO: implement the weighting factor
-            self.N_ss[i*5:i*5+5, i*5:i*5+5] = dR_ds.transpose() @ dR_ds  # @ W  # should we use np.sum?
-            # The rest of N_ss are zero by initialisation
-
-    def __init_N_aa(self):
-        """
-        Initialize the matrix N_aa
-        N_aa
-        for n in range(0, self.N_aa.shape[0], 4):
-        """
-        pass
 
     def reset_iterations(self):
-        self.init_blocks()
         self.iter_counter = 0
         for calc_source in self.calc_sources:
             calc_source.s_old = []
             calc_source.errors = []
+
+    def get_quaternion_COMRS_2_SRS(self, t, source_index=0):
+        """Get quaternion that rotates from CoMRS to SRS"""
+        # WARNING: when taking the attitude from the satellite the quaternion should be inverted!!!
+        quat = attitude_from_alpha_delta(self.real_source[source_index], self.sat, t)
+        return quat
 
     def error_function(self):
         """
@@ -130,9 +103,9 @@ class Agis:
         R_zeta = 0
         eta_obs, zeta_obs = observed_field_angles(self.real_sources[source_index],
                                                   self.sat, t)
-        eta_calc, zeta_calc = compute_field_angles(self.calc_sources[source_index],
-                                                   self.real_sources[source_index],
-                                                   self.sat, t)
+        eta_calc, zeta_calc = calculated_field_angles(self.calc_sources[source_index],
+                                                      self.real_sources[source_index],
+                                                      self.sat, t)
         R_eta = eta_obs - eta_calc  # AL
         R_zeta = zeta_obs - zeta_calc  # AC
         R_L = R_eta + R_zeta
@@ -144,8 +117,8 @@ class Agis:
         """
         for i in range(num):
             self.iter_counter += 1
+            print('***** Iteration: {} *****'.format(self.iter_counter))
             if self.verbose:
-                print('***** Iteration: {} *****'.format(self.iter_counter))
                 print('Error before iteration: {}'.format(self.error_function()))
             # self.init_blocks()
             self.update_S_block()
@@ -169,16 +142,18 @@ class Agis:
         LHS = A.transpose() @ W @ A
         RHS = A.transpose() @ W @ h
         d = np.linalg.solve(LHS, RHS)
+        d = d.flatten()
+        # d.shape = 5  # flatten the array
         if self.verbose:
             print('dim A: {}'.format(A.shape))
             print('dim W: {}'.format(W.shape))
             print('dim h: {}'.format(h.shape))
             print('dim d: {}'.format(d.flatten().shape))
             print('dim s:', self.calc_sources[source_index].s_params.shape)
-        print('d: ', d[3:-1].flatten())
-        self.calc_sources[source_index].s_params[:] += d.flatten()
 
-    def der_topocentric_function(self, calc_source):
+        self.calc_sources[source_index].s_params[:] += d
+
+    def du_tilde_ds(self, source_index):
         """
         Compute dũ_ds far a given source
         :param:
@@ -192,49 +167,30 @@ class Agis:
         # TODO: Consider writing this function with autograd
         # In this function consider all u as being ũ! (for notation we call them here u)
         # Values needed to compute the derivatives
+        calc_source = self.calc_sources[source_index]
         n_i = len(calc_source.obs_times)  # the number of observations
-
-        du_dalpha = np.zeros((n_i, 3))
-        du_ddelta = np.zeros((n_i, 3))
-        du_dparallax = np.zeros((n_i, 3))
-        du_dmualpha = np.zeros((n_i, 3))
-        du_dmudelta = np.zeros((n_i, 3))
-        # du_ds = np.zeros()
-
+        du_ds = np.zeros((5, 3, n_i))
+        alpha = calc_source.s_params[0]  # + calc_source.s_params[3]*t_l
+        delta = calc_source.s_params[1]  # + calc_source.s_params[4]*t_l
+        p, q, r = ft.compute_pqr(alpha, delta)
+        r.shape = (3, 1)  # reshapes r
         # For each observation compute du/ds
-        for j, t_l in enumerate(calc_source.obs_times):
-            # t_l being the observation time
-            # using alpha delta of this source and observation
-            alpha_tmp = calc_source.s_params[0] + calc_source.s_params[3]*t_l
-            delta_tmp = calc_source.s_params[1] + calc_source.s_params[4]*t_l
-            p, q, r = ft.compute_pqr(alpha_tmp, delta_tmp)
-            # p, q, r = ft.compute_pqr(calc_source.s_params[0], calc_source.s_params[1])
-            p = np.expand_dims(p, axis=0)
-            q = np.expand_dims(q, axis=0)
-            r = np.expand_dims(r, axis=0)
-            b_G = np.expand_dims(self.sat.ephemeris_bcrs(t_l), axis=0).transpose()
+        for j, t_l in enumerate(calc_source.obs_times):  # t_l being the observation time
+            b_G = self.sat.ephemeris_bcrs(t_l)
             t_B = t_l  # + np.dot(r, b_G) / const.c
             tau = t_B - const.t_ep
-            Au = const.Au_per_Au  # 1/const.km_per_Au  # 1
-
             # Compute derivatives
-            du_dalpha[j] = p
-            du_ddelta[j] = q
-            du_dparallax[j] = ((np.eye(3) - r @ r.T) @ b_G * Au).transpose()
-            du_dmualpha[j] = p*tau
-            du_dmudelta[j] = q*tau
-
-        du_ds = np.array([du_dalpha.transpose(),
-                          du_ddelta.transpose(),
-                          du_dparallax.transpose(),
-                          du_dmualpha.transpose(),
-                          du_dmudelta.transpose()])
+            du_dalpha = p
+            du_ddelta = q
+            du_dparallax = compute_du_dparallax(r, b_G)
+            du_dmualpha = p*tau
+            du_dmudelta = q*tau
+            du_ds[:, :, j] = [du_dalpha, du_ddelta, du_dparallax, du_dmualpha, du_dmudelta]
         if self.verbose:
-            print('du_dalpha.shape: {}'.format(du_dalpha.shape))
             print('du_ds.shape: {}'.format(du_ds.shape))
         return du_ds
 
-    def du_ds(self, calc_source):
+    def du_ds(self, source_index):
         """
         returns the derivative of the proper direction w.r.t. the astronomic
         parameters.
@@ -247,24 +203,26 @@ class Agis:
         # raise ValueError('Stellar aberation not yet implemented')
         # u = compute_coordinate_direction()
         # coeff = (1-u.transpose()*v_g/const.c)I - u*v_G.transpose()/const.c
+        calc_source = self.calc_sources[source_index]
         coeff = 1
-        C_du_ds = coeff * self.der_topocentric_function(calc_source)
-        S_du_ds = self.C_du_ds_to_S_du_ds(calc_source, C_du_ds)
+        C_du_ds = coeff * self.du_tilde_ds(source_index)
+        S_du_ds = self.C_du_ds_to_S_du_ds(source_index, C_du_ds)
         if self.verbose:
             print('S_du_ds shape: {}'.format(S_du_ds.shape))
         return S_du_ds
 
-    def C_du_ds_to_S_du_ds(self, calc_source, C_du_ds):
+    def C_du_ds_to_S_du_ds(self, source_index, C_du_ds):
         """
         rotate the frame from CoRMS (lmn) to SRS (xyz) for du_ds
         """
+        calc_source = self.calc_sources[source_index]
         S_du_ds = np.zeros(C_du_ds.shape)
         for i in range(C_du_ds.shape[0]):  # TODO: remove these ugly for loop
             for j in range(C_du_ds.shape[-1]):
                 t_L = calc_source.obs_times[j]
                 # WARNING: we should use quaternion object!
                 # S_du_ds[i, :, j] = ft.lmn_to_xyz(self.sat.func_attitude(t_L), C_du_ds[i, :, j])
-                R = rotation_matrix_from_alpha_delta(self.real_sources[0], self.sat, t_L)
+                R = rotation_matrix_from_alpha_delta(self.real_sources[source_index], self.sat, t_L)
                 S_du_ds[i, :, j] = np.array(R@C_du_ds[i, :, j].T)
 
         return S_du_ds
@@ -282,12 +240,12 @@ class Agis:
             return 1/np.cos(x)
 
         calc_source = self.calc_sources[source_index]
-        du_ds = self.du_ds(calc_source)
+        du_ds = self.du_ds(source_index)
         dR_ds_AL = np.zeros((len(calc_source.obs_times), 5))
         dR_ds_AC = np.zeros(dR_ds_AL.shape)
 
         for i, t_L in enumerate(calc_source.obs_times):
-            eta, zeta = compute_field_angles(calc_source, self.real_sources[source_index], self.sat, i)
+            eta, zeta = calculated_field_angles(calc_source, self.real_sources[source_index], self.sat, i)
             m, n, u = compute_mnu(eta, zeta)
             dR_ds_AL[i, :] = -m @ du_ds[:, :, i].transpose() * sec(zeta)
             dR_ds_AC[i, :] = -n @ du_ds[:, :, i].transpose()
@@ -306,21 +264,6 @@ class Agis:
         if self.verbose:
             print('h: {}'.format(h))
         return h
-
-    def compute_coordinate_direction(self):
-        """
-        Compute ũ_i(t) which is the coordinate direction. Once taken into account the
-        aberration of light this represents the proper direction of the source.
-        All in the xyz frame (ICRS)
-        """
-        source = self.sources[0]
-
-        # TODO: generalise for more sources
-        p, q, r = ft.compute_pqr(self.source.alpha, self.source.delta)
-        Au = 1/const.km_per_Au
-        my_vector = r + (t_B - t_ep) * (p * mu_alpha + q * mu_delta + r * mu_r) - parallax * b_G / Au
-        my_direction = my_vector/np.norm(my_vector)
-        return my_direction
 
     ############################################################################
     # For attitude update

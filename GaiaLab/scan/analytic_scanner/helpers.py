@@ -16,6 +16,11 @@ import matplotlib.pylab as plt
 import scipy.sparse as sps
 
 
+def check_symmetry(a, tol=1e-8):
+    """ Check the symmetry of array a  """
+    return numpy.allclose(a, a.T, atol=tol)
+
+
 # Only need numpy as np
 def compute_angle(v1, v2):
     """

@@ -525,6 +525,7 @@ def plot_stars_trajectory(source, satellite, obs_times=[], equatorial=False):
 
     ax.plot(alphas[0], deltas[0], origin_style, label='origin')
     ax.plot(alphas_sol, deltas_sol, sol_style, label='solutions')
+
     scaling_factor = 1 / 4
     scale_alpha = (np.max(alphas) - np.min(alphas)) * scaling_factor
     scale_delta = (np.max(deltas) - np.min(deltas)) * scaling_factor
@@ -534,8 +535,8 @@ def plot_stars_trajectory(source, satellite, obs_times=[], equatorial=False):
         vector = spin_axis_from_alpha_delta(source, satellite, t)
         adp = ft.vector_to_adp(vector)
         directions = helpers.rescaled_direction(adp, point, length)
-        to_plot_x = [point[0], directions[0]]
-        to_plot_y = [point[1], directions[1]]
+        to_plot_x = [point[0], point[0]+directions[0]]
+        to_plot_y = [point[1], point[1]+directions[1]]
         ax.plot(to_plot_x, to_plot_y, 'k-')
         ax.quiver(point[0], point[1], point[0]+directions[0], point[1]+directions[1], color=['r'], scale=21)
 

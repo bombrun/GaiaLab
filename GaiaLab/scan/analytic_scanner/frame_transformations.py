@@ -155,6 +155,15 @@ def rotation_to_quat(vector, angle):
     return Quaternion(t, x, y, z)
 
 
+def eta_to_phi(eta):
+    """following eq 13 of Lindegren (astronometric core solution)"""
+    # Gamma_c = 0  # const.Gamma_c
+    # Gamma_c = np.radians(Gamma_c)
+    # if eta + Gamma_c/2
+    # return phi
+    pass
+
+
 def rotate_by_quaternion(quaternion, vector):
     """
     rotate vector by quaternion
