@@ -35,7 +35,10 @@ class Quaternion():
 
     """
 
-    def __init__(self, w, x, y, z):
+    def __init__(self, w=None, x=None, y=None, z=None, vector=None, angle=None):
+
+        if (vector is not None) and (angle is not None):
+            w, x, y, z = self.parameters_from_vector_and_angle(vector, angle)
         self.w = w
         self.x = x
         self.y = y
@@ -90,6 +93,20 @@ class Quaternion():
                 quat = Quaternion(y, z, trace, x)
         quat = quat*0.5/np.sqrt(trace)
         return quat
+
+    def parameters_from_vector_and_angle(self, vector, angle):
+        """
+        Quaternion parameters equivalent to rotation about (vector) by an (angle).
+        :param vector:  [np.array]
+        :param angle: [deg]
+        :return equivalent quaternion:
+        """
+        vector = vector / np.linalg.norm(vector)
+        t = np.cos(angle/2.)
+        x = np.sin(angle/2.) * vector[0]
+        y = np.sin(angle/2.) * vector[1]
+        z = np.sin(angle/2.) * vector[2]
+        return (t, x, y, z)
 
     def conjugate(self):            # Create the quaternion conjugate
         return Quaternion(self.w,
@@ -203,5 +220,14 @@ class Quaternion():
                       [a_31, a_32, a_33]])
 
         return A  # A.reshape(3, 3)
+
+    def rotation_axis_and_angle(self, tol=1e-10):
+        R = self.basis()
+        if np.allclose(R, R.T, atol=tol):
+            raise ValueError('Method not implemented for near symmetric matrices!')
+        axis = np.array([R[2, 1]-R[1, 2], R[0, 2]-R[2, 0], R[1, 0]-R[0, 1]])
+        axis = axis / np.linalg.norm(axis)
+        angle = np.arccos((np.trace(R) - 1) / 2)
+        return axis, angle
 
     __array_priority__ = 10000  # big number so numpy respects left matrix multiplication with quaternions
