@@ -222,7 +222,7 @@ class Quaternion():
         return A  # A.reshape(3, 3)
 
     def rotation_axis_and_angle(self, tol=1e-10):
-        R = self.basis()
+        R = self.unit().basis()
         if np.allclose(R, R.T, atol=tol):
             raise ValueError('Method not implemented for near symmetric matrices!')
         axis = np.array([R[2, 1]-R[1, 2], R[0, 2]-R[2, 0], R[1, 0]-R[0, 1]])
