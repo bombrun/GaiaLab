@@ -3,6 +3,18 @@ agis_helpers.py
 functions that uses the classes scanner, source, satellite but don't belong to a
 given file yet
 author: LucaZampieri
+
+todo:
+    - Rotate the attitude
+    - attitude i.e. generate observations (with scanner object but without scanning)
+    - with scanner
+    - two telescope
+    - scaling
+    -
+    * if we add acceleration what happens
+    * add noise to observation
+    * QSO
+    * signal
 """
 
 # # Imports
@@ -22,48 +34,31 @@ from source import get_Cu
 def rotation_matrix_from_alpha_delta(source, sat, t):
     Cu = source.unit_topocentric_function(sat, t)
     Su = np.array([1, 0, 0])
-    r = ft.get_rotation_matrix(Cu, Su)
+    r = helpers.get_rotation_matrix(Cu, Su)
     return r
-
-
-def x_rot(source, sat, t):
-    Cu = source.unit_topocentric_function(sat, t)
-    Cu_xy = np.array([Cu[0], Cu[1], 0])
-    Su = np.array([1, 0, 0])
-    vector, angle = ft.get_rotation_vector_and_angle(Cu_xy, Su)
-    quat = ft.rotation_to_quat(vector, angle)
-    return quat
-
-
-def xy_rotation(vec):
-    vec_xy = np.array([vec[0], vec[1], 0])
-    vec_z = np.array([0, 0, vec[2]])
-
-
-
-def y_rot(source, sat, t):
-    Cu = source.unit_topocentric_function(sat, t)
-    Cu_xy = np.array([Cu[0], Cu[1], 0])
-    Su = np.array([1, 0, 0])
-    vector, angle = ft.get_rotation_vector_and_angle(Cu_xy, Su)
-    quat = ft.rotation_to_quat(vector, angle)
-    return quat
 
 
 def attitude_from_alpha_delta(source, sat, t):
     Cu = source.unit_topocentric_function(sat, t)
     Su = np.array([1, 0, 0])
-    vector, angle = ft.get_rotation_vector_and_angle(Cu, Su)
-    return ft.rotation_to_quat(vector, angle)
+    vector, angle = helpers.get_rotation_vector_and_angle(Cu, Su)
+    return Quaternion(vector=vector, angle=angle)
 
 
 def spin_axis_from_alpha_delta(source, sat, t):
     Cu = source.unit_topocentric_function(sat, t)
     Su = np.array([1, 0, 0])
-    vector, angle = ft.get_rotation_vector_and_angle(Cu, Su)
+    vector, angle = helpers.get_rotation_vector_and_angle(Cu, Su)
     # vector = vector/np.linalg.norm(vector)
     # satellite_position = sat.ephemeris_bcrs(t)
     return vector
+
+
+def get_fake_attitude(source, sat, t):
+    quat1 = attitude_from_alpha_delta(source, sat, t)
+    quat2 = Quaternion(vector=np.array([1, 0, 0]), angle=const.sat_angle)
+    attitude = quat1 * quat2
+    return attitude
 
 
 def observed_field_angles(source, sat, t):
@@ -77,6 +72,9 @@ def observed_field_angles(source, sat, t):
     # Su = ft.lmn_to_xyz(sat.func_attitude(t), Cu)  # u in SRS frame
     attitude = attitude_from_alpha_delta(source, sat, t)
     Su = ft.rotate_by_quaternion(attitude, Cu)
+    quat2 = Quaternion(vector=Su, angle=const.sat_angle)
+    Su = ft.rotate_by_quaternion(quat2, Su)
+
     eta, zeta = compute_field_angles(Su)
     return eta, zeta
 
@@ -93,6 +91,8 @@ def calculated_field_angles(calc_source, source, sat, t):
     Cu = get_Cu(params, sat, t)  # u in CoMRS frame
     attitude = attitude_from_alpha_delta(source, sat, t)
     Su = ft.rotate_by_quaternion(attitude, Cu)
+    quat2 = Quaternion(vector=Su, angle=const.sat_angle)
+    Su = ft.rotate_by_quaternion(quat2, Su)
 
     eta, zeta = compute_field_angles(Su)
     return eta, zeta

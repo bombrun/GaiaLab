@@ -13,31 +13,10 @@ import numpy as np
 from quaternion import Quaternion
 
 
-def get_rotation_matrix(v1, v2):
-    """
-    Get the rotation matrix necessary to go from v1 to v2
-    :param vi: 3D vector as np.array
-    To rotate vector v1 into v2 then do r@v1
-    """
-    v1 = v1.reshape(3, 1)  # reshapes as vectors
-    v2 = v2.reshape(3, 1)
-    a, b = (v1 / np.linalg.norm(v1)).reshape(3), (v2 / np.linalg.norm(v2)).reshape(3)
-    v = np.cross(a, b)
-    c = np.dot(a, b)
-    s = np.linalg.norm(v)
-    k = np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
-    R = np.identity(3) + k + k@k * ((1 - c)/(s**2))  # Euler Roriguez formulae
-    return R
-    # return R
-
-
-def get_rotation_vector_and_angle(v1, v2):
-    v1 = v1/np.linalg.norm(v1)  # # NOTE: it should be useless to normalize
-    v2 = v2/np.linalg.norm(v2)
-    angle = np.arccos(np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2)))
-    vector = np.cross(v1 / np.linalg.norm(v1), v2 / np.linalg.norm(v2))
-    vector = vector / np.linalg.norm(vector)
-    return vector, angle
+def rotate_by_angle(vector, angle):
+    quaternion = Quaternion(vector=vector, angle=angle)
+    rotated_vector = rotate_by_quaternion(quaternion, vector)
+    return rotated_vector
 
 
 def vector_to_quaternion(vector):
@@ -139,13 +118,14 @@ def compute_pqr(alpha, delta):
     return p, q, r
 
 
+"""
 def rotation_to_quat(vector, angle):
-    """
+
     Calculates quaternion equivalent to rotation about (vector) by an (angle).
     :param vector:  [np.array]
     :param angle: [deg]
     :return equivalent quaternion:
-    """
+
     vector = vector / np.linalg.norm(vector)
     t = np.cos(angle/2.)
     x = np.sin(angle/2.) * vector[0]
@@ -153,6 +133,7 @@ def rotation_to_quat(vector, angle):
     z = np.sin(angle/2.) * vector[2]
 
     return Quaternion(t, x, y, z)
+"""
 
 
 def eta_to_phi(eta):

@@ -160,7 +160,7 @@ class Satellite:
         # change attitude by delta_quat
         w_magnitude = np.linalg.norm(self.w)
         d_zheta = w_magnitude * dt
-        delta_quat = ft.rotation_to_quat(self.w, d_zheta/2.)  # w is not in bcrs frame.
+        delta_quat = Quaternion(vector=self.w, angle=d_zheta/2.)  # w is not in bcrs frame.
         self.attitude = delta_quat * self.attitude
 
         # x axis rotates through quaternion multiplication

@@ -17,8 +17,34 @@ import scipy.sparse as sps
 
 
 def check_symmetry(a, tol=1e-8):
-    """ Check the symmetry of array a  """
-    return numpy.allclose(a, a.T, atol=tol)
+    """ Check the symmetry of array a. True if symmetric up to tolerance"""
+    return np.allclose(a, a.T, atol=tol)
+
+
+def get_rotation_matrix(v1, v2):
+    """
+    Get the rotation matrix necessary to go from v1 to v2
+    :param vi: 3D vector as np.array
+    To rotate vector v1 into v2 then do r@v1
+    """
+    v1 = v1.reshape(3, 1)  # reshapes as vectors
+    v2 = v2.reshape(3, 1)
+    a, b = (v1 / np.linalg.norm(v1)).reshape(3), (v2 / np.linalg.norm(v2)).reshape(3)
+    v = np.cross(a, b)
+    c = np.dot(a, b)
+    s = np.linalg.norm(v)
+    k = np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
+    R = np.identity(3) + k + k@k * ((1 - c)/(s**2))  # Euler Roriguez formulae
+    return R
+
+
+def get_rotation_vector_and_angle(v1, v2):
+    v1 = v1/np.linalg.norm(v1)  # # NOTE: it should be useless to normalize
+    v2 = v2/np.linalg.norm(v2)
+    angle = np.arccos(np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2)))
+    vector = np.cross(v1 / np.linalg.norm(v1), v2 / np.linalg.norm(v2))
+    vector = vector / np.linalg.norm(vector)
+    return vector, angle
 
 
 # Only need numpy as np

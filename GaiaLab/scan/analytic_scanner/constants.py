@@ -35,6 +35,9 @@ w_z = 120  # [arcsec/s] z component of the inertial spin vector w (small omega)
 # The reference epoch is J2000 but it is taken into account in how we count time thus t_ep is 0
 t_ep = 0  # epoch time
 
+# temporary
+sat_angle = np.radians(45)  # when simulating the attitude, the rotated angle
+
 
 def test__():
     """

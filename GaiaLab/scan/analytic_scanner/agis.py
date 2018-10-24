@@ -143,15 +143,10 @@ class Agis:
         RHS = A.transpose() @ W @ h
         d = np.linalg.solve(LHS, RHS)
         d = d.flatten()
-        # d.shape = 5  # flatten the array
-        if self.verbose:
-            print('dim A: {}'.format(A.shape))
-            print('dim W: {}'.format(W.shape))
-            print('dim h: {}'.format(h.shape))
-            print('dim d: {}'.format(d.flatten().shape))
-            print('dim s:', self.calc_sources[source_index].s_params.shape)
-
         self.calc_sources[source_index].s_params[:] += d
+        if self.verbose:
+            print('dim A:{}\ndim W:{}\ndim h:{}\ndim d:{}'
+                  .format(A.shape, W.shape, h.shape, d.shape))
 
     def du_tilde_ds(self, source_index):
         """

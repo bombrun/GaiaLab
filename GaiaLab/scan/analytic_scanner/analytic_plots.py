@@ -533,12 +533,14 @@ def plot_stars_trajectory(source, satellite, obs_times=[], equatorial=False):
     for i, (t, a, d) in enumerate(zip(times, alphas_sol, deltas_sol)):
         point = np.array([a, d])
         vector = spin_axis_from_alpha_delta(source, satellite, t)
+        # quat = get_fake_attitude(source, sat, t)
+        # quat.
         adp = ft.vector_to_adp(vector)
         directions = helpers.rescaled_direction(adp, point, length)
         to_plot_x = [point[0], point[0]+directions[0]]
         to_plot_y = [point[1], point[1]+directions[1]]
-        ax.plot(to_plot_x, to_plot_y, 'k-')
-        ax.quiver(point[0], point[1], point[0]+directions[0], point[1]+directions[1], color=['r'], scale=21)
+        ax.plot(to_plot_x, to_plot_y, 'k-', alpha=0.1)
+        ax.quiver(point[0], point[1], directions[0], directions[1], color=['r'], scale=21)
 
     if equatorial is False:
         ax.axhline(y=0, c='gray', lw=1)

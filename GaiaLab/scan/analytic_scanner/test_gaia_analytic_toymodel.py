@@ -43,6 +43,17 @@ class test_Quaternion(unittest.TestCase):
     def test_operations(self):
         pass
 
+    def test_rotation_axis_and_angle(self):
+        # WARNING: this would fail if a symmetric matrix is generated (unlikely)
+        # In that case you should just run again the test
+        v1 = np.random.rand(3)
+        v2 = np.random.rand(3)
+        vector, angle = helpers.get_rotation_vector_and_angle(v1, v2)
+        quat = Quaternion(vector=vector, angle=angle)
+        vector_bis, angle_bis = quat.rotation_axis_and_angle()
+        self.assertAlmostEqual(angle, angle_bis)
+        np.testing.assert_array_almost_equal(vector_bis, vector)
+
 
 class test_source(unittest.TestCase):
 
@@ -152,18 +163,12 @@ class test_helpers(unittest.TestCase):
         self.assertAlmostEqual(0, helpers.compute_angle(v1, v1))
         self.assertAlmostEqual(np.radians(90), helpers.compute_angle(v1, v2))
 
-
-class test_frame_transformations(unittest.TestCase):
-
-    def setUp(self):
-        pass
-
     def test_get_rotation_matrix(self):
         v1 = np.random.rand(3)
         v2 = np.random.rand(3)
         v1 = v1/np.linalg.norm(v1)
         v2 = v2/np.linalg.norm(v2)
-        rot = ft.get_rotation_matrix(v1, v2)
+        rot = helpers.get_rotation_matrix(v1, v2)
         v2_bis = rot@v1.T
         for i in range(3):
             self.assertAlmostEqual(v2[i], v2_bis[i])
@@ -172,18 +177,24 @@ class test_frame_transformations(unittest.TestCase):
         v1 = np.array([1, 0, 0])
         v2 = np.array([0, 1, 0])
         v3 = np.array([0, 0, 1])
-        vector, angle = ft.get_rotation_vector_and_angle(v1, v2)
+        vector, angle = helpers.get_rotation_vector_and_angle(v1, v2)
         for i in range(vector.shape[0]):
             self.assertAlmostEqual(v3[i], vector[i])
         self.assertAlmostEqual(np.pi / 2, angle)
+
+
+class test_frame_transformations(unittest.TestCase):
+
+    def setUp(self):
+        pass
 
     def test_rotation_with_quat(self):
         v1 = np.random.rand(3)
         v2 = np.random.rand(3)
         v1 = v1/np.linalg.norm(v1)
         v2 = v2/np.linalg.norm(v2)
-        vector, angle = ft.get_rotation_vector_and_angle(v1, v2)
-        quat = ft.rotation_to_quat(vector, angle)
+        vector, angle = helpers.get_rotation_vector_and_angle(v1, v2)
+        quat = Quaternion(vector=vector, angle=angle)
         v2_bis = ft.rotate_by_quaternion(quat, v1)
         for i in range(vector.shape[0]):
             self.assertAlmostEqual(v2[i], v2_bis[i])
@@ -195,9 +206,9 @@ class test_frame_transformations(unittest.TestCase):
         v1 = v1/np.linalg.norm(v1)
         v2 = v2/np.linalg.norm(v2)
 
-        rot = ft.get_rotation_matrix(v1, v2)
-        vector, angle = ft.get_rotation_vector_and_angle(v1, v2)
-        quat = ft.rotation_to_quat(vector, angle).unit()
+        rot = helpers.get_rotation_matrix(v1, v2)
+        vector, angle = helpers.get_rotation_vector_and_angle(v1, v2)
+        quat = Quaternion(vector=vector, angle=angle).unit()
         rot_quat = quat.basis()
         for x_row, y_row in zip(rot, rot_quat):
             for a, b in zip(x_row, y_row):
