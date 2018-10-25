@@ -54,7 +54,7 @@ def spin_axis_from_alpha_delta(source, sat, t):
     return vector
 
 
-def y_coord_SRS(source, sat, t):
+def scanning_y_coordinate(source, sat, t):
     att = get_fake_attitude(source, sat, t)
     y_vec = ft.rotate_by_quaternion(att, [0, 1, 0])
     # vector = vector/np.linalg.norm(vector)
@@ -64,9 +64,9 @@ def y_coord_SRS(source, sat, t):
 
 def get_fake_attitude(source, sat, t):
     quat1 = attitude_from_alpha_delta(source, sat, t)
-    quat2 = Quaternion(vector=np.array([1, 0, 0]), angle=const.sat_angle*np.sin(t/365/5))
+    quat2 = Quaternion(vector=np.array([1, 0, 0]), angle=const.sat_angle)
     attitude = quat1 * quat2
-    return attitude  # sat.func_attitude(t)
+    return sat.func_attitude(t)
 
 
 def observed_field_angles(source, sat, t):

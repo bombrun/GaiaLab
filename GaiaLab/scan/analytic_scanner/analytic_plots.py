@@ -526,24 +526,18 @@ def plot_stars_trajectory(source, sat, obs_times=[], equatorial=False):
     scale_alpha = (np.max(alphas) - np.min(alphas)) * scaling_factor
     scale_delta = (np.max(deltas) - np.min(deltas)) * scaling_factor
     length = np.array([scale_alpha, scale_delta])
-    for i, (t, a, d) in enumerate(zip(obs_times, alphas_sol, deltas_sol)):
-        point = np.array([a, d])
-        vector1 = spin_axis_from_alpha_delta(source, sat, t)
-        quat = get_fake_attitude(source, sat, t)
-        vector, angle = quat.rotation_axis_and_angle()
-        vector = y_coord_SRS(source, sat, t)
-        print('vector: ', vector)
-        adp = ft.vector_to_adp(vector)
-        dir_alpha, dir_delta, radius = ft.vector_to_polar(vector)
-        print('adr: ', [dir_alpha, dir_delta, radius])
-        directions = [dir_alpha, dir_delta]
-        directions = helpers.rescaled_direction((dir_alpha, dir_delta), length)
-        print('point: ', point)
-        print('directions: ', directions)
-        to_plot_x = [point[0], point[0]+dir_alpha]
-        to_plot_y = [point[1], point[0]+dir_delta]
-        ax.plot(to_plot_x, to_plot_y, 'k-', alpha=0.1)
-        ax.quiver(point[0], point[1], directions[0], directions[1], color=['r'])
+    if equatorial is True:
+        for i, (t, a, d) in enumerate(zip(obs_times, alphas_sol, deltas_sol)):
+            point = np.array([a, d])
+            vector = scanning_y_coordinate(source, sat, t)
+            adp = ft.vector_to_adp(vector)
+            dir_alpha, dir_delta, radius = ft.vector_to_polar(vector)
+            directions = [dir_alpha, dir_delta]
+            # directions = helpers.rescaled_direction((dir_alpha, dir_delta), length)
+            to_plot_x = [point[0], point[0]+dir_alpha]
+            to_plot_y = [point[1], point[1]+dir_delta]
+            ax.plot(to_plot_x, to_plot_y, 'k-', alpha=0.1)
+            ax.quiver(point[0], point[1], directions[0], directions[1], color=['r'])
 
     if equatorial is False:
         ax.axhline(y=0, c='gray', lw=1)
