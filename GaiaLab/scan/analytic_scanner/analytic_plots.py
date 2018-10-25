@@ -465,20 +465,15 @@ def plot_eta_over_phi_day(source, sat, ti=0, tf=90, n=1000, day=45):
     return p
 
 
-def plot_stars_trajectory(source, satellite, obs_times=[], equatorial=False):
+def plot_stars_trajectory(source, sat, obs_times=[], equatorial=False):
     """
     :param source: source object
-    :param satellite: Satellite object
+    :param sat: Satellite object
     :param t_total: total time for which the trajectory is desired [days] from
      J2000.
     :return: plot of the star trajectory in the lmn-frame.
     """
-    if isinstance(source, Source) is False:
-        raise TypeError('source is not an Source object.')
-    if isinstance(satellite, Satellite) is False:
-        raise TypeError('satellite is not an Satellite object.')
-
-    time_total = satellite.storage[-1][0]
+    time_total = sat.storage[-1][0]
 
     alphas = []
     deltas = []
@@ -487,7 +482,7 @@ def plot_stars_trajectory(source, satellite, obs_times=[], equatorial=False):
     times_sol = []
 
     for i in np.arange(0, time_total, 1):
-        alpha, delta, delta_alpha_dx_mas, delta_delta_mas = source.topocentric_angles(satellite, i)
+        alpha, delta, delta_alpha_dx_mas, delta_delta_mas = source.topocentric_angles(sat, i)
         if equatorial is False:
             alphas.append(delta_alpha_dx_mas)
             deltas.append(delta_delta_mas)
@@ -496,7 +491,7 @@ def plot_stars_trajectory(source, satellite, obs_times=[], equatorial=False):
             deltas.append(delta)
     for t in obs_times:
         times_sol.append(t/const.days_per_year + 2000)  # +2000 do the fact that the reference epoch is J2000
-        alpha_obs, delta_obs, delta_alpha_dx_mas, delta_delta_mas = source.topocentric_angles(satellite, t)
+        alpha_obs, delta_obs, delta_alpha_dx_mas, delta_delta_mas = source.topocentric_angles(sat, t)
         if equatorial is False:
             alphas_sol.append(delta_alpha_dx_mas)
             deltas_sol.append(delta_delta_mas)
@@ -514,8 +509,9 @@ def plot_stars_trajectory(source, satellite, obs_times=[], equatorial=False):
     fig = plt.figure(figsize=(16, 9))
     ax = fig.add_subplot(121)
 
-    fig.suptitle(r'$\varpi={%.2f}$, $\mu_{{\alpha*}}={%.2f}$, $\mu_\delta={%.2f}$'
-                 % (source.parallax, source.mu_alpha_dx, source.mu_delta),
+    print(source.parallax, source.mu_alpha_dx)
+    fig.suptitle(r'$\varpi={%f}$, $\mu_{{\alpha*}}={%f}$, $\mu_\delta={%f}$ x1e-6'
+                 % (source.parallax*1e6, source.mu_alpha_dx*1e6, source.mu_delta*1e6),
                  fontsize=20)
     # cmaps: 'jet', 'winter', 'viridis'
     ax.scatter(alphas, deltas, c=times, marker='.', s=(72./fig.dpi)**2, cmap='jet', alpha=0.5,
@@ -530,17 +526,24 @@ def plot_stars_trajectory(source, satellite, obs_times=[], equatorial=False):
     scale_alpha = (np.max(alphas) - np.min(alphas)) * scaling_factor
     scale_delta = (np.max(deltas) - np.min(deltas)) * scaling_factor
     length = np.array([scale_alpha, scale_delta])
-    for i, (t, a, d) in enumerate(zip(times, alphas_sol, deltas_sol)):
+    for i, (t, a, d) in enumerate(zip(obs_times, alphas_sol, deltas_sol)):
         point = np.array([a, d])
-        vector = spin_axis_from_alpha_delta(source, satellite, t)
-        # quat = get_fake_attitude(source, sat, t)
-        # quat.
+        vector1 = spin_axis_from_alpha_delta(source, sat, t)
+        quat = get_fake_attitude(source, sat, t)
+        vector, angle = quat.rotation_axis_and_angle()
+        vector = y_coord_SRS(source, sat, t)
+        print('vector: ', vector)
         adp = ft.vector_to_adp(vector)
-        directions = helpers.rescaled_direction(adp, point, length)
-        to_plot_x = [point[0], point[0]+directions[0]]
-        to_plot_y = [point[1], point[1]+directions[1]]
+        dir_alpha, dir_delta, radius = ft.vector_to_polar(vector)
+        print('adr: ', [dir_alpha, dir_delta, radius])
+        directions = [dir_alpha, dir_delta]
+        directions = helpers.rescaled_direction((dir_alpha, dir_delta), length)
+        print('point: ', point)
+        print('directions: ', directions)
+        to_plot_x = [point[0], point[0]+dir_alpha]
+        to_plot_y = [point[1], point[0]+dir_delta]
         ax.plot(to_plot_x, to_plot_y, 'k-', alpha=0.1)
-        ax.quiver(point[0], point[1], directions[0], directions[1], color=['r'], scale=21)
+        ax.quiver(point[0], point[1], directions[0], directions[1], color=['r'])
 
     if equatorial is False:
         ax.axhline(y=0, c='gray', lw=1)
@@ -585,10 +588,6 @@ def plot_stars_trajectory_3D(source, satellite, obs_times=[]):
      J2000.
     :return: plot of the star trajectory in the lmn-frame.
     """
-    if isinstance(source, Source) is False:
-        raise TypeError('source is not an Source object.')
-    if isinstance(satellite, Satellite) is False:
-        raise TypeError('satellite is not an Satellite object.')
 
     time_total = satellite.storage[-1][0]
 
@@ -651,8 +650,6 @@ def plot_3D_scanner_pos(sat, axis, ti, tf, n_points=1000, elevation=10, azimuth=
     :return: plot of the position of the given axis (unitary) of the scanner wrt
      LMN frame.
     """
-    if isinstance(sat, Satellite) is False:
-        raise TypeError('sat is not an Satellite object.')
     if type(ti) not in [int, float]:
         raise TypeError('ti must be non-negative real numbers.')
     if type(tf) not in [int, float]:

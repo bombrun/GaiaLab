@@ -57,10 +57,10 @@ def compute_angle(v1, v2):
     return np.arccos(np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2)))
 
 
-def rescaled_direction(vector, point, length):
+def rescaled_direction(vector, length):
     unit_vector = vector/np.linalg.norm(vector)
     v = np.multiply(unit_vector, length)
-    return point + v
+    return v
 
 
 # Only need numpy as np

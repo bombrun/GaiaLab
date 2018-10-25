@@ -106,8 +106,6 @@ class Source:
         Sets star at position wrt bcrs at time t.
         :param t: [float][days]
         """
-        if type(t) not in [float, int]:
-            raise TypeError('t is not a float or int, but instead of type %r.' % type(t))
         if t < 0:
             raise Warning('t is negative')
 
@@ -125,7 +123,7 @@ class Source:
         :param t: [float][days]
         :return: ndarray 3D vector of [floats]
         """
-        self.set_time(t)
+        self.set_time(0)
         u_bcrs_direction = ft.polar_to_direction(self.alpha, self.delta)
         return u_bcrs_direction  # no units, just a unit direction
 
@@ -189,7 +187,7 @@ class Source:
         alpha_obs, delta_obs, radius = ft.vector_to_polar(u_lmn_unit)
 
         if alpha_obs < 0:
-            alpha_obs = (alpha_obs + 2*np.pi) / const.rad_per_mas
+            alpha_obs = (alpha_obs + 2*np.pi)
 
         delta_alpha_dx_mas = (alpha_obs - self.__alpha0) * np.cos(self.__delta0) / const.rad_per_mas
         delta_delta_mas = (delta_obs - self.__delta0) / const.rad_per_mas

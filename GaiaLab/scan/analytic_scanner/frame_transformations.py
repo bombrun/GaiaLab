@@ -62,7 +62,7 @@ def adp_to_cartesian(alpha, delta, parallax):
     :param parallax: [mas]
     :return: [parsec](x, y, z) array in parsecs.
     """
-    parallax = parallax/1000  # from mas to arcsec
+    parallax = 1  # parallax/1000  # from mas to arcsec
     # parallax = parallax/const.rad_per_arcsec
     # WARNING: but why parallax??
     x = (1/parallax)*np.cos(delta)*np.cos(alpha)
