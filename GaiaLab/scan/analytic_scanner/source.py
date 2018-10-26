@@ -76,18 +76,6 @@ class Source:
         """
         Tests if the input parameters are of the right type
         """
-        if type(alpha0) not in [int, float]:
-            raise TypeError('alpha0 need to be int or float')
-        if type(delta0) not in [int, float]:
-            raise TypeError('delta0 need to be int or float')
-        if type(parallax) not in [int, float]:
-            raise TypeError('parallax need to be int or float')
-        if type(mu_alpha) not in [int, float]:
-            raise TypeError('mu_alpha need to be int or float')
-        if type(mu_delta) not in [int, float]:
-            raise TypeError('mu_delta need to be int or float')
-        if type(mu_radial) not in [int, float]:
-            raise TypeError('mu_radial need to be int or float')
         pass
 
     def get_parameters(self, t=0):
