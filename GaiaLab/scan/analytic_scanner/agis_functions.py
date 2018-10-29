@@ -20,6 +20,9 @@ todo:
 # # Imports
 # Global imports
 import numpy as np
+from scipy.interpolate import BSpline
+from scipy.interpolate import splev
+import matplotlib.pyplot as plt
 # Local imports
 import constants as const
 import helpers as helpers
@@ -29,6 +32,59 @@ from source import Source
 from satellite import Satellite
 from scanner import Scanner
 from source import get_Cu
+
+
+def generate_observation_wrt_attitude(attitude):
+    """
+    returns right ascention and declination corresponding to the direction in
+    which the x-vector rotated to *attitude* is pointing
+    returns alpha, delta in radians
+    """
+    artificial_u = ft.rotate_by_quaternion(attitude, [1, 0, 0])
+    alpha, delta, radius = ft.vector_to_polar(artificial_u)
+    return alpha, delta
+
+
+def get_basis_Bsplines(knots, coeffs, k, obs_times):
+    """
+    :returns: arrays of size (#coeffs, #obs_times)
+    """
+    basis_Bsplines = []
+    for j, coeff in enumerate(coeffs):
+        bool_array = np.arange(len(coeffs)) == j
+        tck_mod = (knots, bool_array, k)
+        basis_Bspline = splev(obs_times, tck_mod)
+        basis_Bsplines.append(basis_Bspline)
+    return np.array(basis_Bsplines)
+
+
+def extract_coeffs_knots_from_splines(attitude_splines, k):
+    """
+    :param attitude_splines: list or array of splines of scipy.interpolate.InterpolatedUnivariateSpline
+    :returns:
+        [array] coeff
+        [array] knots
+        [array] splines
+    """
+    att_coeffs, att_knots, att_splines = ([], [], [])
+    for i, spline in enumerate(attitude_splines):
+        coeffs = spline.get_coeffs()
+        internal_knots = spline.get_knots()
+        knots = extend_knots(internal_knots, k)  # extend the knots to have all the needed ones
+        att_coeffs.append(coeffs)
+        att_knots.append(knots)
+        att_splines.append(BSpline(knots, coeffs, k))
+    return np.array(att_coeffs), np.array(att_knots), np.array(att_splines)
+
+
+def extend_knots(internal_knots, k):
+    extended_knots = []
+    for i in range(k):
+        extended_knots.append(internal_knots[0])
+    extended_knots += list(internal_knots)
+    for i in range(k):
+        extended_knots.append(internal_knots[-1])
+    return extended_knots
 
 
 def rotation_matrix_from_alpha_delta(source, sat, t):
@@ -87,7 +143,7 @@ def observed_field_angles(source, sat, t):
     return eta, zeta
 
 
-def calculated_field_angles(calc_source, source, sat, t):
+def calculated_field_angles(calc_source, attitude, sat, t):
     """
     Return field angles according to Lindegren eq. 12
     eta: along-scan field angle
@@ -97,7 +153,7 @@ def calculated_field_angles(calc_source, source, sat, t):
     delta = delta  # + mu_delta*t
     params = np.array([alpha, delta, parallax, mu_alpha, mu_delta, calc_source.mu_radial])
     Cu = get_Cu(params, sat, t)  # u in CoMRS frame
-    attitude = attitude_from_alpha_delta(source, sat, t)
+
     Su = ft.rotate_by_quaternion(attitude, Cu)
     quat2 = Quaternion(vector=Su, angle=const.sat_angle)
     Su = ft.rotate_by_quaternion(quat2, Su)

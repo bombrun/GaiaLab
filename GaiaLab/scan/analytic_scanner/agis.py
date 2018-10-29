@@ -18,6 +18,8 @@ from agis_functions import *
 
 # global modules
 import numpy as np
+from scipy.interpolate import BSpline
+
 
 # TODO: implement all the functions to compute condition number of the matrix: numpy.linalg.cond(x)
 #
@@ -42,7 +44,8 @@ class Calc_source:
 
 class Agis:
 
-    def __init__(self, sat, calc_sources=[], real_sources=[], verbose=False):
+    def __init__(self, sat, calc_sources=[], real_sources=[], attitude_splines=None,
+                 verbose=False, spline_order=4):
         """
         Also contains:
         **Temporary variables**
@@ -55,6 +58,7 @@ class Agis:
         # self.c_param = np.zeros(0)  # Calibration parameters
         # self.g_param = np.zeros(0)  # Global parameters
         """
+        self.k = spline_order  # spline order
         self.verbose = verbose
         self.calc_sources = calc_sources
         self.real_sources = real_sources
@@ -65,11 +69,21 @@ class Agis:
         num_sources = len(self.real_sources)
 
         num_parameters_per_sources = 5  # the astronomic parameters
-        total_number_of_observations = 0
-        for calc_source in self.calc_sources:
-            total_number_of_observations += len(calc_source.obs_times)
+        all_obs_times = []
+        time_dict = {}
+        for source_index, calc_source in enumerate(self.calc_sources):
+            all_obs_times += list(calc_source.obs_times)
+            for t in calc_source.obs_times:
+                time_dict[t] = source_index
             calc_source.s_old.append(calc_source.s_params)
         s_vector = np.zeros((len(self.calc_sources)*num_parameters_per_sources, 1))
+        self.all_obs_times = list(np.sort(all_obs_times))
+        total_number_of_observations = len(self.all_obs_times)
+
+        if attitude_splines is not None:  # Set everything for the attitude
+            c, t, s = extract_coeffs_knots_from_splines(attitude_splines, self.k)
+            self.att_coeffs, self.att_knots, self.attitude_splines = (c, t, s)
+            self.set_splines_basis()  # set the basis Bsplines
 
     def reset_iterations(self):
         self.iter_counter = 0
@@ -103,8 +117,9 @@ class Agis:
         R_zeta = 0
         eta_obs, zeta_obs = observed_field_angles(self.real_sources[source_index],
                                                   self.sat, t)
+        attitude = attitude_from_alpha_delta(self.real_sources[source_index], self.sat, t)
         eta_calc, zeta_calc = calculated_field_angles(self.calc_sources[source_index],
-                                                      self.real_sources[source_index],
+                                                      attitude,
                                                       self.sat, t)
         R_eta = eta_obs - eta_calc  # AL
         R_zeta = zeta_obs - zeta_calc  # AC
@@ -135,6 +150,7 @@ class Agis:
             print('parallax: ', self.calc_sources[i].s_params[2])
 
     def update_block_S_i(self, source_index):
+        """update source #i"""
         calc_source = self.calc_sources[source_index]
         A = self.block_S_error_rate_matrix(source_index)
         W = np.eye(len(calc_source.obs_times))
@@ -240,7 +256,8 @@ class Agis:
         dR_ds_AC = np.zeros(dR_ds_AL.shape)
 
         for i, t_L in enumerate(calc_source.obs_times):
-            eta, zeta = calculated_field_angles(calc_source, self.real_sources[source_index], self.sat, i)
+            attitude = attitude_from_alpha_delta(self.real_sources[source_index], self.sat, t_L)
+            eta, zeta = calculated_field_angles(calc_source, attitude, self.sat, i)
             m, n, u = compute_mnu(eta, zeta)
             dR_ds_AL[i, :] = -m @ du_ds[:, :, i].transpose() * sec(zeta)
             dR_ds_AC[i, :] = -n @ du_ds[:, :, i].transpose()
@@ -262,22 +279,65 @@ class Agis:
 
     ############################################################################
     # For attitude update
-    def dR_dq(self, source_index):
-        """compute dR/dq"""
+    def get_attitude(self, t):
+        s_w = self.attitude_splines[0]
+        s_x = self.attitude_splines[1]
+        s_y = self.attitude_splines[2]
+        s_z = self.attitude_splines[3]
+        return Quaternion(s_w(t), s_x(t), s_y(t), s_z(t)).unit()
+
+    def set_splines_basis(self):
+        """Set the Bsplines bases function into self.att_bases"""
+        bases = []
+        for i in range(self.att_coeffs.shape[0]):  # for each attitude parameter
+            knots = self.att_knots[i]
+            coeffs = self.att_coeffs[i]
+            bases.append(get_basis_Bsplines(knots, coeffs, self.k, self.all_obs_times))
+        self.att_bases = np.array(bases)
+
+    def actualise_splines(self):
+        for i in range(self.attitude_splines.shape[0]):
+            self.attitude_splines[i] = BSpline(self.att_knots, self.att_coeffs, k=self.k)
+
+    def update_A_block(self):
+        N_aa_dim = self.att_coeffs.shape[1]  # *4
+        N_aa = np.zeros((N_aa_dim, N_aa_dim))
+        for n in range(N_aa_dim):
+            for m in range(N_aa_dim):
+                if np.abs(n-m) > (self.k-1):
+                    pass
+                else:
+                    N_aa[n, m] = self.compute_dR_da(m, n, t)
+        c_update = 0
+        self.att_coeffs += c_update
+        self.actualise_splines()  # Create the new splines
+
+    def get_source_index(self, t):
+        if t in self.time_dict:
+            return self.time_dict[t]
+        else:
+            raise ValueError('time not in time_dict')
+
+    def dR_da(self, source_index, m):
+        """compute dR/da (i.e. wrt coeffs)"""
 
         def sec(x):
             """Should be stable since x close to 0"""
             return 1/np.cos(x)
-        calc_source = self.calc_sources[source_index]
 
         du_dq = self.du_dq(calc_source)
         dR_dq_AL = np.zeros((len(calc_source.obs_times), 5))
         dR_dq_AC = np.zeros(dR_dq_AL.shape)
 
-        for i, t_L in enumerate(calc_source.obs_times):
-            eta, zeta = compute_field_angles(calc_source, self.sat, i)
+
+
+        for i, t_L in enumerate(observed_times):
+            source_index = self.get_source_index(t_L)
+            calc_source = self.calc_sources[source_index]
+            attitude = self.get_attitude(t_L)
+            eta, zeta = calculated_field_angles(calc_source, attitude, self.sat, t_L)
             m, n, u = compute_mnu(eta, zeta)
-            # attitude = ??
+
             dR_dq_AL[i, :] = 2 * sec(zeta) * (attitude * ft.vector_to_quaternion(n)).to_vector()
             dR_dq_AC[i, :] = - 2 * (attitude * ft.vector_to_quaternion(m)).to_vector()
 

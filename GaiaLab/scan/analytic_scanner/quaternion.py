@@ -5,6 +5,7 @@ Offers native integration of operators between quaternions generated and
 numpy data structures.
 
 Toby James 2018
+modified LucaZampieri 2018
 """
 
 import numpy as np
@@ -47,6 +48,10 @@ class Quaternion():
 
     def __repr__(self):             # Appropriate representation
         return "Quaternion(%r + %r i + %r j + %r k)" % (self.w, self.x, self.y, self.z)
+
+    def compute_magnitude(self):
+        self.magnitude = np.sqrt(self.w**2 + self.x**2 + self.y**2 + self.z**2)
+        return self.magnitude
 
     def unit(self, tolerance=0):  # Creates the equivalent unit quaternion
         """

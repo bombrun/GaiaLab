@@ -21,6 +21,11 @@ def check_symmetry(a, tol=1e-8):
     return np.allclose(a, a.T, atol=tol)
 
 
+def sec(x):
+    """Stable if x close to 0"""
+    return 1/np.cos(x)
+
+
 def get_rotation_matrix(v1, v2):
     """
     Get the rotation matrix necessary to go from v1 to v2

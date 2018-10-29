@@ -193,10 +193,10 @@ class Satellite:
 
         # Splines for each coordinates i, i_list at each time in t_list of degree k (order = k+1)
         k = 4
+        self.s_w = interpolate.InterpolatedUnivariateSpline(t_list, w_list, k=k)
         self.s_x = interpolate.InterpolatedUnivariateSpline(t_list, x_list, k=k)
         self.s_y = interpolate.InterpolatedUnivariateSpline(t_list, y_list, k=k)
         self.s_z = interpolate.InterpolatedUnivariateSpline(t_list, z_list, k=k)
-        self.s_w = interpolate.InterpolatedUnivariateSpline(t_list, w_list, k=k)
 
         # Attitude
         self.func_attitude = lambda t: Quaternion(float(self.s_w(t)), float(self.s_x(t)), float(self.s_y(t)),

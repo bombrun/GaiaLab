@@ -80,7 +80,7 @@ class Source:
 
     def get_parameters(self, t=0):
         self.set_time(t)
-        return np.array([self.alpha, self.delta, self.parallax, self.mu_alpha, self.mu_delta, self.mu_radial])
+        return np.array([self.alpha, self.delta, self.parallax, self.mu_alpha_dx, self.mu_delta, self.mu_radial])
 
     def reset(self):
         """

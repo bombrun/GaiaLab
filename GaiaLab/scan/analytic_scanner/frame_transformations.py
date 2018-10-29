@@ -37,6 +37,7 @@ def vector_to_polar(vector):
     radius = np.sqrt(vector[0] ** 2 + vector[1] ** 2 + vector[2] ** 2)
     alpha = np.arctan2(vector[1], vector[0]) % (2*np.pi)
     delta = np.arcsin(vector[2]/radius)
+    # delta = np.arctan2(vector[2]/ dxy) % (2*np.pi)
     return alpha, delta, radius
 
 
