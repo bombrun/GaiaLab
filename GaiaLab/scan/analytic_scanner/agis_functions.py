@@ -74,7 +74,48 @@ def extract_coeffs_knots_from_splines(attitude_splines, k):
         att_coeffs.append(coeffs)
         att_knots.append(knots)
         att_splines.append(BSpline(knots, coeffs, k))
-    return np.array(att_coeffs), np.array(att_knots), np.array(att_splines)
+    return np.array(att_coeffs), np.array(att_knots), np.array(internal_knots), np.array(att_splines)
+
+
+def extract_coeffs_knots_from_splines2(splines_tck, k):
+    """
+    :param attitude_splines: list or array of splines of scipy.interpolate.InterpolatedUnivariateSpline
+    :returns:
+        [array] coeff
+        [array] knots
+        [array] splines
+    """
+    att_coeffs, att_knots, att_splines, ks = ([], [], [], [])
+    for tck in splines_tck:
+        t, c, k = tck
+        att_knots.append(t)
+        att_coeffs.append(c)
+        att_splines.append(BSpline(t, c, k))
+        ks.append(k)
+    return np.array(att_knots), np.array(att_coeffs), np.array(ks), np.array(att_splines)
+
+
+def get_times_in_knot_interval(time_array, knots, index, M):
+    """
+    :param time_array: [numpy array]
+    return times in knot interval defined by [index, index+M]
+    """
+    return time_array[(knots[m] <= time_array) & (time_array <= knots[m+M])]
+
+
+def get_left_index(knots, t, M):
+    """
+    :param M: spline order (k+1)
+    return the left index corresponding to t i.e. i s.t. t_i < t < t_{i+1}
+    """
+    left_index_array = np.where(knots < t)
+    if not list(left_index_array[0]):
+        left_index = 0
+    else:
+        left_index = left_index_array[0][-1]
+        if left_index - M >= 0:
+            left_index -= M
+    return left_index
 
 
 def extend_knots(internal_knots, k):
@@ -164,7 +205,7 @@ def calculated_field_angles(calc_source, attitude, sat, t):
 
 def compute_field_angles(Su):
     """
-    Return field angles according to Lindegren eq. 12
+    Return field angles according to Lindegren main eq. 12
     :param Su: array with the proper direction in the SRS reference system
     eta: along-scan field angle
     zeta: across-scan field angle

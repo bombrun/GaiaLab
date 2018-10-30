@@ -146,7 +146,7 @@ class test_agis_functions(unittest.TestCase):
         spline = interpolate.InterpolatedUnivariateSpline(x, y, k=k)
         spline_list = [spline]
 
-        coeffs, knots, splines = af.extract_coeffs_knots_from_splines([spline], k)
+        coeffs, knots, _, splines = af.extract_coeffs_knots_from_splines([spline], k)
         self.assertEqual(len(coeffs), len(spline_list))
 
     def test_get_basis_Bsplines(self):
@@ -158,7 +158,7 @@ class test_agis_functions(unittest.TestCase):
         spline = interpolate.InterpolatedUnivariateSpline(x, y, k=k)
         spline_list = [spline]
 
-        coeffs, knots, splines = af.extract_coeffs_knots_from_splines([spline], k)
+        coeffs, knots, _, splines = af.extract_coeffs_knots_from_splines([spline], k)
         coeffs, knots = coeffs.flatten(), knots.flatten()
         bases = af.get_basis_Bsplines(knots, coeffs, k, knots)
         for i in range(k, bases.shape[0] - k):

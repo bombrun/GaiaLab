@@ -9,6 +9,7 @@ Satellite class implementation in Python
 # Global imports
 import numpy as np
 from scipy import interpolate
+from scipy.interpolate import splrep
 # Local imports
 import constants as const
 import frame_transformations as ft
@@ -197,6 +198,11 @@ class Satellite:
         self.s_x = interpolate.InterpolatedUnivariateSpline(t_list, x_list, k=k)
         self.s_y = interpolate.InterpolatedUnivariateSpline(t_list, y_list, k=k)
         self.s_z = interpolate.InterpolatedUnivariateSpline(t_list, z_list, k=k)
+
+        self.s_w_tck = splrep(t_list, w_list, s=0, k=k)
+        self.s_x_tck = splrep(t_list, x_list, s=0, k=k)
+        self.s_y_tck = splrep(t_list, y_list, s=0, k=k)
+        self.s_z_tck = splrep(t_list, z_list, s=0, k=k)
 
         # Attitude
         self.func_attitude = lambda t: Quaternion(float(self.s_w(t)), float(self.s_x(t)), float(self.s_y(t)),

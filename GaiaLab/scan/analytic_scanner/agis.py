@@ -59,6 +59,7 @@ class Agis:
         # self.g_param = np.zeros(0)  # Global parameters
         """
         self.k = spline_order  # spline order
+        self.M = self.k + 1
         self.verbose = verbose
         self.calc_sources = calc_sources
         self.real_sources = real_sources
@@ -77,12 +78,14 @@ class Agis:
                 time_dict[t] = source_index
             calc_source.s_old.append(calc_source.s_params)
         s_vector = np.zeros((len(self.calc_sources)*num_parameters_per_sources, 1))
-        self.all_obs_times = list(np.sort(all_obs_times))
+        self.all_obs_times = np.sort(all_obs_times)
         total_number_of_observations = len(self.all_obs_times)
 
         if attitude_splines is not None:  # Set everything for the attitude
-            c, t, s = extract_coeffs_knots_from_splines(attitude_splines, self.k)
+            c, t, ks, s = extract_coeffs_knots_from_splines(attitude_splines, self.k)
             self.att_coeffs, self.att_knots, self.attitude_splines = (c, t, s)
+            # for k in ks:
+            #    print('k:', k)
             self.set_splines_basis()  # set the basis Bsplines
 
     def reset_iterations(self):
@@ -286,6 +289,13 @@ class Agis:
         s_z = self.attitude_splines[3]
         return Quaternion(s_w(t), s_x(t), s_y(t), s_z(t)).unit()
 
+    def create_attitude(self, t):
+        s_w = self.attitude_splines[0]
+        s_x = self.attitude_splines[1]
+        s_y = self.attitude_splines[2]
+        s_z = self.attitude_splines[3]
+        return Quaternion(s_w(t), s_x(t), s_y(t), s_z(t)).unit()
+
     def set_splines_basis(self):
         """Set the Bsplines bases function into self.att_bases"""
         bases = []
@@ -318,7 +328,21 @@ class Agis:
         else:
             raise ValueError('time not in time_dict')
 
-    def dR_da(self, source_index, m):
+    def get_quad_basis(self, m, time_index):
+        B = []
+        for b in self.att_bases:
+            B.append(b[time_index, m])
+        return np.array(B)
+
+    def update_A_block_n(self, n):
+        """Compute the necessary for updating coeff number n """
+        LHS = np.zeros((4, 4))
+        for m in range(n-self.M+1, n+self.M+1):
+            LHS += dR_da(m, n)
+        RHS = np.zeros((4, 1))
+        d = np.linalg.solve(LHS, RHS)
+
+    def dR_da(self, m_index, n_index):
         """compute dR/da (i.e. wrt coeffs)"""
 
         def sec(x):
@@ -329,7 +353,10 @@ class Agis:
         dR_dq_AL = np.zeros((len(calc_source.obs_times), 5))
         dR_dq_AC = np.zeros(dR_dq_AL.shape)
 
-
+        # WARNING: here we take the knots of w since they should be the same for the 4 components
+        observed_times = get_times_in_knot_interval(self.all_obs_times, self.att_knots[0], m_index, self.M)
+        # t_n , t_n+M = 1,2
+        # observed_times = self.all_obs_times[(self.all_obs_times>=t_n) & (self.all_obs_times<=t_n+M) ]
 
         for i, t_L in enumerate(observed_times):
             source_index = self.get_source_index(t_L)
@@ -338,8 +365,14 @@ class Agis:
             eta, zeta = calculated_field_angles(calc_source, attitude, self.sat, t_L)
             m, n, u = compute_mnu(eta, zeta)
 
-            dR_dq_AL[i, :] = 2 * sec(zeta) * (attitude * ft.vector_to_quaternion(n)).to_vector()
-            dR_dq_AC[i, :] = - 2 * (attitude * ft.vector_to_quaternion(m)).to_vector()
+            left_index = get_left_index(self.att_knots[0], t_l, M=self.M)
+
+            dR_dq_AL = 2 * sec(zeta) * (attitude * ft.vector_to_quaternion(n)).to_vector()
+            dR_dq_AC = -2 * (attitude * ft.vector_to_quaternion(m)).to_vector()
+            dR_da_AL_m = dR_dq_AL * self.att_bases[:, left_index, m_index]
+            dR_da_AC_m = dR_dq_AC * self.att_bases[:, left_index, m_index]
+            dR_da_AL_n = dR_dq_AL * self.att_bases[:, left_index, n_index]
+            dR_da_AC_n = dR_dq_AC * self.att_bases[:, left_index, n_index]
 
         return dR_dq_AL + dR_dq_AC
 
