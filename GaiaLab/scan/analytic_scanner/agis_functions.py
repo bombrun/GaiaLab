@@ -100,7 +100,7 @@ def get_times_in_knot_interval(time_array, knots, index, M):
     :param time_array: [numpy array]
     return times in knot interval defined by [index, index+M]
     """
-    return time_array[(knots[m] <= time_array) & (time_array <= knots[m+M])]
+    return time_array[(knots[index] <= time_array) & (time_array <= knots[index+M])]
 
 
 def get_left_index(knots, t, M):
@@ -164,6 +164,25 @@ def get_fake_attitude(source, sat, t):
     quat2 = Quaternion(vector=np.array([1, 0, 0]), angle=const.sat_angle)
     attitude = quat1 * quat2
     return sat.func_attitude(t)
+
+
+def compute_dR_dq(calc_source, sat, attitude, t):
+    """return [array] with dR/dq"""
+    eta, zeta = calculated_field_angles(calc_source, attitude, sat, t)
+    m, n, u = compute_mnu(eta, zeta)
+    Sm = ft.rotate_by_quaternion(attitude, m)
+    Sn = ft.rotate_by_quaternion(attitude, n)
+    # # WARNING: ?? ft.vector_to_quaternion(Sn) # # WARNING: .to_vector()???
+    dR_dq_AL = 2 * helpers.sec(zeta) * (attitude * np.concatenate(([0], Sn), axis=0))
+    dR_dq_AC = -2 * (attitude * np.concatenate(([0], Sm), axis=0))
+
+    return dR_dq_AL + dR_dq_AC
+
+
+def dR_da_i(dR_dq, bases_i):
+    """ :param basis_i: B-spline basis of index i"""
+    dR_da_i = dR_dq * bases_i
+    return dR_da_i.reshape(4, 1)
 
 
 def observed_field_angles(source, sat, t):

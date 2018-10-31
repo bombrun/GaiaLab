@@ -138,5 +138,16 @@ def plot_sparse():
     plt.show()
 
 
+def plot_sparsity_pattern(A, tick_frequency):
+    """:param A: np array containing the matrix"""
+    A[np.where(A != 0)] = 1
+    plt.matshow(A, fignum=None)
+    plt.colorbar()
+    plt.xticks(np.arange(0, A.shape[0], tick_frequency))
+    plt.yticks(np.arange(0, A.shape[0], tick_frequency))
+    plt.grid()
+    plt.show()
+
+
 def ephemeris_bcrs(t):
     pass

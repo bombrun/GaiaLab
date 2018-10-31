@@ -43,7 +43,7 @@ class Satellite:
     :param wz: z component of inertial spin vector [arcsec/s]
     :action: Sets satellite to initialization status.
     """
-    def __init__(self, ti=0, tf=5*const.days_per_year, dt=1/24, *args):
+    def __init__(self, ti=0, tf=5*const.days_per_year, dt=1/24, k=4, *args):
         """
         :orbital_period: [days]
         :orbital_radius: [AU]
@@ -51,6 +51,8 @@ class Satellite:
         self.init_parameters(*args)
         self.orbital_period = const.days_per_year
         self.orbital_radius = 1.0
+        # Splines for each coordinates i, i_list at each time in t_list of degree k (order = k+1)
+        self.spline_order = k
 
         self.storage = []
         self.__init_state()
@@ -193,16 +195,16 @@ class Satellite:
             w_list.append(obj[4].w)
 
         # Splines for each coordinates i, i_list at each time in t_list of degree k (order = k+1)
-        k = 4
-        self.s_w = interpolate.InterpolatedUnivariateSpline(t_list, w_list, k=k)
-        self.s_x = interpolate.InterpolatedUnivariateSpline(t_list, x_list, k=k)
-        self.s_y = interpolate.InterpolatedUnivariateSpline(t_list, y_list, k=k)
-        self.s_z = interpolate.InterpolatedUnivariateSpline(t_list, z_list, k=k)
+        self.s_w = interpolate.InterpolatedUnivariateSpline(t_list, w_list, k=self.spline_order)
+        self.s_x = interpolate.InterpolatedUnivariateSpline(t_list, x_list, k=self.spline_order)
+        self.s_y = interpolate.InterpolatedUnivariateSpline(t_list, y_list, k=self.spline_order)
+        self.s_z = interpolate.InterpolatedUnivariateSpline(t_list, z_list, k=self.spline_order)
 
-        self.s_w_tck = splrep(t_list, w_list, s=0, k=k)
-        self.s_x_tck = splrep(t_list, x_list, s=0, k=k)
-        self.s_y_tck = splrep(t_list, y_list, s=0, k=k)
-        self.s_z_tck = splrep(t_list, z_list, s=0, k=k)
+        # Alternativ efor the splines
+        # self.s_w_tck = splrep(t_list, w_list, s=0, k=self.spline_order)
+        # self.s_x_tck = splrep(t_list, x_list, s=0, k=self.spline_order)
+        # self.s_y_tck = splrep(t_list, y_list, s=0, k=self.spline_order)
+        # self.s_z_tck = splrep(t_list, z_list, s=0, k=self.spline_order)
 
         # Attitude
         self.func_attitude = lambda t: Quaternion(float(self.s_w(t)), float(self.s_x(t)), float(self.s_y(t)),

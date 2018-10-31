@@ -71,11 +71,11 @@ class Agis:
 
         num_parameters_per_sources = 5  # the astronomic parameters
         all_obs_times = []
-        time_dict = {}
+        self.time_dict = {}
         for source_index, calc_source in enumerate(self.calc_sources):
             all_obs_times += list(calc_source.obs_times)
             for t in calc_source.obs_times:
-                time_dict[t] = source_index
+                self.time_dict[t] = source_index
             calc_source.s_old.append(calc_source.s_params)
         s_vector = np.zeros((len(self.calc_sources)*num_parameters_per_sources, 1))
         self.all_obs_times = np.sort(all_obs_times)
@@ -139,8 +139,8 @@ class Agis:
             if self.verbose:
                 print('Error before iteration: {}'.format(self.error_function()))
             # self.init_blocks()
-            self.update_S_block()
-            # self.update_A_block()
+            # self.update_S_block()
+            self.update_A_block()
             if self.verbose:
                 print('Error after iteration: {}'.format(self.error_function()))
 
@@ -236,9 +236,10 @@ class Agis:
                 t_L = calc_source.obs_times[j]
                 # WARNING: we should use quaternion object!
                 # S_du_ds[i, :, j] = ft.lmn_to_xyz(self.sat.func_attitude(t_L), C_du_ds[i, :, j])
-                R = rotation_matrix_from_alpha_delta(self.real_sources[source_index], self.sat, t_L)
-                S_du_ds[i, :, j] = np.array(R@C_du_ds[i, :, j].T)
-
+                # R = rotation_matrix_from_alpha_delta(self.real_sources[source_index], self.sat, t_L)
+                # S_du_ds[i, :, j] = np.array(R@C_du_ds[i, :, j].T)
+                attitude = attitude_from_alpha_delta(self.real_sources[source_index], self.sat, t_L)
+                S_du_ds[i, :, j] = ft.rotate_by_quaternion(attitude, C_du_ds[i, :, j])
         return S_du_ds
 
     def dR_ds(self, source_index):
@@ -289,12 +290,8 @@ class Agis:
         s_z = self.attitude_splines[3]
         return Quaternion(s_w(t), s_x(t), s_y(t), s_z(t)).unit()
 
-    def create_attitude(self, t):
-        s_w = self.attitude_splines[0]
-        s_x = self.attitude_splines[1]
-        s_y = self.attitude_splines[2]
-        s_z = self.attitude_splines[3]
-        return Quaternion(s_w(t), s_x(t), s_y(t), s_z(t)).unit()
+    def create_attitude(self, t):  # # WARNING:
+        pass
 
     def set_splines_basis(self):
         """Set the Bsplines bases function into self.att_bases"""
@@ -310,71 +307,92 @@ class Agis:
             self.attitude_splines[i] = BSpline(self.att_knots, self.att_coeffs, k=self.k)
 
     def update_A_block(self):
-        N_aa_dim = self.att_coeffs.shape[1]  # *4
-        N_aa = np.zeros((N_aa_dim, N_aa_dim))
-        for n in range(N_aa_dim):
-            for m in range(N_aa_dim):
-                if np.abs(n-m) > (self.k-1):
-                    pass
-                else:
-                    N_aa[n, m] = self.compute_dR_da(m, n, t)
-        c_update = 0
+        LHS = self.compute_attitude_LHS()
+        RHS = self.compute_attitude_RHS()
+        d = np.linalg.solve(LHS, RHS)
+        c_update = d.reshape(4, -1)
         self.att_coeffs += c_update
         self.actualise_splines()  # Create the new splines
 
+    def compute_attitude_LHS(self):
+        N_aa_dim = self.att_coeffs.shape[1]  # *4
+        print(N_aa_dim)
+        N_aa = np.zeros((N_aa_dim*4, N_aa_dim*4))
+        for n in range(0, N_aa_dim):
+            for m in range(0, N_aa_dim):
+            # for m in range(max(n-self.M+1, 0), min(n+self.M-1, N_aa_dim)):
+                N_aa[n*4:n*4+4, m*4:m*4+4] = self.compute_dR_da_mn(m, n)
+        return N_aa
+
+    def compute_attitude_RHS(self):
+        N_aa_dim = self.att_coeffs.shape[1]
+        RHS = np.zeros((N_aa_dim*4, 1))
+        for n in range(0, N_aa_dim):
+            RHS[n*4:n*4+4] = self.compute_attitude_RHS_n(n)
+        return RHS
+
     def get_source_index(self, t):
+        """ get the index of the source corresponding to observation t"""
         if t in self.time_dict:
             return self.time_dict[t]
         else:
             raise ValueError('time not in time_dict')
 
-    def get_quad_basis(self, m, time_index):
-        B = []
-        for b in self.att_bases:
-            B.append(b[time_index, m])
-        return np.array(B)
-
-    def update_A_block_n(self, n):
-        """Compute the necessary for updating coeff number n """
-        LHS = np.zeros((4, 4))
-        for m in range(n-self.M+1, n+self.M+1):
-            LHS += dR_da(m, n)
-        RHS = np.zeros((4, 1))
-        d = np.linalg.solve(LHS, RHS)
-
-    def dR_da(self, m_index, n_index):
-        """compute dR/da (i.e. wrt coeffs)"""
-
-        def sec(x):
-            """Should be stable since x close to 0"""
-            return 1/np.cos(x)
-
-        du_dq = self.du_dq(calc_source)
-        dR_dq_AL = np.zeros((len(calc_source.obs_times), 5))
-        dR_dq_AC = np.zeros(dR_dq_AL.shape)
-
+    def compute_attitude_RHS_n(self, n_index):
+        rhs = np.zeros((4, 1))
         # WARNING: here we take the knots of w since they should be the same for the 4 components
-        observed_times = get_times_in_knot_interval(self.all_obs_times, self.att_knots[0], m_index, self.M)
-        # t_n , t_n+M = 1,2
-        # observed_times = self.all_obs_times[(self.all_obs_times>=t_n) & (self.all_obs_times<=t_n+M) ]
-
+        observed_times = get_times_in_knot_interval(self.all_obs_times, self.att_knots[0], n_index, self.M)
         for i, t_L in enumerate(observed_times):
             source_index = self.get_source_index(t_L)
             calc_source = self.calc_sources[source_index]
             attitude = self.get_attitude(t_L)
-            eta, zeta = calculated_field_angles(calc_source, attitude, self.sat, t_L)
-            m, n, u = compute_mnu(eta, zeta)
+            # left_index = get_left_index(self.att_knots[0], t_L, M=self.M)
+            obs_time_index = list(self.all_obs_times).index(t_L)
 
-            left_index = get_left_index(self.att_knots[0], t_l, M=self.M)
+            # # WARNING: Here we put the Across scan and the along scan together
+            dR_dq = compute_dR_dq(calc_source, self.sat, attitude, t_L)
+            dR_da_n = dR_da_i(dR_dq, self.att_bases[:, n_index, obs_time_index])
+            R_L = self.compute_attitude_R_L(source_index, attitude, t_L)
+            rhs += dR_da_n * R_L
 
-            dR_dq_AL = 2 * sec(zeta) * (attitude * ft.vector_to_quaternion(n)).to_vector()
-            dR_dq_AC = -2 * (attitude * ft.vector_to_quaternion(m)).to_vector()
-            dR_da_AL_m = dR_dq_AL * self.att_bases[:, left_index, m_index]
-            dR_da_AC_m = dR_dq_AC * self.att_bases[:, left_index, m_index]
-            dR_da_AL_n = dR_dq_AL * self.att_bases[:, left_index, n_index]
-            dR_da_AC_n = dR_dq_AC * self.att_bases[:, left_index, n_index]
+        return rhs
 
-        return dR_dq_AL + dR_dq_AC
+    def compute_attitude_R_L(self, source_index, attitude, t):
+        """ R = eta_obs + zeta_obs - eta_calc - zeta_calc """
+        # WARNING: maybe source is not in the field of vision of sat at time t!
+        R_eta = 0
+        R_zeta = 0
+        eta_obs, zeta_obs = observed_field_angles(self.real_sources[source_index],
+                                                  self.sat, t)
+        eta_calc, zeta_calc = calculated_field_angles(self.calc_sources[source_index],
+                                                      attitude,
+                                                      self.sat, t)
+        R_eta = eta_obs - eta_calc  # AL
+        R_zeta = zeta_obs - zeta_calc  # AC
+        R_L = R_eta + R_zeta
+        return R_L
+
+    def compute_dR_da_mn(self, m_index, n_index):
+        """compute dR/da (i.e. wrt coeffs)"""
+        dR_da_mn = np.zeros((4, 4))
+        # WARNING: here we take the knots of w since they should be the same for the 4 components
+        observed_times_m = get_times_in_knot_interval(self.all_obs_times, self.att_knots[0], m_index, self.M)
+        observed_times_n = get_times_in_knot_interval(self.all_obs_times, self.att_knots[0], n_index, self.M)
+        observed_times_mn = list(set(observed_times_m) & set(observed_times_n))  # intersection of the lists
+
+        for i, t_L in enumerate(observed_times_mn):
+            source_index = self.get_source_index(t_L)
+            calc_source = self.calc_sources[source_index]
+            attitude = self.get_attitude(t_L)
+            # left_index = get_left_index(self.att_knots[0], t_L, M=self.M)
+            obs_time_index = list(self.all_obs_times).index(t_L)
+            # # WARNING: Here we put the Across scan and the along scan together
+            dR_dq = compute_dR_dq(calc_source, self.sat, attitude, t_L)
+            dR_da_m = dR_da_i(dR_dq, self.att_bases[:, m_index, obs_time_index])
+            dR_da_n = dR_da_i(dR_dq, self.att_bases[:, n_index, obs_time_index])
+            dR_da_mn += dR_da_n @ dR_da_m.T
+
+        return dR_da_mn
 
 
 if __name__ == '__main__':
