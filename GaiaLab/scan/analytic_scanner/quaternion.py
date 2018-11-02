@@ -204,6 +204,9 @@ class Quaternion():
     def to_vector(self):
         return np.array([self.x, self.y, self.z])
 
+    def to_4D_vector(self):
+        return np.array([self.w, self.x, self.y, self.z])
+
     def basis(self):
         """
         Rotation matrix associated with quaternion.

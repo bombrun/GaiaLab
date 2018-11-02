@@ -4,6 +4,8 @@ functions that uses the classes scanner, source, satellite but don't belong to a
 given file yet
 author: LucaZampieri
 
+When cleaning this file search for ???, LUCa, warning , error, debug, print?
+
 todo:
     - Rotate the attitude
     - attitude i.e. generate observations (with scanner object but without scanning)
@@ -43,6 +45,20 @@ def generate_observation_wrt_attitude(attitude):
     artificial_u = ft.rotate_by_quaternion(attitude, [1, 0, 0])
     alpha, delta, radius = ft.vector_to_polar(artificial_u)
     return alpha, delta
+
+
+def error_between_func_attitudes(my_times, func_att1, func_att2):
+    error_in_attitude = 0
+    for t in my_times:
+        diff_att = 0
+        att1 = func_att1(t)
+        att2 = func_att2(t)
+        diff_att += np.abs(att2.w - att1.w)
+        diff_att += np.abs(att2.x - att1.x)
+        diff_att += np.abs(att2.y - att1.y)
+        diff_att += np.abs(att2.z - att1.z)
+        error_in_attitude += np.abs(diff_att)
+    return error_in_attitude
 
 
 def get_basis_Bsplines(knots, coeffs, k, obs_times):
@@ -106,7 +122,8 @@ def get_times_in_knot_interval(time_array, knots, index, M):
 def get_left_index(knots, t, M):
     """
     :param M: spline order (k+1)
-    return the left index corresponding to t i.e. i s.t. t_i < t < t_{i+1}
+    return the left index corresponding to t i.e. *i* s.t. t_i < t < t_{i+1}
+    warning here the left index is not the same as in the paper!!!
     """
     left_index_array = np.where(knots < t)
     if not list(left_index_array[0]):
@@ -116,6 +133,36 @@ def get_left_index(knots, t, M):
         if left_index - M >= 0:
             left_index -= M
     return left_index
+
+
+def compute_coeff_basis_sum(coeffs, bases, L, M, time_index):
+    """
+    Computes the sum(a_n*b_n) with n=L-M+1 : L
+    :param L: left_index
+    """
+    return np.sum(bases[:, L:L+M, time_index] * coeffs[:, L:L+M], axis=1)
+
+
+def compute_attitude_deviation(coeff_basis_sum):
+    """
+    :param coeff_basis_sum: the sum(a_n*b_n) with n=L-M+1 : L
+    :returns: attitude deviation from unity D_l"""
+    return 1 - np.linalg.norm(coeff_basis_sum)**2
+
+
+def compute_DL_da_i(coeff_basis_sum, bases, time_index, i):
+    """
+    Compute derivative of the attitude deviation wrt attitude params
+    :param coeff_basis_sum: the sum(a_n*b_n) with n=L-M+1 : L
+    """
+    return -2 * coeff_basis_sum * bases[:, i, time_index]
+
+
+def compute_DL_da_i_from_attitude(attitude, bases, time_index, i):
+    """
+    Compute derivative of the attitude deviation wrt attitude params
+    """
+    return -2 * np.concatenate(([0], attitude.to_vector()), axis=0) * bases[:, i, time_index]
 
 
 def extend_knots(internal_knots, k):
@@ -173,15 +220,21 @@ def compute_dR_dq(calc_source, sat, attitude, t):
     Sm = ft.rotate_by_quaternion(attitude, m)
     Sn = ft.rotate_by_quaternion(attitude, n)
     # # WARNING: ?? ft.vector_to_quaternion(Sn) # # WARNING: .to_vector()???
-    dR_dq_AL = 2 * helpers.sec(zeta) * (attitude * np.concatenate(([0], Sn), axis=0))
-    dR_dq_AC = -2 * (attitude * np.concatenate(([0], Sm), axis=0))
-
-    return dR_dq_AL + dR_dq_AC
+    # (attitude * np.concatenate(([0], Sm), axis=0)) ???
+    # attitude_vector = np.array([])
+    dR_dq_AL = 2 * helpers.sec(zeta) * attitude * ft.vector_to_quaternion(Sn)
+    dR_dq_AC = -2 * attitude * ft.vector_to_quaternion(Sm)
+    return dR_dq_AL.to_4D_vector() + dR_dq_AC.to_4D_vector()
+    """dR_dq_AL = 2 * helpers.sec(zeta) * attitude.to_4D_vector().reshape(4, 1) @ np.concatenate(([0], Sn), axis=0).reshape(1, 4)
+    dR_dq_AC = -2 * attitude.to_4D_vector().reshape(4, 1) @ np.concatenate(([0], Sm), axis=0).reshape(1, 4)
+    return dR_dq_AL + dR_dq_AC"""
 
 
 def dR_da_i(dR_dq, bases_i):
     """ :param basis_i: B-spline basis of index i"""
+    # print('SHAPES:', dR_dq.shape, bases_i.shape)
     dR_da_i = dR_dq * bases_i
+    # dR_da_i = dR_dq @ bases_i
     return dR_da_i.reshape(4, 1)
 
 

@@ -21,6 +21,13 @@ def check_symmetry(a, tol=1e-8):
     return np.allclose(a, a.T, atol=tol)
 
 
+def symmetrize_triangular_matrix(a):
+    """ Symmetrize an already triangular matrix (lower or upper)
+    :param a: upper ot lower triangular matrix
+    :returns: corresponding symmetric matrix"""
+    return a + a.T - numpy.diag(a.diagonal())
+
+
 def sec(x):
     """Stable if x close to 0"""
     return 1/np.cos(x)

@@ -45,7 +45,7 @@ class Calc_source:
 class Agis:
 
     def __init__(self, sat, calc_sources=[], real_sources=[], attitude_splines=None,
-                 verbose=False, spline_order=4):
+                 verbose=False, spline_order=4, attitude_regularisation_factor=1e1):
         """
         Also contains:
         **Temporary variables**
@@ -60,6 +60,7 @@ class Agis:
         """
         self.k = spline_order  # spline order
         self.M = self.k + 1
+        self.attitude_regularisation_factor = attitude_regularisation_factor
         self.verbose = verbose
         self.calc_sources = calc_sources
         self.real_sources = real_sources
@@ -141,6 +142,8 @@ class Agis:
             # self.init_blocks()
             # self.update_S_block()
             self.update_A_block()
+            error = error_between_func_attitudes(self.all_obs_times, self.sat.func_attitude, self.get_attitude)
+            print(error)
             if self.verbose:
                 print('Error after iteration: {}'.format(self.error_function()))
 
@@ -304,7 +307,7 @@ class Agis:
 
     def actualise_splines(self):
         for i in range(self.attitude_splines.shape[0]):
-            self.attitude_splines[i] = BSpline(self.att_knots, self.att_coeffs, k=self.k)
+            self.attitude_splines[i] = BSpline(self.att_knots[i], self.att_coeffs[i], k=self.k)
 
     def update_A_block(self):
         LHS = self.compute_attitude_LHS()
@@ -312,6 +315,8 @@ class Agis:
         d = np.linalg.solve(LHS, RHS)
         c_update = d.reshape(4, -1)
         self.att_coeffs += c_update
+        for i in range(self.att_coeffs.shape[1]):
+            self.att_coeffs[:, i] /= np.linalg.norm(self.att_coeffs[:, i])
         self.actualise_splines()  # Create the new splines
 
     def compute_attitude_LHS(self):
@@ -346,16 +351,24 @@ class Agis:
             source_index = self.get_source_index(t_L)
             calc_source = self.calc_sources[source_index]
             attitude = self.get_attitude(t_L)
-            # left_index = get_left_index(self.att_knots[0], t_L, M=self.M)
+            left_index = get_left_index(self.att_knots[0], t_L, M=self.M)
             obs_time_index = list(self.all_obs_times).index(t_L)
+
+            # Compute the regulation part
+            coeff_basis_sum = compute_coeff_basis_sum(self.att_coeffs, self.att_bases,
+                                                      left_index, self.M, obs_time_index)
+            D_L = compute_attitude_deviation(coeff_basis_sum)
+            # dDL_da_n = compute_DL_da_i(coeff_basis_sum, self.att_bases, obs_time_index, n_index)
+            dDL_da_n = compute_DL_da_i_from_attitude(attitude, self.att_bases, obs_time_index, n_index)
+            regularisation_part = self.attitude_regularisation_factor**2 * dDL_da_n * D_L
 
             # # WARNING: Here we put the Across scan and the along scan together
             dR_dq = compute_dR_dq(calc_source, self.sat, attitude, t_L)
             dR_da_n = dR_da_i(dR_dq, self.att_bases[:, n_index, obs_time_index])
             R_L = self.compute_attitude_R_L(source_index, attitude, t_L)
-            rhs += dR_da_n * R_L
+            rhs += dR_da_n * R_L + regularisation_part.reshape(4, -1)
 
-        return rhs
+        return -rhs
 
     def compute_attitude_R_L(self, source_index, attitude, t):
         """ R = eta_obs + zeta_obs - eta_calc - zeta_calc """
@@ -384,13 +397,31 @@ class Agis:
             source_index = self.get_source_index(t_L)
             calc_source = self.calc_sources[source_index]
             attitude = self.get_attitude(t_L)
-            # left_index = get_left_index(self.att_knots[0], t_L, M=self.M)
+            left_index = get_left_index(self.att_knots[0], t_L, M=self.M)
             obs_time_index = list(self.all_obs_times).index(t_L)
+
+            # Compute the regulation part
+            coeff_basis_sum = compute_coeff_basis_sum(self.att_coeffs, self.att_bases,
+                                                      left_index, self.M, obs_time_index)
+            # dDL_da_n = compute_DL_da_i(coeff_basis_sum, self.att_bases, obs_time_index, n_index)
+            # dDL_da_m = compute_DL_da_i(coeff_basis_sum, self.att_bases, obs_time_index, m_index)
+            dDL_da_n = compute_DL_da_i_from_attitude(attitude, self.att_bases, obs_time_index, n_index)
+            dDL_da_m = compute_DL_da_i_from_attitude(attitude, self.att_bases, obs_time_index, m_index)
+            regularisation_part = self.attitude_regularisation_factor**2 * dDL_da_n @ dDL_da_m
+
+            # Ccompute the original objective function part
             # # WARNING: Here we put the Across scan and the along scan together
             dR_dq = compute_dR_dq(calc_source, self.sat, attitude, t_L)
             dR_da_m = dR_da_i(dR_dq, self.att_bases[:, m_index, obs_time_index])
             dR_da_n = dR_da_i(dR_dq, self.att_bases[:, n_index, obs_time_index])
-            dR_da_mn += dR_da_n @ dR_da_m.T
+            dR_da_mn += dR_da_n @ dR_da_m.T + regularisation_part
+            if m_index < 0:
+                if i < 2:
+                    print('**** m:', m_index, '**** n:', n_index, '**** i:', i)
+                    print('dR_dq: ', dR_dq)
+                    print('dR_da_m', dR_da_m)
+                    print('dR_da_n', dR_da_n)
+                    print('dR_da_mn', dR_da_mn)
 
         return dR_da_mn
 
