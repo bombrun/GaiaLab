@@ -24,8 +24,6 @@ def get_Cu(astro_parameters, sat, t):
     expressed in terms of altitude (or elevation) angle and azimuth.
     :return: [array] (x,y,z) direction-vector of the star from the satellite's lmn frame.
     """
-    if not isinstance(sat, Satellite):
-        raise TypeError('Expected Satellite, but got {} instead'.format(type(satellite)))
     alpha, delta, parallax, mu_alpha_dx, mu_delta, mu_radial = astro_parameters[:]
     p, q, r = ft.compute_pqr(alpha, delta)
     t_B = t  # + r.transpose() @ b_G / const.c  # # TODO: replace t_B with its real value
