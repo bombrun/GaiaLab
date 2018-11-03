@@ -42,7 +42,7 @@ def generate_observation_wrt_attitude(attitude):
     which the x-vector rotated to *attitude* is pointing
     returns alpha, delta in radians
     """
-    artificial_u = ft.rotate_by_quaternion(attitude, [1, 0, 0])
+    artificial_u = ft.rotate_by_quaternion(attitude.inverse(), [1, 0, 0])
     alpha, delta, radius = ft.vector_to_polar(artificial_u)
     return alpha, delta
 
@@ -220,21 +220,14 @@ def compute_dR_dq(calc_source, sat, attitude, t):
     Sm = ft.rotate_by_quaternion(attitude, m)
     Sn = ft.rotate_by_quaternion(attitude, n)
     # # WARNING: ?? ft.vector_to_quaternion(Sn) # # WARNING: .to_vector()???
-    # (attitude * np.concatenate(([0], Sm), axis=0)) ???
-    # attitude_vector = np.array([])
-    dR_dq_AL = 2 * helpers.sec(zeta) * attitude * ft.vector_to_quaternion(Sn)
-    dR_dq_AC = -2 * attitude * ft.vector_to_quaternion(Sm)
+    dR_dq_AL = 2 * helpers.sec(zeta) * (attitude * ft.vector_to_quaternion(Sn))
+    dR_dq_AC = -2 * (attitude * ft.vector_to_quaternion(Sm))
     return dR_dq_AL.to_4D_vector() + dR_dq_AC.to_4D_vector()
-    """dR_dq_AL = 2 * helpers.sec(zeta) * attitude.to_4D_vector().reshape(4, 1) @ np.concatenate(([0], Sn), axis=0).reshape(1, 4)
-    dR_dq_AC = -2 * attitude.to_4D_vector().reshape(4, 1) @ np.concatenate(([0], Sm), axis=0).reshape(1, 4)
-    return dR_dq_AL + dR_dq_AC"""
 
 
 def dR_da_i(dR_dq, bases_i):
     """ :param basis_i: B-spline basis of index i"""
-    # print('SHAPES:', dR_dq.shape, bases_i.shape)
     dR_da_i = dR_dq * bases_i
-    # dR_da_i = dR_dq @ bases_i
     return dR_da_i.reshape(4, 1)
 
 
@@ -249,8 +242,8 @@ def observed_field_angles(source, sat, t):
     # Su = ft.lmn_to_xyz(sat.func_attitude(t), Cu)  # u in SRS frame
     attitude = attitude_from_alpha_delta(source, sat, t)
     Su = ft.rotate_by_quaternion(attitude, Cu)
-    quat2 = Quaternion(vector=Su, angle=const.sat_angle)
-    Su = ft.rotate_by_quaternion(quat2, Su)
+    # quat2 = Quaternion(vector=Su, angle=const.sat_angle)
+    # Su = ft.rotate_by_quaternion(quat2, Su)
 
     eta, zeta = compute_field_angles(Su)
     return eta, zeta
@@ -262,14 +255,14 @@ def calculated_field_angles(calc_source, attitude, sat, t):
     eta: along-scan field angle
     """
     alpha, delta, parallax, mu_alpha, mu_delta = calc_source.s_params[:]
-    alpha = alpha  # + mu_alpha*t
-    delta = delta  # + mu_delta*t
+    alpha = alpha
+    delta = delta
     params = np.array([alpha, delta, parallax, mu_alpha, mu_delta, calc_source.mu_radial])
     Cu = get_Cu(params, sat, t)  # u in CoMRS frame
 
     Su = ft.rotate_by_quaternion(attitude, Cu)
-    quat2 = Quaternion(vector=Su, angle=const.sat_angle)
-    Su = ft.rotate_by_quaternion(quat2, Su)
+    # quat2 = Quaternion(vector=Su, angle=const.sat_angle)
+    # Su = ft.rotate_by_quaternion(quat2, Su)
 
     eta, zeta = compute_field_angles(Su)
     return eta, zeta
