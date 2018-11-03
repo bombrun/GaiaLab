@@ -45,7 +45,7 @@ class Calc_source:
 class Agis:
 
     def __init__(self, sat, calc_sources=[], real_sources=[], attitude_splines=None,
-                 verbose=False, spline_order=4, attitude_regularisation_factor=1e1):
+                 verbose=False, spline_order=3, attitude_regularisation_factor=0):
         """
         Also contains:
         **Temporary variables**
@@ -110,18 +110,19 @@ class Agis:
             if self.verbose:
                 print('source: {}'.format(s.s_params))
             for j, t_L in enumerate(s.obs_times):
-                R_L = self.R_L(source_index, t_L)
+                R_L = self.compute_R_L(source_index, t_L)
                 error += R_L ** 2
         return error
 
-    def R_L(self, source_index, t):
+    def compute_R_L(self, source_index, t):
         """ R = eta_obs + zeta_obs - eta_calc - zeta_calc """
         # WARNING: maybe source is not in the field of vision of sat at time t!
         R_eta = 0
         R_zeta = 0
         eta_obs, zeta_obs = observed_field_angles(self.real_sources[source_index],
                                                   self.sat, t)
-        attitude = attitude_from_alpha_delta(self.real_sources[source_index], self.sat, t)
+        # attitude = attitude_from_alpha_delta(self.real_sources[source_index], self.sat, t) # for test without attitude
+        attitude = self.get_attitude(t)
         eta_calc, zeta_calc = calculated_field_angles(self.calc_sources[source_index],
                                                       attitude,
                                                       self.sat, t)
@@ -144,8 +145,8 @@ class Agis:
             self.update_A_block()
             error = error_between_func_attitudes(self.all_obs_times, self.sat.func_attitude, self.get_attitude)
             print(error)
-            if self.verbose:
-                print('Error after iteration: {}'.format(self.error_function()))
+            # if self.verbose:
+            print('Error after iteration: {}'.format(self.error_function()))
 
     def update_S_block(self):
         """ Performs the update of the source parameters """
@@ -279,7 +280,7 @@ class Agis:
         calc_source = self.calc_sources[source_index]
         h = np.zeros((len(calc_source.obs_times), 1))
         for i, t_L in enumerate(calc_source.obs_times):
-            h[i, 0] = self.R_L(source_index, t_L)
+            h[i, 0] = self.compute_R_L(source_index, t_L)
         if self.verbose:
             print('h: {}'.format(h))
         return h
@@ -315,8 +316,8 @@ class Agis:
         d = np.linalg.solve(LHS, RHS)
         c_update = d.reshape(4, -1)
         self.att_coeffs += c_update
-        for i in range(self.att_coeffs.shape[1]):
-            self.att_coeffs[:, i] /= np.linalg.norm(self.att_coeffs[:, i])
+        # for i in range(self.att_coeffs.shape[1]):
+        #     self.att_coeffs[:, i] /= np.linalg.norm(self.att_coeffs[:, i])
         self.actualise_splines()  # Create the new splines
 
     def compute_attitude_LHS(self):
@@ -325,7 +326,7 @@ class Agis:
         N_aa = np.zeros((N_aa_dim*4, N_aa_dim*4))
         for n in range(0, N_aa_dim):
             for m in range(0, N_aa_dim):
-            # for m in range(max(n-self.M+1, 0), min(n+self.M-1, N_aa_dim)):
+            # for m in range(max(n-self.M+1, 0), min(n+self.M-1, N_aa_dim)+1):
                 N_aa[n*4:n*4+4, m*4:m*4+4] = self.compute_dR_da_mn(m, n)
         return N_aa
 
@@ -365,25 +366,10 @@ class Agis:
             # # WARNING: Here we put the Across scan and the along scan together
             dR_dq = compute_dR_dq(calc_source, self.sat, attitude, t_L)
             dR_da_n = dR_da_i(dR_dq, self.att_bases[:, n_index, obs_time_index])
-            R_L = self.compute_attitude_R_L(source_index, attitude, t_L)
+            R_L = self.compute_R_L(source_index, t_L)
             rhs += dR_da_n * R_L + regularisation_part.reshape(4, -1)
 
         return -rhs
-
-    def compute_attitude_R_L(self, source_index, attitude, t):
-        """ R = eta_obs + zeta_obs - eta_calc - zeta_calc """
-        # WARNING: maybe source is not in the field of vision of sat at time t!
-        R_eta = 0
-        R_zeta = 0
-        eta_obs, zeta_obs = observed_field_angles(self.real_sources[source_index],
-                                                  self.sat, t)
-        eta_calc, zeta_calc = calculated_field_angles(self.calc_sources[source_index],
-                                                      attitude,
-                                                      self.sat, t)
-        R_eta = eta_obs - eta_calc  # AL
-        R_zeta = zeta_obs - zeta_calc  # AC
-        R_L = R_eta + R_zeta
-        return R_L
 
     def compute_dR_da_mn(self, m_index, n_index):
         """compute dR/da (i.e. wrt coeffs)"""
@@ -415,14 +401,14 @@ class Agis:
             dR_da_m = dR_da_i(dR_dq, self.att_bases[:, m_index, obs_time_index])
             dR_da_n = dR_da_i(dR_dq, self.att_bases[:, n_index, obs_time_index])
             dR_da_mn += dR_da_n @ dR_da_m.T + regularisation_part
-            if m_index < 0:
-                if i < 2:
-                    print('**** m:', m_index, '**** n:', n_index, '**** i:', i)
-                    print('dR_dq: ', dR_dq)
-                    print('dR_da_m', dR_da_m)
-                    print('dR_da_n', dR_da_n)
-                    print('dR_da_mn', dR_da_mn)
-
+            if self.verbose:
+                if m_index >= 0:
+                    if i >= 0:
+                        print('**** m:', m_index, '**** n:', n_index, '**** i:', i)
+                        print('dR_dq: ', dR_dq)
+                        print('dR_da_m', dR_da_m)
+                        print('dR_da_n', dR_da_n)
+                        print('dR_da_mn', dR_da_mn)
         return dR_da_mn
 
 
