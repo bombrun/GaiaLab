@@ -175,8 +175,8 @@ class test_agis_functions(unittest.TestCase):
         time_array = np.linspace(my_min, my_max, num=100)
         knots = np.linspace(my_min, my_max, num=100)
         times = af.get_times_in_knot_interval(time_array, knots, index, M)
-        self.assertTrue(knots[index] <= times[0])
-        self.assertTrue(times[-1] <= knots[index+M])
+        self.assertTrue(knots[index] < times[0])
+        self.assertTrue(times[-1] < knots[index+M])
 
 
 class test_agis_2(unittest.TestCase):
@@ -262,6 +262,12 @@ class test_agis(unittest.TestCase):
         self.assertEqual(my_spline[0], ref_spline3[index])
         self.assertEqual(my_spline[0], ref_spline4[0])
 
+    def test_attitude(self):
+        """ Test if generated source comply with the copied (from satellite) attitude"""
+        self.Solver.actualise_splines()
+        error = self.Solver.error_function()
+        self.assertAlmostEqual(error, 0, delta=1e-25)
+
 
 class test_helpers(unittest.TestCase):
 
@@ -289,6 +295,16 @@ class test_helpers(unittest.TestCase):
         for i in range(vector.shape[0]):
             self.assertAlmostEqual(v3[i], vector[i])
         self.assertAlmostEqual(np.pi / 2, angle)
+
+    def test_get_lists_intersection(self):
+        """ test if it returns indeed the intersection of the lists"""
+        list1 = [0, 1, 2, 3, 4, 5]
+        list2 = [3, 4, 5, 6, 7, 8]
+        intersection = helpers.get_lists_intersection(list1, list2)
+        self.assertEqual(len(intersection), 3)
+        self.assertEqual(intersection[0], 3)
+        self.assertEqual(intersection[1], 4)
+        self.assertEqual(intersection[2], 5)
 
 
 class test_frame_transformations(unittest.TestCase):
