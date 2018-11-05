@@ -167,8 +167,19 @@ class test_agis_functions(unittest.TestCase):
             # once we checked that they are k non-zero we can check their position with a sum:
             self.assertEqual(non_zero.sum(), (i+1)*k+(0+k-1)*k/2)  # arithmetic sum
 
+    def test_get_times_in_knot_interval(self):
+        """ Test if the time interval is consistent"""
+        M = 4
+        index = 55
+        my_min, my_max = (0, 100)
+        time_array = np.linspace(my_min, my_max, num=100)
+        knots = np.linspace(my_min, my_max, num=100)
+        times = af.get_times_in_knot_interval(time_array, knots, index, M)
+        self.assertTrue(knots[index] <= times[0])
+        self.assertTrue(times[-1] <= knots[index+M])
 
-class test_agis(unittest.TestCase):
+
+class test_agis_2(unittest.TestCase):
 
     def setUp(self):
         num_observations = 1
@@ -190,8 +201,66 @@ class test_agis(unittest.TestCase):
         calc_source = Calc_source('calc_test', t_list, s, source.mu_radial)
         self.solver = Agis(sat, [calc_source], [source])
 
-    def test_error_function(self):
-        self.assertTrue(0 <= self.solver.error_function())
+    # def test_error_function(self):
+        # pass
+        # self.assertTrue(0 <= self.solver.error_function())
+
+
+class test_agis(unittest.TestCase):
+
+    def setUp(self):
+        t_init = 1/24/60
+        t_end = t_init + 1/24/60  # 365*5
+        my_dt = 1/24/60/10  # [days]
+        spline_order = 3
+        gaia = Satellite(ti=t_init, tf=t_end, dt=my_dt, k=spline_order)
+        my_times = np.linspace(t_init, t_end, num=100, endpoint=False)
+        real_sources = []
+        calc_sources = []
+        for t in my_times:
+            alpha, delta = af.generate_observation_wrt_attitude(gaia.func_attitude(t))
+            real_src_tmp = Source(str(t), np.degrees(alpha), np.degrees(delta), 0, 0, 0, 0)
+            calc_src_tmp = Calc_source('calc_'+str(t), [t], real_src_tmp.get_parameters()[0:5],
+                                       real_src_tmp.get_parameters()[5])
+            real_sources.append(real_src_tmp)
+            calc_sources.append(calc_src_tmp)
+        # test if source and calc source are equal (as they should be)
+        np.testing.assert_array_almost_equal(np.array(real_sources[0].get_parameters()[0:5]), calc_sources[0].s_params)
+        # create Solver
+        self.Solver = Agis(gaia, calc_sources, real_sources, attitude_splines=[gaia.s_w, gaia.s_x, gaia.s_y, gaia.s_z],
+                           spline_order=spline_order, attitude_regularisation_factor=1e-3)
+
+    def test_left_index(self):
+        """ Tests some ways of forming a spline """
+        # given the spline:
+        m = 10  # [0-100]  # spline number
+        M = self.Solver.M
+        knots = self.Solver.att_knots[0]
+        coeffs = self.Solver.att_coeffs[0]
+        bases = self.Solver.att_bases[0]
+        observed_times = self.Solver.all_obs_times[(knots[m] <= self.Solver.all_obs_times) &
+                                                   (self.Solver.all_obs_times <= knots[m+M])]
+        if not list(observed_times):
+            raise ValueError('not observed times in interval')
+        t = observed_times[0]
+        index = np.where(self.Solver.all_obs_times == t)[0][0]
+
+        L = af.get_left_index(self.Solver.att_knots[0], t, M)
+        b_list = []
+        for i, n in enumerate(range(L-M+1, L+1)):  # last +1 because range does not inlude the last point
+            coeff = coeffs[n]
+            bspline = bases[n]
+            b_list.append(coeff*bspline)
+        my_spline = af.compute_coeff_basis_sum(self.Solver.att_coeffs, self.Solver.att_bases, L, M, index)
+        ref_spline1 = BSpline(self.Solver.att_knots[0], self.Solver.att_coeffs[0], k=self.Solver.k)(t)
+        ref_spline2 = sum([coef*bspline for coef, bspline in zip(self.Solver.att_coeffs[0], self.Solver.att_bases[0])])
+        ref_spline3 = sum(b_list)
+        ref_spline4 = np.sum(self.Solver.att_bases[:, L-M:L+1, index] * self.Solver.att_coeffs[:, L-M:L+1], axis=1)
+
+        self.assertEqual(my_spline[0], ref_spline1)
+        self.assertEqual(my_spline[0], ref_spline2[index])
+        self.assertEqual(my_spline[0], ref_spline3[index])
+        self.assertEqual(my_spline[0], ref_spline4[0])
 
 
 class test_helpers(unittest.TestCase):
