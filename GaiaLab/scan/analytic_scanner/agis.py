@@ -58,30 +58,32 @@ class Agis:
         # self.c_param = np.zeros(0)  # Calibration parameters
         # self.g_param = np.zeros(0)  # Global parameters
         """
+        # Objects:
+        self.calc_sources = calc_sources
+        self.real_sources = real_sources
+        self.sat = sat
+
+        # Constants
         self.k = spline_order  # spline order
         self.M = self.k + 1
         self.attitude_regularisation_factor = attitude_regularisation_factor
         self.verbose = verbose
-        self.calc_sources = calc_sources
-        self.real_sources = real_sources
-        self.sat = sat
         self.consider_stellar_aberation = False
+
+        # Mutable:
         self.iter_counter = 0
 
-        num_sources = len(self.real_sources)
-
-        num_parameters_per_sources = 5  # the astronomic parameters
+        # Setting observation times
         all_obs_times = []
         self.time_dict = {}
         for source_index, calc_source in enumerate(self.calc_sources):
+            calc_source.s_old.append(calc_source.s_params)
             all_obs_times += list(calc_source.obs_times)
             for t in calc_source.obs_times:
                 self.time_dict[t] = source_index
-            calc_source.s_old.append(calc_source.s_params)
-        s_vector = np.zeros((len(self.calc_sources)*num_parameters_per_sources, 1))
         self.all_obs_times = np.sort(all_obs_times)
-        total_number_of_observations = len(self.all_obs_times)
 
+        # Set attitude
         if attitude_splines is not None:  # Set everything for the attitude
             c, t, ks, s = extract_coeffs_knots_from_splines(attitude_splines, self.k)
             self.att_coeffs, self.att_knots, self.attitude_splines = (c, t, s)
@@ -119,10 +121,12 @@ class Agis:
         # WARNING: maybe source is not in the field of vision of sat at time t!
         R_eta = 0
         R_zeta = 0
-        eta_obs, zeta_obs = observed_field_angles(self.real_sources[source_index],
-                                                  self.sat, t)
         # attitude = attitude_from_alpha_delta(self.real_sources[source_index], self.sat, t) # for test without attitude
         attitude = self.get_attitude(t)
+        attitude_gaia = self.sat.func_attitude(t)
+        eta_obs, zeta_obs = observed_field_angles(self.real_sources[source_index],
+                                                  attitude_gaia,
+                                                  self.sat, t)
         eta_calc, zeta_calc = calculated_field_angles(self.calc_sources[source_index],
                                                       attitude,
                                                       self.sat, t)
@@ -238,12 +242,9 @@ class Agis:
         for i in range(C_du_ds.shape[0]):  # TODO: remove these ugly for loop
             for j in range(C_du_ds.shape[-1]):
                 t_L = calc_source.obs_times[j]
-                # WARNING: we should use quaternion object!
-                # S_du_ds[i, :, j] = ft.lmn_to_xyz(self.sat.func_attitude(t_L), C_du_ds[i, :, j])
-                # R = rotation_matrix_from_alpha_delta(self.real_sources[source_index], self.sat, t_L)
-                # S_du_ds[i, :, j] = np.array(R@C_du_ds[i, :, j].T)
-                attitude = attitude_from_alpha_delta(self.real_sources[source_index], self.sat, t_L)
-                S_du_ds[i, :, j] = ft.rotate_by_quaternion(attitude, C_du_ds[i, :, j])
+                # attitude = attitude_from_alpha_delta(self.real_sources[source_index], self.sat, t_L)
+                self.get_attitude(t)
+                S_du_ds[i, :, j] = ft.lmn_to_xyz(attitude, C_du_ds[i, :, j])
         return S_du_ds
 
     def dR_ds(self, source_index):
@@ -292,13 +293,11 @@ class Agis:
         s_x = self.attitude_splines[1]
         s_y = self.attitude_splines[2]
         s_z = self.attitude_splines[3]
-        return Quaternion(s_w(t), s_x(t), s_y(t), s_z(t)).unit()
-
-    def create_attitude(self, t):  # # WARNING:
-        pass
+        return Quaternion(s_w(t), s_x(t), s_y(t), s_z(t)).unit()  # is it necessary?
 
     def set_splines_basis(self):
-        """Set the Bsplines bases function into self.att_bases"""
+        """Set the Bsplines bases function into self.att_bases
+        Called only once since bases should depend only from the knots!"""
         bases = []
         for i in range(self.att_coeffs.shape[0]):  # for each attitude parameter
             knots = self.att_knots[i]
@@ -324,10 +323,10 @@ class Agis:
         N_aa_dim = self.att_coeffs.shape[1]  # *4
         print(N_aa_dim)
         N_aa = np.zeros((N_aa_dim*4, N_aa_dim*4))
-        for n in range(0, N_aa_dim):
-            for m in range(0, N_aa_dim):
-            # for m in range(max(n-self.M+1, 0), min(n+self.M-1, N_aa_dim)+1):
-                N_aa[n*4:n*4+4, m*4:m*4+4] = self.compute_dR_da_mn(m, n)
+        for n in range(0, N_aa_dim):  # # TODO:  take advantage of the symmetry
+            for m in range(0, N_aa_dim):  # # TODO: avoid doing the brute force version
+                # for m in range(max(n-self.M+1, 0), min(n+self.M-1, N_aa_dim)+1):
+                N_aa[n*4:n*4+4, m*4:m*4+4] = self.compute_Naa_mn(m, n)
         return N_aa
 
     def compute_attitude_RHS(self):
@@ -362,22 +361,21 @@ class Agis:
             # dDL_da_n = compute_DL_da_i(coeff_basis_sum, self.att_bases, obs_time_index, n_index)
             dDL_da_n = compute_DL_da_i_from_attitude(attitude, self.att_bases, obs_time_index, n_index)
             regularisation_part = self.attitude_regularisation_factor**2 * dDL_da_n * D_L
-
             # # WARNING: Here we put the Across scan and the along scan together
             dR_dq = compute_dR_dq(calc_source, self.sat, attitude, t_L)
             dR_da_n = dR_da_i(dR_dq, self.att_bases[:, n_index, obs_time_index])
             R_L = self.compute_R_L(source_index, t_L)
-            rhs += dR_da_n * R_L + regularisation_part.reshape(4, -1)
 
+            rhs += regularisation_part + dR_da_n * R_L
         return -rhs
 
-    def compute_dR_da_mn(self, m_index, n_index):
+    def compute_Naa_mn(self, m_index, n_index):
         """compute dR/da (i.e. wrt coeffs)"""
-        dR_da_mn = np.zeros((4, 4))
+        Naa_mn = np.zeros((4, 4))
         # WARNING: here we take the knots of w since they should be the same for the 4 components
         observed_times_m = get_times_in_knot_interval(self.all_obs_times, self.att_knots[0], m_index, self.M)
         observed_times_n = get_times_in_knot_interval(self.all_obs_times, self.att_knots[0], n_index, self.M)
-        observed_times_mn = list(set(observed_times_m) & set(observed_times_n))  # intersection of the lists
+        observed_times_mn = helpers.get_lists_intersection(observed_times_m, observed_times_n)
 
         for i, t_L in enumerate(observed_times_mn):
             source_index = self.get_source_index(t_L)
@@ -393,14 +391,15 @@ class Agis:
             # dDL_da_m = compute_DL_da_i(coeff_basis_sum, self.att_bases, obs_time_index, m_index)
             dDL_da_n = compute_DL_da_i_from_attitude(attitude, self.att_bases, obs_time_index, n_index)
             dDL_da_m = compute_DL_da_i_from_attitude(attitude, self.att_bases, obs_time_index, m_index)
-            regularisation_part = self.attitude_regularisation_factor**2 * dDL_da_n @ dDL_da_m
+            regularisation_part = self.attitude_regularisation_factor**2 * dDL_da_n @ dDL_da_m.T
 
             # Ccompute the original objective function part
             # # WARNING: Here we put the Across scan and the along scan together
             dR_dq = compute_dR_dq(calc_source, self.sat, attitude, t_L)
             dR_da_m = dR_da_i(dR_dq, self.att_bases[:, m_index, obs_time_index])
             dR_da_n = dR_da_i(dR_dq, self.att_bases[:, n_index, obs_time_index])
-            dR_da_mn += dR_da_n @ dR_da_m.T + regularisation_part
+            Naa_mn += regularisation_part + dR_da_n @ dR_da_m.T
+
             if self.verbose:
                 if m_index >= 0:
                     if i >= 0:
@@ -409,7 +408,10 @@ class Agis:
                         print('dR_da_m', dR_da_m)
                         print('dR_da_n', dR_da_n)
                         print('dR_da_mn', dR_da_mn)
-        return dR_da_mn
+                        print('regularisation_part', regularisation_part)
+                        print('dDL_da_n', dDL_da_n)
+                        print('dDL_da_n shape', dDL_da_n.shape)
+        return Naa_mn  # np.eye(4)
 
 
 if __name__ == '__main__':

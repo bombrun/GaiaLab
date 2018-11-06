@@ -7,8 +7,8 @@ author: LucaZampieri
 When cleaning this file search for ???, LUCa, warning , error, debug, print?
 
 todo:
-    - Rotate the attitude
-    - attitude i.e. generate observations (with scanner object but without scanning)
+    - [DONE] Rotate the attitude
+    - [DONE] attitude i.e. generate observations (with scanner object but without scanning)
     - with scanner
     - two telescope
     - scaling
@@ -42,8 +42,9 @@ def generate_observation_wrt_attitude(attitude):
     which the x-vector rotated to *attitude* is pointing
     returns alpha, delta in radians
     """
-    artificial_u = ft.rotate_by_quaternion(attitude.inverse(), [1, 0, 0])
-    alpha, delta, radius = ft.vector_to_polar(artificial_u)
+    artificial_Su = [1, 0, 0]
+    artificial_Cu = ft.xyz_to_lmn(attitude, artificial_Su)
+    alpha, delta, radius = ft.vector_to_polar(artificial_Cu)
     return alpha, delta
 
 
@@ -116,22 +117,19 @@ def get_times_in_knot_interval(time_array, knots, index, M):
     :param time_array: [numpy array]
     return times in knot interval defined by [index, index+M]
     """
-    return time_array[(knots[index] <= time_array) & (time_array <= knots[index+M])]
+    return time_array[(knots[index] < time_array) & (time_array < knots[index+M])]
 
 
 def get_left_index(knots, t, M):
     """
     :param M: spline order (k+1)
-    return the left index corresponding to t i.e. *i* s.t. t_i < t < t_{i+1}
+    return the left_index corresponding to t i.e. *i* s.t. t_i < t < t_{i+1}
     warning here the left index is not the same as in the paper!!!
     """
     left_index_array = np.where(knots < t)
     if not list(left_index_array[0]):
-        left_index = 0
-    else:
-        left_index = left_index_array[0][-1]
-        if left_index - M >= 0:
-            left_index -= M
+        raise ValueError('t smaller than smallest knot')
+    left_index = left_index_array[0][-1]
     return left_index
 
 
@@ -140,7 +138,8 @@ def compute_coeff_basis_sum(coeffs, bases, L, M, time_index):
     Computes the sum(a_n*b_n) with n=L-M+1 : L
     :param L: left_index
     """
-    return np.sum(bases[:, L:L+M, time_index] * coeffs[:, L:L+M], axis=1)
+    # Note the +1 to include last term
+    return np.sum(bases[:, L-M+1:L+1, time_index] * coeffs[:, L-M+1:L+1], axis=1)
 
 
 def compute_attitude_deviation(coeff_basis_sum):
@@ -155,14 +154,16 @@ def compute_DL_da_i(coeff_basis_sum, bases, time_index, i):
     Compute derivative of the attitude deviation wrt attitude params
     :param coeff_basis_sum: the sum(a_n*b_n) with n=L-M+1 : L
     """
-    return -2 * coeff_basis_sum * bases[:, i, time_index]
+    dDL_da = -2 * coeff_basis_sum * bases[:, i, time_index]
+    return dDL_da.reshape(4, 1)
 
 
 def compute_DL_da_i_from_attitude(attitude, bases, time_index, i):
     """
     Compute derivative of the attitude deviation wrt attitude params
     """
-    return -2 * np.concatenate(([0], attitude.to_vector()), axis=0) * bases[:, i, time_index]
+    dDL_da = -2 * attitude.to_4D_vector() * bases[:, i, time_index]
+    return dDL_da.reshape(4, 1)
 
 
 def extend_knots(internal_knots, k):
@@ -217,8 +218,8 @@ def compute_dR_dq(calc_source, sat, attitude, t):
     """return [array] with dR/dq"""
     eta, zeta = calculated_field_angles(calc_source, attitude, sat, t)
     m, n, u = compute_mnu(eta, zeta)
-    Sm = ft.rotate_by_quaternion(attitude, m)
-    Sn = ft.rotate_by_quaternion(attitude, n)
+    Sm = ft.lmn_to_xyz(attitude, m)
+    Sn = ft.lmn_to_xyz(attitude, n)
     # # WARNING: ?? ft.vector_to_quaternion(Sn) # # WARNING: .to_vector()???
     dR_dq_AL = 2 * helpers.sec(zeta) * (attitude * ft.vector_to_quaternion(Sn))
     dR_dq_AC = -2 * (attitude * ft.vector_to_quaternion(Sm))
@@ -231,7 +232,7 @@ def dR_da_i(dR_dq, bases_i):
     return dR_da_i.reshape(4, 1)
 
 
-def observed_field_angles(source, sat, t):
+def observed_field_angles(source, attitude, sat, t):
     """
     Return field angles according to Lindegren eq. 12
     eta: along-scan field angle
@@ -240,8 +241,8 @@ def observed_field_angles(source, sat, t):
     alpha, delta, _, _ = source.topocentric_angles(sat, t)
     Cu = source.unit_topocentric_function(sat, t)  # u in CoMRS frame
     # Su = ft.lmn_to_xyz(sat.func_attitude(t), Cu)  # u in SRS frame
-    attitude = attitude_from_alpha_delta(source, sat, t)
-    Su = ft.rotate_by_quaternion(attitude, Cu)
+    # attitude = attitude_from_alpha_delta(source, sat, t)
+    Su = ft.lmn_to_xyz(attitude, Cu)
     # quat2 = Quaternion(vector=Su, angle=const.sat_angle)
     # Su = ft.rotate_by_quaternion(quat2, Su)
 
@@ -260,7 +261,7 @@ def calculated_field_angles(calc_source, attitude, sat, t):
     params = np.array([alpha, delta, parallax, mu_alpha, mu_delta, calc_source.mu_radial])
     Cu = get_Cu(params, sat, t)  # u in CoMRS frame
 
-    Su = ft.rotate_by_quaternion(attitude, Cu)
+    Su = ft.lmn_to_xyz(attitude, Cu)  # u in SRS frame
     # quat2 = Quaternion(vector=Su, angle=const.sat_angle)
     # Su = ft.rotate_by_quaternion(quat2, Su)
 

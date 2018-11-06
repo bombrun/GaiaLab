@@ -51,8 +51,6 @@ def plot_attitude(sat, ti, tf, n_points=1000, figsize=(9, 5)):
      the numerical methods calculation for geometric_plots.plot_attitude
      function.
     """
-    if isinstance(sat, Satellite) is False:
-        raise TypeError('sat is not an Satellite object.')
     times = np.linspace(ti, tf, n_points)
     attitudes = [sat.func_attitude(t) for t in times]
 

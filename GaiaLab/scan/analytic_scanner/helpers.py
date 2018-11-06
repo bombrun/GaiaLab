@@ -21,6 +21,10 @@ def check_symmetry(a, tol=1e-8):
     return np.allclose(a, a.T, atol=tol)
 
 
+def get_lists_intersection(list1, list2):
+    return list(set(list1) & set(list2))
+
+
 def symmetrize_triangular_matrix(a):
     """ Symmetrize an already triangular matrix (lower or upper)
     :param a: upper ot lower triangular matrix

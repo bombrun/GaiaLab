@@ -169,7 +169,7 @@ def xyz_to_lmn(attitude, vector):
     :return: the coordinates in LMN-frame of the input vector.
     """
     q_vector_xyz = vector_to_quaternion(vector)
-    q_vector_lmn = attitude * q_vector_xyz * attitude.conjugate()
+    q_vector_lmn = attitude * q_vector_xyz * attitude.inverse()
     return q_vector_lmn.to_vector()
 
 
@@ -187,5 +187,5 @@ def lmn_to_xyz(attitude, vector):
     :return: the coordinates in XYZ-frame of the input vector.
     """
     q_vector_lmn = vector_to_quaternion(vector)
-    q_vector_xyz = attitude.conjugate() * q_vector_lmn * attitude
+    q_vector_xyz = attitude.inverse() * q_vector_lmn * attitude
     return q_vector_xyz.to_vector()

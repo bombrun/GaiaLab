@@ -230,8 +230,8 @@ class test_agis(unittest.TestCase):
         self.Solver = Agis(gaia, calc_sources, real_sources, attitude_splines=[gaia.s_w, gaia.s_x, gaia.s_y, gaia.s_z],
                            spline_order=spline_order, attitude_regularisation_factor=1e-3)
 
-    def test_left_index(self):
-        """ Tests some ways of forming a spline """
+    def test_compute_coeff_basis_sum(self):
+        """ [Attitude] Tests some ways of forming a spline """
         # given the spline:
         m = 10  # [0-100]  # spline number
         M = self.Solver.M
@@ -262,11 +262,38 @@ class test_agis(unittest.TestCase):
         self.assertEqual(my_spline[0], ref_spline3[index])
         self.assertEqual(my_spline[0], ref_spline4[0])
 
-    def test_attitude(self):
-        """ Test if generated source comply with the copied (from satellite) attitude"""
+    def test_initialisation_attitude(self):
+        """ [Attitude] Test if generated source comply with the copied (from satellite) attitude"""
         self.Solver.actualise_splines()
         error = self.Solver.error_function()
         self.assertAlmostEqual(error, 0, delta=1e-25)
+
+    def test_dDL_da_i(self):
+        """ [attitude] test consistency of derivative of the attitude deviation from unity"""
+        n_index, m_index = (4, 5)
+        M = self.Solver.M
+        knots = self.Solver.att_knots[0]
+        coeffs = self.Solver.att_coeffs
+        bases = self.Solver.att_bases
+
+        # Get the times
+        observed_times_m = af.get_times_in_knot_interval(self.Solver.all_obs_times, knots, m_index, M)
+        observed_times_n = af.get_times_in_knot_interval(self.Solver.all_obs_times, knots, n_index, M)
+        observed_times_mn = helpers.get_lists_intersection(observed_times_m, observed_times_n)
+        t_L = observed_times_mn[0]
+
+        obs_time_index = list(self.Solver.all_obs_times).index(t_L)
+        L = af.get_left_index(knots, t_L, M=M)
+        attitude = self.Solver.get_attitude(t_L)
+
+        coeff_basis_sum = af.compute_coeff_basis_sum(coeffs, bases, L, M, obs_time_index)
+        dDL_da_1 = af.compute_DL_da_i(coeff_basis_sum, bases,
+                                      obs_time_index, n_index)
+        dDL_da_2 = af.compute_DL_da_i_from_attitude(attitude, bases,
+                                                    obs_time_index, n_index)
+        self.assertAlmostEqual(dDL_da_1[0], dDL_da_2[0], delta=1e-15)
+        self.assertAlmostEqual(dDL_da_1[2], dDL_da_2[2], delta=1e-15)
+        np.testing.assert_array_almost_equal(dDL_da_1, dDL_da_2, decimal=15)
 
 
 class test_helpers(unittest.TestCase):
