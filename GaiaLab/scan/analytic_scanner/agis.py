@@ -293,12 +293,15 @@ class Agis:
 
     ############################################################################
     # For attitude update
-    def get_attitude(self, t):
+
+    def get_attitude(self, t, unit=True):
         s_w = self.attitude_splines[0]
         s_x = self.attitude_splines[1]
         s_y = self.attitude_splines[2]
         s_z = self.attitude_splines[3]
-        attitude = Quaternion(s_w(t), s_x(t), s_y(t), s_z(t)).unit()  # is it necessary?
+        attitude = Quaternion(s_w(t), s_x(t), s_y(t), s_z(t))
+        if unit:
+            attitude = attitude.unit()  # is this necessary?
         return attitude
 
     def actualise_splines(self):
@@ -313,6 +316,7 @@ class Agis:
         LHS = self.compute_attitude_LHS()
         RHS = self.compute_attitude_RHS()
         d = np.linalg.solve(LHS, RHS)
+        # d = np.linalg.lstsq(LHS, RHS)  # not what it is for
         c_update = d.reshape(self.att_coeffs.shape)
         self.att_coeffs += c_update
         self.actualise_splines()  # Create the new splines
@@ -374,6 +378,7 @@ class Agis:
         observed_times_mn = np.sort(helpers.get_lists_intersection(observed_times_m, observed_times_n))
 
         for i, t_L in enumerate(observed_times_mn):
+            # for i, t_L in enumerate(self.all_obs_times):
             source_index = self.get_source_index(t_L)
             calc_source = self.calc_sources[source_index]
             attitude = self.get_attitude(t_L)

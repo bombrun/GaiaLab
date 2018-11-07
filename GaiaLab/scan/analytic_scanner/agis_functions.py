@@ -107,7 +107,7 @@ def get_left_index(knots, t, M):
     return the left_index corresponding to t i.e. *i* s.t. t_i < t < t_{i+1}
     warning here the left index is not the same as in the paper!!!
     """
-    left_index_array = np.where(knots < t)
+    left_index_array = np.where(knots <= t)
     if not list(left_index_array[0]):
         raise ValueError('t smaller than smallest knot')
     left_index = left_index_array[0][-1]
@@ -199,9 +199,10 @@ def compute_DL_da_i_from_attitude(attitude, bases, time_index, i):
 def compute_dR_dq(calc_source, sat, attitude, t):
     """return [array] with dR/dq"""
     eta, zeta = calculated_field_angles(calc_source, attitude, sat, t)
+    # print('eta, zeta:', eta, zeta)
     m, n, u = compute_mnu(eta, zeta)
-    Sm = ft.lmn_to_xyz(attitude, m)  # Already in SRS ???
-    Sn = ft.lmn_to_xyz(attitude, n)
+    Sm = m  # ft.lmn_to_xyz(attitude, m)  # Already in SRS ???
+    Sn = n  # ft.lmn_to_xyz(attitude, n)
 
     dR_dq_AL = 2 * helpers.sec(zeta) * (attitude * ft.vector_to_quaternion(Sn))
     dR_dq_AC = -2 * (attitude * ft.vector_to_quaternion(Sm))
