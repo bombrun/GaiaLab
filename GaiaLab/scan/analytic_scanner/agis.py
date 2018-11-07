@@ -379,8 +379,7 @@ class Agis:
 
         for i, t_L in enumerate(observed_times_mn):
             # for i, t_L in enumerate(self.all_obs_times):
-            source_index = self.get_source_index(t_L)
-            calc_source = self.calc_sources[source_index]
+            calc_source = self.calc_sources[self.get_source_index(t_L)]
             attitude = self.get_attitude(t_L)
             left_index = get_left_index(self.att_knots, t=t_L, M=self.M)
             obs_time_index = list(self.all_obs_times).index(t_L)
@@ -388,13 +387,14 @@ class Agis:
             # Compute the regulation part
             coeff_basis_sum = compute_coeff_basis_sum(self.att_coeffs, self.att_bases,
                                                       left_index, self.M, obs_time_index)
-            # dDL_da_n = compute_DL_da_i(coeff_basis_sum, self.att_bases, obs_time_index, n_index)
-            # dDL_da_m = compute_DL_da_i(coeff_basis_sum, self.att_bases, obs_time_index, m_index)
-            dDL_da_n = compute_DL_da_i_from_attitude(attitude, self.att_bases, obs_time_index, n_index)
-            dDL_da_m = compute_DL_da_i_from_attitude(attitude, self.att_bases, obs_time_index, m_index)
+            dDL_da_n = compute_DL_da_i(coeff_basis_sum, self.att_bases, obs_time_index, n_index)
+            dDL_da_m = compute_DL_da_i(coeff_basis_sum, self.att_bases, obs_time_index, m_index)
+            # dDL_da_n = compute_DL_da_i_from_attitude(attitude, self.att_bases, obs_time_index, n_index)
+            # dDL_da_m = compute_DL_da_i_from_attitude(attitude, self.att_bases, obs_time_index, m_index)
             regularisation_part = self.attitude_regularisation_factor**2 * dDL_da_n @ dDL_da_m.T
+            # attitude = Quaternion(coeff_basis_sum[0], coeff_basis_sum[1], coeff_basis_sum[2], coeff_basis_sum[3]).unit()
 
-            # Ccompute the original objective function part
+            # Compute the original objective function part
             # # WARNING: Here we put the Across scan and the along scan together
             dR_dq = compute_dR_dq(calc_source, self.sat, attitude, t_L)
             dR_da_m = dR_da_i(dR_dq, self.att_bases[m_index, obs_time_index])

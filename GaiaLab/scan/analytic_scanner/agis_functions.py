@@ -198,6 +198,7 @@ def compute_DL_da_i_from_attitude(attitude, bases, time_index, i):
 
 def compute_dR_dq(calc_source, sat, attitude, t):
     """return [array] with dR/dq"""
+    # attitude = sat.func_attitude(t)  # error # WARNING: # TODO: remove this line
     eta, zeta = calculated_field_angles(calc_source, attitude, sat, t)
     # print('eta, zeta:', eta, zeta)
     m, n, u = compute_mnu(eta, zeta)
