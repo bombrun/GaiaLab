@@ -38,14 +38,15 @@ class Calc_source:
         self.obs_times = obs_times  # times at which it has been observed
         self.s_params = source_params  # position at which it has been observed
         self.mu_radial = mu_radial  # not considered an unknown of the problem
-        self.s_old = []
+        self.s_old = [self.s_params]
         self.errors = []
 
 
 class Agis:
 
     def __init__(self, sat, calc_sources=[], real_sources=[], attitude_splines=None,
-                 verbose=False, spline_order=3, attitude_regularisation_factor=0):
+                 verbose=False, spline_degree=3, attitude_regularisation_factor=0,
+                 updating='attitude'):
         """
         Also contains:
         **Temporary variables**
@@ -64,10 +65,11 @@ class Agis:
         self.sat = sat
 
         # Constants
-        self.k = spline_order  # spline order
+        self.k = spline_degree  # degree of the interpolating polynomial
         self.M = self.k + 1
         self.attitude_regularisation_factor = attitude_regularisation_factor
         self.verbose = verbose
+        self.updating = updating
         self.consider_stellar_aberation = False
 
         # Mutable:
@@ -77,7 +79,6 @@ class Agis:
         all_obs_times = []
         self.time_dict = {}
         for source_index, calc_source in enumerate(self.calc_sources):
-            calc_source.s_old.append(calc_source.s_params)
             all_obs_times += list(calc_source.obs_times)
             for t in calc_source.obs_times:
                 self.time_dict[t] = source_index
@@ -85,23 +86,17 @@ class Agis:
 
         # Set attitude
         if attitude_splines is not None:  # Set everything for the attitude
-            c, t, ks, s = extract_coeffs_knots_from_splines(attitude_splines, self.k)
+            c, t, s = extract_coeffs_knots_from_splines(attitude_splines, self.k)
             self.att_coeffs, self.att_knots, self.attitude_splines = (c, t, s)
-            # for k in ks:
-            #    print('k:', k)
-            self.set_splines_basis()  # set the basis Bsplines
+            self.att_bases = get_basis_Bsplines(self.att_knots, self.att_coeffs[0], self.k, self.all_obs_times)
+            self.N = self.att_coeffs.shape[1]  # number of coeffs per parameter
 
     def reset_iterations(self):
+        print('Not resetting everything! Call again the solver instead')
         self.iter_counter = 0
         for calc_source in self.calc_sources:
             calc_source.s_old = []
             calc_source.errors = []
-
-    def get_quaternion_COMRS_2_SRS(self, t, source_index=0):
-        """Get quaternion that rotates from CoMRS to SRS"""
-        # WARNING: when taking the attitude from the satellite the quaternion should be inverted!!!
-        quat = attitude_from_alpha_delta(self.real_source[source_index], self.sat, t)
-        return quat
 
     def error_function(self):
         """
@@ -121,9 +116,14 @@ class Agis:
         # WARNING: maybe source is not in the field of vision of sat at time t!
         R_eta = 0
         R_zeta = 0
-        # attitude = attitude_from_alpha_delta(self.real_sources[source_index], self.sat, t) # for test without attitude
-        attitude = self.get_attitude(t)
-        attitude_gaia = self.sat.func_attitude(t)
+
+        if self.updating == 'source':
+            attitude = attitude_from_alpha_delta(self.real_sources[source_index], self.sat, t)
+            attitude_gaia = attitude
+        else:
+            attitude = self.get_attitude(t)
+            attitude_gaia = self.sat.func_attitude(t)
+
         eta_obs, zeta_obs = observed_field_angles(self.real_sources[source_index],
                                                   attitude_gaia,
                                                   self.sat, t)
@@ -145,10 +145,12 @@ class Agis:
             if self.verbose:
                 print('Error before iteration: {}'.format(self.error_function()))
             # self.init_blocks()
-            # self.update_S_block()
-            self.update_A_block()
-            error = error_between_func_attitudes(self.all_obs_times, self.sat.func_attitude, self.get_attitude)
-            print(error)
+            if self.updating == 'source':
+                self.update_S_block()
+            elif self.updating == 'attitude':
+                self.update_A_block()
+                error = error_between_func_attitudes(self.all_obs_times, self.sat.func_attitude, self.get_attitude)
+                print('attitude error:', error)
             # if self.verbose:
             print('Error after iteration: {}'.format(self.error_function()))
 
@@ -242,8 +244,10 @@ class Agis:
         for i in range(C_du_ds.shape[0]):  # TODO: remove these ugly for loop
             for j in range(C_du_ds.shape[-1]):
                 t_L = calc_source.obs_times[j]
-                # attitude = attitude_from_alpha_delta(self.real_sources[source_index], self.sat, t_L)
-                self.get_attitude(t)
+                if self.updating == 'source':
+                    attitude = attitude_from_alpha_delta(self.real_sources[source_index], self.sat, t_L)
+                else:
+                    attitude = self.get_attitude(t)
                 S_du_ds[i, :, j] = ft.lmn_to_xyz(attitude, C_du_ds[i, :, j])
         return S_du_ds
 
@@ -293,30 +297,23 @@ class Agis:
         s_x = self.attitude_splines[1]
         s_y = self.attitude_splines[2]
         s_z = self.attitude_splines[3]
-        return Quaternion(s_w(t), s_x(t), s_y(t), s_z(t)).unit()  # is it necessary?
-
-    def set_splines_basis(self):
-        """Set the Bsplines bases function into self.att_bases
-        Called only once since bases should depend only from the knots!"""
-        bases = []
-        for i in range(self.att_coeffs.shape[0]):  # for each attitude parameter
-            knots = self.att_knots[i]
-            coeffs = self.att_coeffs[i]
-            bases.append(get_basis_Bsplines(knots, coeffs, self.k, self.all_obs_times))
-        self.att_bases = np.array(bases)
+        attitude = Quaternion(s_w(t), s_x(t), s_y(t), s_z(t)).unit()  # is it necessary?
+        return attitude
 
     def actualise_splines(self):
         for i in range(self.attitude_splines.shape[0]):
-            self.attitude_splines[i] = BSpline(self.att_knots[i], self.att_coeffs[i], k=self.k)
+            self.attitude_splines[i] = BSpline(self.att_knots, self.att_coeffs[i], k=self.k)
+
+    def normalize_coefficients(self):
+        for i in range(self.N):
+            self.att_coeffs[:, i] /= np.linalg.norm(self.att_coeffs[:, i])
 
     def update_A_block(self):
         LHS = self.compute_attitude_LHS()
         RHS = self.compute_attitude_RHS()
         d = np.linalg.solve(LHS, RHS)
-        c_update = d.reshape(4, -1)
+        c_update = d.reshape(self.att_coeffs.shape)
         self.att_coeffs += c_update
-        # for i in range(self.att_coeffs.shape[1]):
-        #     self.att_coeffs[:, i] /= np.linalg.norm(self.att_coeffs[:, i])
         self.actualise_splines()  # Create the new splines
 
     def compute_attitude_LHS(self):
@@ -345,13 +342,12 @@ class Agis:
 
     def compute_attitude_RHS_n(self, n_index):
         rhs = np.zeros((4, 1))
-        # WARNING: here we take the knots of w since they should be the same for the 4 components
-        observed_times = get_times_in_knot_interval(self.all_obs_times, self.att_knots[0], n_index, self.M)
+        observed_times = get_times_in_knot_interval(self.all_obs_times, self.att_knots, n_index, self.M)
         for i, t_L in enumerate(observed_times):
             source_index = self.get_source_index(t_L)
             calc_source = self.calc_sources[source_index]
             attitude = self.get_attitude(t_L)
-            left_index = get_left_index(self.att_knots[0], t_L, M=self.M)
+            left_index = get_left_index(self.att_knots, t_L, M=self.M)
             obs_time_index = list(self.all_obs_times).index(t_L)
 
             # Compute the regulation part
@@ -363,25 +359,24 @@ class Agis:
             regularisation_part = self.attitude_regularisation_factor**2 * dDL_da_n * D_L
             # # WARNING: Here we put the Across scan and the along scan together
             dR_dq = compute_dR_dq(calc_source, self.sat, attitude, t_L)
-            dR_da_n = dR_da_i(dR_dq, self.att_bases[:, n_index, obs_time_index])
+            dR_da_n = dR_da_i(dR_dq, self.att_bases[n_index, obs_time_index])
             R_L = self.compute_R_L(source_index, t_L)
 
-            rhs += regularisation_part + dR_da_n * R_L
+            rhs += dR_da_n * R_L + regularisation_part
         return -rhs
 
     def compute_Naa_mn(self, m_index, n_index):
         """compute dR/da (i.e. wrt coeffs)"""
         Naa_mn = np.zeros((4, 4))
-        # WARNING: here we take the knots of w since they should be the same for the 4 components
-        observed_times_m = get_times_in_knot_interval(self.all_obs_times, self.att_knots[0], m_index, self.M)
-        observed_times_n = get_times_in_knot_interval(self.all_obs_times, self.att_knots[0], n_index, self.M)
-        observed_times_mn = helpers.get_lists_intersection(observed_times_m, observed_times_n)
+        observed_times_m = get_times_in_knot_interval(self.all_obs_times, self.att_knots, m_index, self.M)
+        observed_times_n = get_times_in_knot_interval(self.all_obs_times, self.att_knots, n_index, self.M)
+        observed_times_mn = np.sort(helpers.get_lists_intersection(observed_times_m, observed_times_n))
 
         for i, t_L in enumerate(observed_times_mn):
             source_index = self.get_source_index(t_L)
             calc_source = self.calc_sources[source_index]
             attitude = self.get_attitude(t_L)
-            left_index = get_left_index(self.att_knots[0], t_L, M=self.M)
+            left_index = get_left_index(self.att_knots, t=t_L, M=self.M)
             obs_time_index = list(self.all_obs_times).index(t_L)
 
             # Compute the regulation part
@@ -396,9 +391,9 @@ class Agis:
             # Ccompute the original objective function part
             # # WARNING: Here we put the Across scan and the along scan together
             dR_dq = compute_dR_dq(calc_source, self.sat, attitude, t_L)
-            dR_da_m = dR_da_i(dR_dq, self.att_bases[:, m_index, obs_time_index])
-            dR_da_n = dR_da_i(dR_dq, self.att_bases[:, n_index, obs_time_index])
-            Naa_mn += regularisation_part + dR_da_n @ dR_da_m.T
+            dR_da_m = dR_da_i(dR_dq, self.att_bases[m_index, obs_time_index])
+            dR_da_n = dR_da_i(dR_dq, self.att_bases[n_index, obs_time_index])
+            Naa_mn += dR_da_n @ dR_da_m.T + regularisation_part
 
             if self.verbose:
                 if m_index >= 0:
@@ -407,7 +402,7 @@ class Agis:
                         print('dR_dq: ', dR_dq)
                         print('dR_da_m', dR_da_m)
                         print('dR_da_n', dR_da_n)
-                        print('dR_da_mn', dR_da_mn)
+                        print('Naa_mn', Naa_mn)
                         print('regularisation_part', regularisation_part)
                         print('dDL_da_n', dDL_da_n)
                         print('dDL_da_n shape', dDL_da_n.shape)

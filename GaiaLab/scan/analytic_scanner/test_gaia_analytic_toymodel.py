@@ -146,7 +146,7 @@ class test_agis_functions(unittest.TestCase):
         spline = interpolate.InterpolatedUnivariateSpline(x, y, k=k)
         spline_list = [spline]
 
-        coeffs, knots, _, splines = af.extract_coeffs_knots_from_splines([spline], k)
+        coeffs, knots, splines = af.extract_coeffs_knots_from_splines([spline], k)
         self.assertEqual(len(coeffs), len(spline_list))
 
     def test_get_basis_Bsplines(self):
@@ -158,7 +158,7 @@ class test_agis_functions(unittest.TestCase):
         spline = interpolate.InterpolatedUnivariateSpline(x, y, k=k)
         spline_list = [spline]
 
-        coeffs, knots, _, splines = af.extract_coeffs_knots_from_splines([spline], k)
+        coeffs, knots, splines = af.extract_coeffs_knots_from_splines([spline], k)
         coeffs, knots = coeffs.flatten(), knots.flatten()
         bases = af.get_basis_Bsplines(knots, coeffs, k, knots)
         for i in range(k, bases.shape[0] - k):
@@ -212,8 +212,9 @@ class test_agis(unittest.TestCase):
         t_init = 1/24/60
         t_end = t_init + 1/24/60  # 365*5
         my_dt = 1/24/60/10  # [days]
-        spline_order = 3
-        gaia = Satellite(ti=t_init, tf=t_end, dt=my_dt, k=spline_order)
+        spline_degree = 3
+        gaia = Satellite(ti=t_init, tf=t_end, dt=my_dt, k=spline_degree)
+        self.gaia = gaia
         my_times = np.linspace(t_init, t_end, num=100, endpoint=False)
         real_sources = []
         calc_sources = []
@@ -228,16 +229,23 @@ class test_agis(unittest.TestCase):
         np.testing.assert_array_almost_equal(np.array(real_sources[0].get_parameters()[0:5]), calc_sources[0].s_params)
         # create Solver
         self.Solver = Agis(gaia, calc_sources, real_sources, attitude_splines=[gaia.s_w, gaia.s_x, gaia.s_y, gaia.s_z],
-                           spline_order=spline_order, attitude_regularisation_factor=1e-3)
+                           spline_degree=spline_degree, attitude_regularisation_factor=1e-3)
+
+    def test_unicity_of_knots(self):
+        """[Attitude] test if knots are the same for each component"""
+        gaia = self.gaia
+        internal_knots = self.Solver.att_knots[self.Solver.k:-self.Solver.k]
+        for gaia_knots in [gaia.s_w.get_knots(), gaia.s_x.get_knots(), gaia.s_y.get_knots(), gaia.s_z.get_knots()]:
+            np.testing.assert_array_almost_equal(internal_knots, gaia_knots)
 
     def test_compute_coeff_basis_sum(self):
         """ [Attitude] Tests some ways of forming a spline """
         # given the spline:
         m = 10  # [0-100]  # spline number
         M = self.Solver.M
-        knots = self.Solver.att_knots[0]
+        knots = self.Solver.att_knots
         coeffs = self.Solver.att_coeffs[0]
-        bases = self.Solver.att_bases[0]
+        bases = self.Solver.att_bases
         observed_times = self.Solver.all_obs_times[(knots[m] <= self.Solver.all_obs_times) &
                                                    (self.Solver.all_obs_times <= knots[m+M])]
         if not list(observed_times):
@@ -245,17 +253,17 @@ class test_agis(unittest.TestCase):
         t = observed_times[0]
         index = np.where(self.Solver.all_obs_times == t)[0][0]
 
-        L = af.get_left_index(self.Solver.att_knots[0], t, M)
+        L = af.get_left_index(self.Solver.att_knots, t, M)
         b_list = []
         for i, n in enumerate(range(L-M+1, L+1)):  # last +1 because range does not inlude the last point
             coeff = coeffs[n]
             bspline = bases[n]
             b_list.append(coeff*bspline)
         my_spline = af.compute_coeff_basis_sum(self.Solver.att_coeffs, self.Solver.att_bases, L, M, index)
-        ref_spline1 = BSpline(self.Solver.att_knots[0], self.Solver.att_coeffs[0], k=self.Solver.k)(t)
-        ref_spline2 = sum([coef*bspline for coef, bspline in zip(self.Solver.att_coeffs[0], self.Solver.att_bases[0])])
+        ref_spline1 = BSpline(self.Solver.att_knots, self.Solver.att_coeffs[0], k=self.Solver.k)(t)
+        ref_spline2 = sum([coef*bspline for coef, bspline in zip(self.Solver.att_coeffs[0], self.Solver.att_bases)])
         ref_spline3 = sum(b_list)
-        ref_spline4 = np.sum(self.Solver.att_bases[:, L-M:L+1, index] * self.Solver.att_coeffs[:, L-M:L+1], axis=1)
+        ref_spline4 = np.sum(self.Solver.att_bases[L-M:L+1, index] * self.Solver.att_coeffs[:, L-M:L+1], axis=1)
 
         self.assertEqual(my_spline[0], ref_spline1)
         self.assertEqual(my_spline[0], ref_spline2[index])
@@ -272,7 +280,7 @@ class test_agis(unittest.TestCase):
         """ [attitude] test consistency of derivative of the attitude deviation from unity"""
         n_index, m_index = (4, 5)
         M = self.Solver.M
-        knots = self.Solver.att_knots[0]
+        knots = self.Solver.att_knots
         coeffs = self.Solver.att_coeffs
         bases = self.Solver.att_bases
 

@@ -83,33 +83,14 @@ def extract_coeffs_knots_from_splines(attitude_splines, k):
         [array] knots
         [array] splines
     """
-    att_coeffs, att_knots, att_splines = ([], [], [])
+    att_coeffs, att_splines = ([], [])
+    internal_knots = attitude_splines[0].get_knots()  # chose [0] since all the same
+    att_knots = extend_knots(internal_knots, k)  # extend the knots to have all the needed ones
     for i, spline in enumerate(attitude_splines):
         coeffs = spline.get_coeffs()
-        internal_knots = spline.get_knots()
-        knots = extend_knots(internal_knots, k)  # extend the knots to have all the needed ones
         att_coeffs.append(coeffs)
-        att_knots.append(knots)
-        att_splines.append(BSpline(knots, coeffs, k))
-    return np.array(att_coeffs), np.array(att_knots), np.array(internal_knots), np.array(att_splines)
-
-
-def extract_coeffs_knots_from_splines2(splines_tck, k):
-    """
-    :param attitude_splines: list or array of splines of scipy.interpolate.InterpolatedUnivariateSpline
-    :returns:
-        [array] coeff
-        [array] knots
-        [array] splines
-    """
-    att_coeffs, att_knots, att_splines, ks = ([], [], [], [])
-    for tck in splines_tck:
-        t, c, k = tck
-        att_knots.append(t)
-        att_coeffs.append(c)
-        att_splines.append(BSpline(t, c, k))
-        ks.append(k)
-    return np.array(att_knots), np.array(att_coeffs), np.array(ks), np.array(att_splines)
+        att_splines.append(BSpline(att_knots, coeffs, k))
+    return np.array(att_coeffs), np.array(att_knots),  np.array(att_splines)
 
 
 def get_times_in_knot_interval(time_array, knots, index, M):
@@ -131,39 +112,6 @@ def get_left_index(knots, t, M):
         raise ValueError('t smaller than smallest knot')
     left_index = left_index_array[0][-1]
     return left_index
-
-
-def compute_coeff_basis_sum(coeffs, bases, L, M, time_index):
-    """
-    Computes the sum(a_n*b_n) with n=L-M+1 : L
-    :param L: left_index
-    """
-    # Note the +1 to include last term
-    return np.sum(bases[:, L-M+1:L+1, time_index] * coeffs[:, L-M+1:L+1], axis=1)
-
-
-def compute_attitude_deviation(coeff_basis_sum):
-    """
-    :param coeff_basis_sum: the sum(a_n*b_n) with n=L-M+1 : L
-    :returns: attitude deviation from unity D_l"""
-    return 1 - np.linalg.norm(coeff_basis_sum)**2
-
-
-def compute_DL_da_i(coeff_basis_sum, bases, time_index, i):
-    """
-    Compute derivative of the attitude deviation wrt attitude params
-    :param coeff_basis_sum: the sum(a_n*b_n) with n=L-M+1 : L
-    """
-    dDL_da = -2 * coeff_basis_sum * bases[:, i, time_index]
-    return dDL_da.reshape(4, 1)
-
-
-def compute_DL_da_i_from_attitude(attitude, bases, time_index, i):
-    """
-    Compute derivative of the attitude deviation wrt attitude params
-    """
-    dDL_da = -2 * attitude.to_4D_vector() * bases[:, i, time_index]
-    return dDL_da.reshape(4, 1)
 
 
 def extend_knots(internal_knots, k):
@@ -214,13 +162,47 @@ def get_fake_attitude(source, sat, t):
     return sat.func_attitude(t)
 
 
+def compute_coeff_basis_sum(coeffs, bases, L, M, time_index):
+    """
+    Computes the sum(a_n*b_n) with n=L-M+1 : L
+    :param L: left_index
+    """
+    # Note the +1 to include last term
+    return np.sum(bases[L-M+1:L+1, time_index] * coeffs[:, L-M+1:L+1], axis=1)
+
+
+def compute_attitude_deviation(coeff_basis_sum):
+    """
+    :param coeff_basis_sum: the sum(a_n*b_n) with n=L-M+1 : L
+    :returns: attitude deviation from unity D_l"""
+    # print('lalala',coeff_basis_sum.shape)
+    return 1 - np.linalg.norm(coeff_basis_sum)**2
+
+
+def compute_DL_da_i(coeff_basis_sum, bases, time_index, i):
+    """
+    Compute derivative of the attitude deviation wrt attitude params
+    :param coeff_basis_sum: the sum(a_n*b_n) with n=L-M+1 : L
+    """
+    dDL_da = -2 * coeff_basis_sum * bases[i, time_index]
+    return dDL_da.reshape(4, 1)
+
+
+def compute_DL_da_i_from_attitude(attitude, bases, time_index, i):
+    """
+    Compute derivative of the attitude deviation wrt attitude params
+    """
+    dDL_da = -2 * attitude.to_4D_vector() * bases[i, time_index]
+    return dDL_da.reshape(4, 1)
+
+
 def compute_dR_dq(calc_source, sat, attitude, t):
     """return [array] with dR/dq"""
     eta, zeta = calculated_field_angles(calc_source, attitude, sat, t)
     m, n, u = compute_mnu(eta, zeta)
-    Sm = ft.lmn_to_xyz(attitude, m)
+    Sm = ft.lmn_to_xyz(attitude, m)  # Already in SRS ???
     Sn = ft.lmn_to_xyz(attitude, n)
-    # # WARNING: ?? ft.vector_to_quaternion(Sn) # # WARNING: .to_vector()???
+
     dR_dq_AL = 2 * helpers.sec(zeta) * (attitude * ft.vector_to_quaternion(Sn))
     dR_dq_AC = -2 * (attitude * ft.vector_to_quaternion(Sm))
     return dR_dq_AL.to_4D_vector() + dR_dq_AC.to_4D_vector()
@@ -242,7 +224,9 @@ def observed_field_angles(source, attitude, sat, t):
     Cu = source.unit_topocentric_function(sat, t)  # u in CoMRS frame
     # Su = ft.lmn_to_xyz(sat.func_attitude(t), Cu)  # u in SRS frame
     # attitude = attitude_from_alpha_delta(source, sat, t)
+
     Su = ft.lmn_to_xyz(attitude, Cu)
+    # For the source test:
     # quat2 = Quaternion(vector=Su, angle=const.sat_angle)
     # Su = ft.rotate_by_quaternion(quat2, Su)
 
@@ -262,6 +246,7 @@ def calculated_field_angles(calc_source, attitude, sat, t):
     Cu = get_Cu(params, sat, t)  # u in CoMRS frame
 
     Su = ft.lmn_to_xyz(attitude, Cu)  # u in SRS frame
+    # For the source test:
     # quat2 = Quaternion(vector=Su, angle=const.sat_angle)
     # Su = ft.rotate_by_quaternion(quat2, Su)
 
