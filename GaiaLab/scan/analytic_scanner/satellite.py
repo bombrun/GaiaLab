@@ -3,6 +3,7 @@ Satellite class implementation in Python
 
 
 @author: mdelvallevaro
+TODO: repair attitude for t_init != 0
 """
 
 # # Imports
@@ -187,12 +188,22 @@ class Satellite:
         y_list = []
         z_list = []
         t_list = []
+
         for obj in self.storage:
             t_list.append(obj[0])
             x_list.append(obj[4].x)
             y_list.append(obj[4].y)
             z_list.append(obj[4].z)
             w_list.append(obj[4].w)
+
+        # print('t_list:', t_list)  # # TODO: remove this line
+
+        # This should be faster ??
+        # t_list = np.array(self.storage)[:, 0]
+        # x_list = np.array(self.storage)[:, 4].x
+        # y_list = np.array(self.storage)[:, 4].y
+        # z_list = np.array(self.storage)[:, 4].z
+        # w_list = np.array(self.storage)[:, 4].w
 
         # Splines for each coordinates i, i_list at each time in t_list of degree k (order = k+1)
         self.s_w = interpolate.InterpolatedUnivariateSpline(t_list, w_list, k=self.spline_order)

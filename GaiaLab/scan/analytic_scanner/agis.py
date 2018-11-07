@@ -87,6 +87,7 @@ class Agis:
         # Set attitude
         if attitude_splines is not None:  # Set everything for the attitude
             c, t, s = extract_coeffs_knots_from_splines(attitude_splines, self.k)
+            self.c = c.copy()
             self.att_coeffs, self.att_knots, self.attitude_splines = (c, t, s)
             self.att_bases = get_basis_Bsplines(self.att_knots, self.att_coeffs[0], self.k, self.all_obs_times)
             self.N = self.att_coeffs.shape[1]  # number of coeffs per parameter
