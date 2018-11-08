@@ -43,7 +43,8 @@ class Source:
         >>> sirio = Source("sirio", 101.28, -16.7161, 379.21, -546.05, -1223.14, -7.6)
     """
 
-    def __init__(self, name, alpha0, delta0, parallax, mu_alpha, mu_delta, radial_velocity):
+    def __init__(self, name, alpha0, delta0, parallax, mu_alpha, mu_delta, radial_velocity,
+                 func_color=None, mean_color=None):
         """
         :param alpha0: deg
         :param delta0: deg
@@ -51,6 +52,7 @@ class Source:
         :param mu_alpha: mas/yr
         :param mu_delta: mas/yr
         :param radial_velocity: km/s
+        :param color: function representing the color of the source in nanometers
         Transforms in rads/day or rads
         [alpha] = rads
         [delta] = rads
@@ -69,6 +71,10 @@ class Source:
         self.mu_radial = radial_velocity * self.parallax * const.Au_per_km * const.sec_per_day
         self.alpha = self.__alpha0
         self.delta = self.__delta0
+
+        # For the source color
+        self.func_color = func_color
+        self.mean_color = mean_color
 
     def test_type_input_param(self, alpha0, delta0, parallax, mu_alpha, mu_delta, mu_radial):
         """
