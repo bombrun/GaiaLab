@@ -15,6 +15,7 @@ import numpy as np
 days_per_year = 365  # [days/years]
 rad_per_mas = 2*np.pi/(1000*360*3600)  # [radiants/mas] radiants per milli-arcsec
 rad_per_arcsec = 2*np.pi/(360*3600)  # [radiants/arcsec] radiants per arcsec
+rad_per_deg = (2*np.pi)/360  # [radiants/degrees]
 pc_per_km = 3.24078e-14  # [km/pc] kilometers per parsec
 sec_per_day = 3600*24  # [sec/day] seconds per day
 km_per_Au = 149598000  # number of kilometers in one Au
