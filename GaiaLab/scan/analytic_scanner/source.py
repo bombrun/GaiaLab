@@ -44,7 +44,7 @@ class Source:
     """
 
     def __init__(self, name, alpha0, delta0, parallax, mu_alpha, mu_delta, radial_velocity,
-                 func_color=None, mean_color=None):
+                 func_color=(lambda t: 0), mean_color=0):
         """
         :param alpha0: deg
         :param delta0: deg

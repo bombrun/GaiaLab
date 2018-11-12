@@ -131,11 +131,25 @@ def rotation_matrix_from_alpha_delta(source, sat, t):
     return r
 
 
-def attitude_from_alpha_delta(source, sat, t):
+def attitude_from_alpha_delta(source, sat, t, vertical_angle_dev=0):
+    """:param vertical_angle_dev: how much we deviate from zeta"""
     Cu = source.unit_topocentric_function(sat, t)
     Su = np.array([1, 0, 0])
-    vector, angle = helpers.get_rotation_vector_and_angle(Cu, Su)
-    return Quaternion(vector=vector, angle=angle)
+    if vertical_angle_dev == 0:
+        vector, angle = helpers.get_rotation_vector_and_angle(Cu, Su)
+        q_out = Quaternion(vector=vector, angle=angle)
+    else:
+        Cu_xy = helpers.normalize(np.array([Cu[0], Cu[1], 0]))  # Cu on S-[xy] plane
+        v1, a1 = helpers.get_rotation_vector_and_angle(Cu_xy, Su)
+        q1 = Quaternion(vector=v1, angle=a1)
+
+        Su_xy = ft.rotate_by_quaternion(q1.inverse(), Su)  # Su rotated to be on same xy than Cu_xy
+        v2, a2 = helpers.get_rotation_vector_and_angle(Cu, Su_xy)
+        q2_dev = Quaternion(vector=v2, angle=a2+vertical_angle_dev)
+        # deviaetd_Su = ft.rotate_by_quaternion(q2_dev.inverse(), Su_xy)
+        q_out = q1*q2_dev
+        # angle -= 0.2
+    return q_out
 
 
 def spin_axis_from_alpha_delta(source, sat, t):
@@ -157,9 +171,9 @@ def scanning_y_coordinate(source, sat, t):
 
 def get_fake_attitude(source, sat, t):
     quat1 = attitude_from_alpha_delta(source, sat, t)
-    quat2 = Quaternion(vector=np.array([1, 0, 0]), angle=const.sat_angle)
-    attitude = quat1 * quat2
-    return sat.func_attitude(t)
+    # quat2 = Quaternion(vector=np.array([1, 0, 0]), angle=const.sat_angle)
+    attitude = quat1  # * quat2
+    return attitude  # sat.func_attitude(t)
 
 
 def compute_coeff_basis_sum(coeffs, bases, L, M, time_index):
@@ -309,6 +323,13 @@ def compute_mnu(eta, zeta):
     n_l = np.array([-np.sin(zeta)*np.cos(phi), np.sin(zeta)*np.sin(phi), np.cos(zeta)])
     u_l = np.array([np.cos(zeta)*np.cos(phi), np.cos(zeta)*np.sin(phi), np.sin(zeta)])
     return np.array([m_l, n_l, u_l])
+
+
+def color_aberration(eta, zeta, color, error):
+    if error != 0:
+        eta = eta + eta/100 * color/10000
+        zeta = zeta + zeta/100 * color/10000
+    return eta, zeta
 
 
 # Draft of helper functions

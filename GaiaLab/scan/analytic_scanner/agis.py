@@ -29,7 +29,7 @@ class Calc_source:
     """
     Contains the calculated parameters per source
     """
-    def __init__(self, name, obs_times, source_params, mu_radial):
+    def __init__(self, name, obs_times, source_params, mu_radial, mean_color=0):
         """
         Initial guess of the parameters
         :source_params: alpha, delta, parallax, mu_alpha, mu_delta
@@ -40,13 +40,14 @@ class Calc_source:
         self.mu_radial = mu_radial  # not considered an unknown of the problem
         self.s_old = [self.s_params]
         self.errors = []
+        self.mean_color = mean_color
 
 
 class Agis:
 
     def __init__(self, sat, calc_sources=[], real_sources=[], attitude_splines=None,
                  verbose=False, spline_degree=3, attitude_regularisation_factor=0,
-                 updating='attitude'):
+                 updating='attitude', degree_error=0):
         """
         Also contains:
         **Temporary variables**
@@ -71,6 +72,7 @@ class Agis:
         self.verbose = verbose
         self.updating = updating
         self.consider_stellar_aberation = False
+        self.degree_error = degree_error  # [only for source] deviation in vertical direction of the attitude
 
         # Mutable:
         self.iter_counter = 0
@@ -118,8 +120,9 @@ class Agis:
         R_eta = 0
         R_zeta = 0
 
+        # Set attitude, it depends if we wanna update only sources or also attitude params
         if self.updating == 'source':
-            attitude = attitude_from_alpha_delta(self.real_sources[source_index], self.sat, t)
+            attitude = self.get_attitude_for_source(source_index, t)
             attitude_gaia = attitude
         else:
             attitude = self.get_attitude(t)
@@ -131,6 +134,12 @@ class Agis:
         eta_calc, zeta_calc = calculated_field_angles(self.calc_sources[source_index],
                                                       attitude,
                                                       self.sat, t)
+        func_color = self.real_sources[source_index].func_color(t)
+        mean_color = self.real_sources[source_index].mean_color
+        eta_obs, zeta_obs = color_aberration(eta_obs, zeta_obs, func_color, self.degree_error)
+        eta_calc, zeta_calc = color_aberration(eta_calc, zeta_calc, mean_color, self.degree_error)
+        # print(t, 'observed: ', eta_obs, zeta_obs)
+        # print(t, 'computed: ', eta_calc, zeta_calc)
         R_eta = eta_obs - eta_calc  # AL
         R_zeta = zeta_obs - zeta_calc  # AC
         R_L = R_eta + R_zeta
@@ -246,7 +255,7 @@ class Agis:
             for j in range(C_du_ds.shape[-1]):
                 t_L = calc_source.obs_times[j]
                 if self.updating == 'source':
-                    attitude = attitude_from_alpha_delta(self.real_sources[source_index], self.sat, t_L)
+                    attitude = self.get_attitude_for_source(source_index, t_L)
                 else:
                     attitude = self.get_attitude(t)
                 S_du_ds[i, :, j] = ft.lmn_to_xyz(attitude, C_du_ds[i, :, j])
@@ -270,8 +279,9 @@ class Agis:
         dR_ds_AC = np.zeros(dR_ds_AL.shape)
 
         for i, t_L in enumerate(calc_source.obs_times):
-            attitude = attitude_from_alpha_delta(self.real_sources[source_index], self.sat, t_L)
+            attitude = self.get_attitude_for_source(source_index, t_L)
             eta, zeta = calculated_field_angles(calc_source, attitude, self.sat, i)
+            eta, zeta = color_aberration(eta, zeta, calc_source.mean_color, self.degree_error)
             m, n, u = compute_mnu(eta, zeta)
             dR_ds_AL[i, :] = -m @ du_ds[:, :, i].transpose() * sec(zeta)
             dR_ds_AC[i, :] = -n @ du_ds[:, :, i].transpose()
@@ -291,9 +301,15 @@ class Agis:
             print('h: {}'.format(h))
         return h
 
+    def get_attitude_for_source(self, source_index, t):
+        if source_index < 10:
+            deviation = self.degree_error * const.rad_per_deg  # number in degrees and converted in radians
+        else:
+            deviation = 0
+        return attitude_from_alpha_delta(self.real_sources[source_index], self.sat, t, deviation)
+
     ############################################################################
     # For attitude update
-
     def get_attitude(self, t, unit=True):
         s_w = self.attitude_splines[0]
         s_x = self.attitude_splines[1]
@@ -312,13 +328,25 @@ class Agis:
         for i in range(self.N):
             self.att_coeffs[:, i] /= np.linalg.norm(self.att_coeffs[:, i])
 
-    def update_A_block(self):
+    def update_A_block_bis(self):
         LHS = self.compute_attitude_LHS()
         RHS = self.compute_attitude_RHS()
         d = np.linalg.solve(LHS, RHS)
         # d = np.linalg.lstsq(LHS, RHS)  # not what it is for
         c_update = d.reshape(self.att_coeffs.shape)
         self.att_coeffs += c_update
+        self.actualise_splines()  # Create the new splines
+
+    def update_A_block(self):
+        LHS = self.compute_attitude_LHS()
+        RHS = self.compute_attitude_RHS()
+        for i in range(4):
+            d = np.linalg.solve(LHS[i::4, i::4], RHS[i::4])
+            # c_update = d.reshape(self.att_coeffs.shape)
+            d = d.reshape(-1)
+            print('dshape', d.shape)
+            print(self.att_coeffs[i].shape)
+            self.att_coeffs[i] += d.flatten()  # c_update
         self.actualise_splines()  # Create the new splines
 
     def compute_attitude_LHS(self):
@@ -359,8 +387,8 @@ class Agis:
             coeff_basis_sum = compute_coeff_basis_sum(self.att_coeffs, self.att_bases,
                                                       left_index, self.M, obs_time_index)
             D_L = compute_attitude_deviation(coeff_basis_sum)
-            # dDL_da_n = compute_DL_da_i(coeff_basis_sum, self.att_bases, obs_time_index, n_index)
-            dDL_da_n = compute_DL_da_i_from_attitude(attitude, self.att_bases, obs_time_index, n_index)
+            dDL_da_n = compute_DL_da_i(coeff_basis_sum, self.att_bases, obs_time_index, n_index)
+            # dDL_da_n = compute_DL_da_i_from_attitude(attitude, self.att_bases, obs_time_index, n_index)
             regularisation_part = self.attitude_regularisation_factor**2 * dDL_da_n * D_L
             # # WARNING: Here we put the Across scan and the along scan together
             dR_dq = compute_dR_dq(calc_source, self.sat, attitude, t_L)

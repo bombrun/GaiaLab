@@ -16,6 +16,15 @@ import matplotlib.pylab as plt
 import scipy.sparse as sps
 
 
+def normalize(v, tol=1e-10):
+    """return normalized version of v"""
+    norm = np.linalg.norm(v)
+    if norm == 0:
+        # raise ValueError('vector norm close to 0, cannot normalise vector')
+        return v
+    return v/norm
+
+
 def check_symmetry(a, tol=1e-8):
     """ Check the symmetry of array a. True if symmetric up to tolerance"""
     return np.allclose(a, a.T, atol=tol)
