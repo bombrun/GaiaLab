@@ -52,7 +52,8 @@ class Source:
         :param mu_alpha: mas/yr
         :param mu_delta: mas/yr
         :param radial_velocity: km/s
-        :param color: function representing the color of the source in nanometers
+        :param func_color: function representing the color of the source in nanometers
+        :param mean_color: mean color observed by satellite
         Transforms in rads/day or rads
         [alpha] = rads
         [delta] = rads

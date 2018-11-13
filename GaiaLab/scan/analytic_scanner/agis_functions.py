@@ -162,6 +162,7 @@ def spin_axis_from_alpha_delta(source, sat, t):
 
 
 def scanning_y_coordinate(source, sat, t):
+    raise ValueError('Check that ')
     att = get_fake_attitude(source, sat, t)
     y_vec = ft.rotate_by_quaternion(att, [0, 1, 0])
     # vector = vector/np.linalg.norm(vector)
@@ -230,7 +231,7 @@ def dR_da_i(dR_dq, bases_i):
     return dR_da_i.reshape(4, 1)
 
 
-def observed_field_angles(source, attitude, sat, t):
+def observed_field_angles(source, attitude, sat, t, double_telescope=False):
     """
     Return field angles according to Lindegren eq. 12
     eta: along-scan field angle
@@ -246,11 +247,11 @@ def observed_field_angles(source, attitude, sat, t):
     # quat2 = Quaternion(vector=Su, angle=const.sat_angle)
     # Su = ft.rotate_by_quaternion(quat2, Su)
 
-    eta, zeta = compute_field_angles(Su)
+    eta, zeta = compute_field_angles(Su, double_telescope)
     return eta, zeta
 
 
-def calculated_field_angles(calc_source, attitude, sat, t):
+def calculated_field_angles(calc_source, attitude, sat, t, double_telescope=False):
     """
     Return field angles according to Lindegren eq. 12
     eta: along-scan field angle
@@ -266,11 +267,11 @@ def calculated_field_angles(calc_source, attitude, sat, t):
     # quat2 = Quaternion(vector=Su, angle=const.sat_angle)
     # Su = ft.rotate_by_quaternion(quat2, Su)
 
-    eta, zeta = compute_field_angles(Su)
+    eta, zeta = compute_field_angles(Su, double_telescope)
     return eta, zeta
 
 
-def compute_field_angles(Su):
+def compute_field_angles(Su, double_telescope=False):
     """
     Return field angles according to Lindegren main eq. 12
     :param Su: array with the proper direction in the SRS reference system
@@ -281,7 +282,10 @@ def compute_field_angles(Su):
         raise TypeError('Su has to be a numpy array, instead is {}'.format(type(Su)))
     if Su.shape != (3,):
         raise ValueError('Shape of Su should be (3), instead it is {}'.format(Su.shape))
-    Gamma_c = 0  # angle between the two scanners # TODO: implement gamma_c
+    if double_telescope:
+        Gamma_c = const.Gamma_c  # angle between the two scanners # TODO: implement gamma_c
+    else:
+        Gamma_c = 0
     Su_x, Su_y, Su_z = Su[:]
 
     phi = np.arctan2(Su_y, Su_x)
@@ -325,10 +329,11 @@ def compute_mnu(eta, zeta):
     return np.array([m_l, n_l, u_l])
 
 
-def color_aberration(eta, zeta, color, error):
+def compute_deviated_angles_color_aberration(eta, zeta, color, error):  # CHANGE NAME
+    parameter = 1e-7
     if error != 0:
-        eta = eta + eta/100 * color/10000
-        zeta = zeta + zeta/100 * color/10000
+        eta = eta + parameter * color  # remove dependance from eta
+        zeta = zeta + parameter * color  # put optioon of removing zeta influence
     return eta, zeta
 
 

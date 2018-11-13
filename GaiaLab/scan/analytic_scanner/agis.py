@@ -47,7 +47,7 @@ class Agis:
 
     def __init__(self, sat, calc_sources=[], real_sources=[], attitude_splines=None,
                  verbose=False, spline_degree=3, attitude_regularisation_factor=0,
-                 updating='attitude', degree_error=0):
+                 updating='attitude', degree_error=0, double_telescope=False):
         """
         Also contains:
         **Temporary variables**
@@ -55,10 +55,8 @@ class Agis:
         self.obs_times : the observation times for a given source
         **Variables**
         # The four parameter vector
-        # self.s_param = np.zeros((num_sources, 5))  # source parameters
-        # self.a_param = np.zeros(0)  # attitude parameters
-        # self.c_param = np.zeros(0)  # Calibration parameters
-        # self.g_param = np.zeros(0)  # Global parameters
+        # self.s_param  # source parameters (for each calc_source)
+        # self.att_coeffs  # attitude parameters
         """
         # Objects:
         self.calc_sources = calc_sources
@@ -73,6 +71,7 @@ class Agis:
         self.updating = updating
         self.consider_stellar_aberation = False
         self.degree_error = degree_error  # [only for source] deviation in vertical direction of the attitude
+        self.double_telescope = double_telescope  # bool indicating if we use the double_telescope config
 
         # Mutable:
         self.iter_counter = 0
@@ -114,12 +113,8 @@ class Agis:
                 error += R_L ** 2
         return error
 
-    def compute_R_L(self, source_index, t):
-        """ R = eta_obs + zeta_obs - eta_calc - zeta_calc """
-        # WARNING: maybe source is not in the field of vision of sat at time t!
-        R_eta = 0
-        R_zeta = 0
-
+    def get_field_angles(self, source_index, t):
+        """ :returns: [eta_obs, zeta_obs, eta_calc, zeta_calc]"""
         # Set attitude, it depends if we wanna update only sources or also attitude params
         if self.updating == 'source':
             attitude = self.get_attitude_for_source(source_index, t)
@@ -130,14 +125,30 @@ class Agis:
 
         eta_obs, zeta_obs = observed_field_angles(self.real_sources[source_index],
                                                   attitude_gaia,
-                                                  self.sat, t)
+                                                  self.sat, t, self.double_telescope)
         eta_calc, zeta_calc = calculated_field_angles(self.calc_sources[source_index],
                                                       attitude,
-                                                      self.sat, t)
-        func_color = self.real_sources[source_index].func_color(t)
-        mean_color = self.real_sources[source_index].mean_color
-        eta_obs, zeta_obs = color_aberration(eta_obs, zeta_obs, func_color, self.degree_error)
-        eta_calc, zeta_calc = color_aberration(eta_calc, zeta_calc, mean_color, self.degree_error)
+                                                      self.sat, t, self.double_telescope)
+        return eta_obs, zeta_obs, eta_calc, zeta_calc
+
+    def deviate_field_angles_color_aberration(self, source_index, t, angles):
+        """ apply color aberration deviation to field angles (eta, zeta)"""
+        # # WARNING: check also deviation in the source update
+        f_color = self.real_sources[source_index].func_color(t)  # # TODO: separate eta zeta
+        m_color = self.real_sources[source_index].mean_color
+        eta_obs, zeta_obs, eta_calc, zeta_calc = angles
+        eta_obs, zeta_obs = compute_deviated_angles_color_aberration(eta_obs, zeta_obs, f_color, self.degree_error)
+        eta_calc, zeta_calc = compute_deviated_angles_color_aberration(eta_calc, zeta_calc, m_color, self.degree_error)
+        return eta_obs, zeta_obs, eta_calc, zeta_calc
+
+    def compute_R_L(self, source_index, t):
+        """ R = eta_obs + zeta_obs - eta_calc - zeta_calc """
+        # WARNING: maybe source is not in the field of vision of sat at time t!
+        R_eta = 0
+        R_zeta = 0
+        angles = self.get_field_angles(source_index, t)
+        eta_obs, zeta_obs, eta_calc, zeta_calc = self.deviate_field_angles_color_aberration(source_index, t, angles)
+
         # print(t, 'observed: ', eta_obs, zeta_obs)
         # print(t, 'computed: ', eta_calc, zeta_calc)
         R_eta = eta_obs - eta_calc  # AL
@@ -280,8 +291,8 @@ class Agis:
 
         for i, t_L in enumerate(calc_source.obs_times):
             attitude = self.get_attitude_for_source(source_index, t_L)
-            eta, zeta = calculated_field_angles(calc_source, attitude, self.sat, i)
-            eta, zeta = color_aberration(eta, zeta, calc_source.mean_color, self.degree_error)
+            eta, zeta = calculated_field_angles(calc_source, attitude, self.sat, i, self.double_telescope)
+            eta, zeta = compute_deviated_angles_color_aberration(eta, zeta, calc_source.mean_color, self.degree_error)
             m, n, u = compute_mnu(eta, zeta)
             dR_ds_AL[i, :] = -m @ du_ds[:, :, i].transpose() * sec(zeta)
             dR_ds_AC[i, :] = -n @ du_ds[:, :, i].transpose()
@@ -317,7 +328,7 @@ class Agis:
         s_z = self.attitude_splines[3]
         attitude = Quaternion(s_w(t), s_x(t), s_y(t), s_z(t))
         if unit:
-            attitude = attitude.unit()  # is this necessary?
+            attitude = attitude.unit()  # # TODO: is this necessary?
         return attitude
 
     def actualise_splines(self):
@@ -328,7 +339,8 @@ class Agis:
         for i in range(self.N):
             self.att_coeffs[:, i] /= np.linalg.norm(self.att_coeffs[:, i])
 
-    def update_A_block_bis(self):
+    def update_A_block(self):
+        """ solve the components together"""
         LHS = self.compute_attitude_LHS()
         RHS = self.compute_attitude_RHS()
         d = np.linalg.solve(LHS, RHS)
@@ -337,16 +349,16 @@ class Agis:
         self.att_coeffs += c_update
         self.actualise_splines()  # Create the new splines
 
-    def update_A_block(self):
+    def update_A_block_bis(self):
+        """ updates the four components separately"""
         LHS = self.compute_attitude_LHS()
         RHS = self.compute_attitude_RHS()
         for i in range(4):
             d = np.linalg.solve(LHS[i::4, i::4], RHS[i::4])
-            # c_update = d.reshape(self.att_coeffs.shape)
-            d = d.reshape(-1)
-            print('dshape', d.shape)
-            print(self.att_coeffs[i].shape)
-            self.att_coeffs[i] += d.flatten()  # c_update
+            c_update = d.reshape(-1)
+            # print('c_update shape', c_update.shape)
+            # print(self.att_coeffs[i].shape)
+            self.att_coeffs[i] += c_update
         self.actualise_splines()  # Create the new splines
 
     def compute_attitude_LHS(self):
@@ -420,7 +432,6 @@ class Agis:
             # dDL_da_n = compute_DL_da_i_from_attitude(attitude, self.att_bases, obs_time_index, n_index)
             # dDL_da_m = compute_DL_da_i_from_attitude(attitude, self.att_bases, obs_time_index, m_index)
             regularisation_part = self.attitude_regularisation_factor**2 * dDL_da_n @ dDL_da_m.T
-            # attitude = Quaternion(coeff_basis_sum[0], coeff_basis_sum[1], coeff_basis_sum[2], coeff_basis_sum[3]).unit()
 
             # Compute the original objective function part
             # # WARNING: Here we put the Across scan and the along scan together
