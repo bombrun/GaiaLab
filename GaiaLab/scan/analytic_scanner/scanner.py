@@ -76,10 +76,6 @@ class Scanner:
         Scans sky with a dot product technique to get rough times of observation.
         :action: self.times_wide_scan list filled with observation time windows.
         """
-        # if not isinstance(sat, satellite):
-        #    raise TypeError('Expected Satellite, but got {} instead'.format(type(sat)))
-        # if not isinstance(source, Source):
-        #    raise TypeError('Expected Source, but got {} instead'.format(type(source)))
 
         # Reset the memory of the previous scans
         self.reset_memory()
