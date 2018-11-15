@@ -128,25 +128,13 @@ def plot_observations(source, satellite, scan):
     :param scan: scan object
     :return: plot of position of observations and their error bars.
     """
+    alphas_obs, deltas_obs, radius_obs = ([], [], [])
+    star_alphas, star_deltas, star_radius = ([], [], [])
+    z_alphas, z_deltas = ([], [])
 
-    if isinstance(satellite, Satellite) is False:
-        raise TypeError('satellite is not an Satellite object.')
-    if isinstance(scan, Scanner) is False:
-        raise TypeError('scan is not an Scanner object.')
-
-    alphas_obs = []
-    deltas_obs = []
-    radius_obs = []
-
-    star_alphas = []
-    star_deltas = []
-    star_radius = []
-
-    z_alphas = []
-    z_deltas = []
+    green_alphas, green_deltas = ([], [])
 
     plt.figure()
-
     # for each of the observed times we plot the position of the x-axis in lmn
     # of the scanner
     for i, t in enumerate(scan.obs_times):
@@ -200,21 +188,12 @@ def plot_prediction_VS_reality(source, satellite, scan, num_observations=0, angl
     :return: plot of position of observations and their error bars.
     """
 
-    if isinstance(satellite, Satellite) is False:
-        raise TypeError('satellite is not an Satellite object.')
-    if isinstance(scan, Scanner) is False:
-        raise TypeError('scan is not an Scanner object.')
+    alphas_obs, deltas_obs, radius_obs = ([], [], [])
 
-    alphas_obs = []
-    deltas_obs = []
-    radius_obs = []
-    star_alphas = []
-    star_deltas = []
-    star_radius = []
-    z_alphas = []
-    z_deltas = []
-    predictions_alphas = []
-    predictions_deltas = []
+    star_alphas, star_deltas, star_radius = ([], [], [])
+
+    z_alphas, z_deltas = ([], [])
+    predictions_alphas, predictions_deltas = ([], [])
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 8))
 
@@ -336,11 +315,15 @@ def plot_field_angles(source, sat, obs_times=[], ti=0, tf=90, n=1000, limit=Fals
     zeta_sol_list = []
     eta_sol_list = []
     for t in times_total:
-        eta_value, zeta_value = observed_field_angles(source, sat, t)
+        attitude = sat.func_attitude(t)
+        attitude = attitude_from_alpha_delta(source, sat, t)
+        eta_value, zeta_value = observed_field_angles(source, attitude, sat, t)
         eta_list.append(eta_value)
         zeta_list.append(zeta_value)
     for t in obs_times:
-        eta_value, zeta_value = observed_field_angles(source, sat, t)
+        attitude = sat.func_attitude(t)
+        attitude = attitude_from_alpha_delta(source, sat, t)
+        eta_value, zeta_value = observed_field_angles(source, attitude, sat, t)
         eta_sol_list.append(eta_value)
         zeta_sol_list.append(zeta_value)
 

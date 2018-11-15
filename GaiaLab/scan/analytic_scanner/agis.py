@@ -339,7 +339,7 @@ class Agis:
         for i in range(self.N):
             self.att_coeffs[:, i] /= np.linalg.norm(self.att_coeffs[:, i])
 
-    def update_A_block(self):
+    def update_A_block(self):  # one
         """ solve the components together"""
         LHS = self.compute_attitude_LHS()
         RHS = self.compute_attitude_RHS()
@@ -349,7 +349,7 @@ class Agis:
         self.att_coeffs += c_update
         self.actualise_splines()  # Create the new splines
 
-    def update_A_block_bis(self):
+    def update_A_block_bis(self):  # bis
         """ updates the four components separately"""
         LHS = self.compute_attitude_LHS()
         RHS = self.compute_attitude_RHS()

@@ -221,7 +221,7 @@ class Satellite:
         self.func_attitude = lambda t: Quaternion(float(self.s_w(t)), float(self.s_x(t)), float(self.s_y(t)),
                                                   float(self.s_z(t))).unit()
         # Attitude in the lmn frame
-        self.func_x_axis_lmn = lambda t: ft.xyz_to_lmn(self.func_attitude(t), np.array([1, 0, 0]))
+        self.func_x_axis_lmn = lambda t: ft.xyz_to_lmn(self.func_attitude(t), np.array([1, 0, 0]))  # where we want to be
         self.func_y_axis_lmn = lambda t: ft.xyz_to_lmn(self.func_attitude(t), np.array([0, 1, 0]))
         self.func_z_axis_lmn = lambda t: ft.xyz_to_lmn(self.func_attitude(t), np.array([0, 0, 1]))
 

@@ -162,7 +162,7 @@ def spin_axis_from_alpha_delta(source, sat, t):
 
 
 def scanning_y_coordinate(source, sat, t):
-    raise ValueError('Check that ')
+    # raise ValueError('Check that ')
     att = get_fake_attitude(source, sat, t)
     y_vec = ft.rotate_by_quaternion(att, [0, 1, 0])
     # vector = vector/np.linalg.norm(vector)
@@ -330,10 +330,11 @@ def compute_mnu(eta, zeta):
 
 
 def compute_deviated_angles_color_aberration(eta, zeta, color, error):  # CHANGE NAME
-    parameter = 1e-7
+    parameter = 1/10
+
     if error != 0:
-        eta = eta + parameter * color  # remove dependance from eta
-        zeta = zeta + parameter * color  # put optioon of removing zeta influence
+        eta = eta + parameter * color
+        zeta = zeta + parameter * color
     return eta, zeta
 
 
@@ -349,7 +350,7 @@ def phi(source, sat, t):
     """
     t = float(t)
     u_lmn_unit = source.unit_topocentric_function(sat, t)
-    direction_lmn = u_lmn_unit - sat.func_x_axis_lmn(t)
+    direction_lmn = u_lmn_unit - sat.func_x_axis_lmn(t)  # ft.xyz_to_lmn(self.func_attitude(t), np.array([1, 0, 0]))
     direction_xyz = ft.lmn_to_xyz(sat.func_attitude(t), direction_lmn)
     phi = np.arcsin(direction_xyz[1])
     eta = np.arcsin(direction_xyz[2])

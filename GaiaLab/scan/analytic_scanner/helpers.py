@@ -25,7 +25,7 @@ def normalize(v, tol=1e-10):
     return v/norm
 
 
-def check_symmetry(a, tol=1e-8):
+def check_symmetry(a, tol=1e-12):
     """ Check the symmetry of array a. True if symmetric up to tolerance"""
     return np.allclose(a, a.T, atol=tol)
 
