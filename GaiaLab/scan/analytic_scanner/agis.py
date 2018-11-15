@@ -1,12 +1,12 @@
 """
-agis.py
-File for the global solutions
-Class Agis
+file agis.py
+Contains implementation of classes calc_source and Agis
 
 author: Luca Zampieri
 
-t (float): time from J2000 [days]
-such that t_ep = 0
+Infos:
+    t (float): time from J2000 [days]
+    such that t_ep = 0
 """
 # # Imports
 # Local modules
@@ -21,19 +21,22 @@ import numpy as np
 from scipy.interpolate import BSpline
 
 
-# TODO: implement all the functions to compute condition number of the matrix: numpy.linalg.cond(x)
-#
-
-
 class Calc_source:
     """
     Contains the calculated parameters per source
     """
-    def __init__(self, name, obs_times, source_params, mu_radial, mean_color=0):
+    def __init__(self, name=None, obs_times=[], source_params=None, mu_radial=None, mean_color=0,
+                 source=None):
         """
         Initial guess of the parameters
         :source_params: alpha, delta, parallax, mu_alpha, mu_delta
         """
+        if source is not None:
+            name = 'Calc_' + source.name
+            params = source.get_parameters()
+            source_params = params[0:-1]
+            mu_radial = params[-1]
+            mean_color = source.mean_color
         self.name = name
         self.obs_times = obs_times  # times at which it has been observed
         self.s_params = source_params  # position at which it has been observed
@@ -41,6 +44,10 @@ class Calc_source:
         self.s_old = [self.s_params]
         self.errors = []
         self.mean_color = mean_color
+
+    def set_params(self, params):
+        self.s_params = params
+        self.s_old = [self.s_params]
 
 
 class Agis:
@@ -119,6 +126,9 @@ class Agis:
         if self.updating == 'source':
             attitude = self.get_attitude_for_source(source_index, t)
             attitude_gaia = attitude
+        elif self.updating == 'scanned source':
+            attitude = self.sat.func_attitude(t)
+            attitude_gaia = attitude
         else:
             attitude = self.get_attitude(t)
             attitude_gaia = self.sat.func_attitude(t)
@@ -166,7 +176,7 @@ class Agis:
             if self.verbose:
                 print('Error before iteration: {}'.format(self.error_function()))
             # self.init_blocks()
-            if self.updating == 'source':
+            if self.updating == 'source' or self.updating == 'scanned source':
                 self.update_S_block()
             elif self.updating == 'attitude':
                 self.update_A_block()
@@ -181,7 +191,7 @@ class Agis:
             calc_source.s_old.append(calc_source.s_params.copy())
             calc_source.errors.append(self.error_function())
             self.update_block_S_i(i)
-            print('parallax: ', self.calc_sources[i].s_params[2])
+            # print('parallax: ', self.calc_sources[i].s_params[2])
 
     def update_block_S_i(self, source_index):
         """update source #i"""
@@ -267,6 +277,8 @@ class Agis:
                 t_L = calc_source.obs_times[j]
                 if self.updating == 'source':
                     attitude = self.get_attitude_for_source(source_index, t_L)
+                elif self.updating == 'scanned source':
+                    attitude = self.sat.func_attitude(t)
                 else:
                     attitude = self.get_attitude(t)
                 S_du_ds[i, :, j] = ft.lmn_to_xyz(attitude, C_du_ds[i, :, j])

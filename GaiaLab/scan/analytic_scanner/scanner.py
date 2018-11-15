@@ -92,6 +92,9 @@ class Scanner:
             # Check constraints
             t0 = time.time()
             if violated_contraints(t, t+time_step):
+                time_elapsed = time.time()-t0
+                measured_time += time_elapsed
+                # print('time for constraints t:', t, 'is', time_elapsed)
                 continue
             time_elapsed = time.time()-t0
             measured_time += time_elapsed

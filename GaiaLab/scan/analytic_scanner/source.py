@@ -62,7 +62,6 @@ class Source:
         [mu_delta] = rads/days
         [mu_radial] = rads/days?
         """
-        self.test_type_input_param(alpha0, delta0, parallax, mu_alpha, mu_delta, radial_velocity)
         self.name = name
         self.__alpha0 = np.radians(alpha0)
         self.__delta0 = np.radians(delta0)
@@ -76,12 +75,6 @@ class Source:
         # For the source color
         self.func_color = func_color
         self.mean_color = mean_color
-
-    def test_type_input_param(self, alpha0, delta0, parallax, mu_alpha, mu_delta, mu_radial):
-        """
-        Tests if the input parameters are of the right type
-        """
-        pass
 
     def get_parameters(self, t=0):
         self.set_time(t)
