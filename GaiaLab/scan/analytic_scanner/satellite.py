@@ -70,7 +70,8 @@ class Satellite:
         # "ksi" revolving angle. At any time the z axis is at this constant angle from s⃗ s→.
         # For Gaia, the current choice is 55º.
         self.xi = xi
-        self.wz = wz * const.sec_per_day * const.AU_per_pc  # to [rad/day]
+        # self.wz = wz * const.sec_per_day * const.AU_per_pc  # original version ##to [rad/day]
+        self.wz = wz * const.sec_per_day * const.rad_per_arcsec  # to [rad/day]
 
         # Nominal longitud of the sun in the ecliptic plane
         self.lambda_dot = 2 * np.pi / const.days_per_year  # [rad/day] (lambda dot set as const)
