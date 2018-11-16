@@ -1,6 +1,6 @@
 """
 agis_helpers.py
-functions that uses the classes scanner, source, satellite but don't belong to a
+functions that uses the classes source, satellite but don't belong to a
 given file yet
 author: LucaZampieri
 
@@ -32,7 +32,6 @@ import frame_transformations as ft
 from quaternion import Quaternion
 from source import Source
 from satellite import Satellite
-from scanner import Scanner
 from source import get_Cu
 
 
@@ -237,7 +236,7 @@ def observed_field_angles(source, attitude, sat, t, double_telescope=False):
     eta: along-scan field angle
     zeta: across-scan field angle
     """
-    alpha, delta, _, _ = source.topocentric_angles(sat, t)
+    # alpha, delta, _, _ = source.topocentric_angles(sat, t)
     Cu = source.unit_topocentric_function(sat, t)  # u in CoMRS frame
     # Su = ft.lmn_to_xyz(sat.func_attitude(t), Cu)  # u in SRS frame
     # attitude = attitude_from_alpha_delta(source, sat, t)
