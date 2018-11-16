@@ -61,7 +61,8 @@ class Satellite:
         self.__init_state()
         self.__attitude_spline()
 
-    def init_parameters(self, S=const.S, epsilon=np.radians(const.epsilon), xi=np.radians(const.xi), wz=const.w_z):
+    def init_parameters(self, S=const.S, epsilon=np.radians(const.epsilon),
+                        xi=np.radians(const.xi), wz=const.w_z):
         self.S = S
 
         # obliquity of equator. This is a constant chosen to be 23º 26' 21.448''
