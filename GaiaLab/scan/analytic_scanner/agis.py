@@ -278,9 +278,9 @@ class Agis:
                 if self.updating == 'source':
                     attitude = self.get_attitude_for_source(source_index, t_L)
                 elif self.updating == 'scanned source':
-                    attitude = self.sat.func_attitude(t)
+                    attitude = self.sat.func_attitude(t_L)
                 else:
-                    attitude = self.get_attitude(t)
+                    attitude = self.get_attitude(t_L)
                 S_du_ds[i, :, j] = ft.lmn_to_xyz(attitude, C_du_ds[i, :, j])
         return S_du_ds
 
@@ -302,7 +302,10 @@ class Agis:
         dR_ds_AC = np.zeros(dR_ds_AL.shape)
 
         for i, t_L in enumerate(calc_source.obs_times):
-            attitude = self.get_attitude_for_source(source_index, t_L)
+            if self.updating == 'source':
+                attitude = self.get_attitude_for_source(source_index, t_L)
+            else:  # self.updating == 'scanned source'
+                attitude = self.sat.func_attitude(t_L)
             eta, zeta = calculated_field_angles(calc_source, attitude, self.sat, i, self.double_telescope)
             eta, zeta = compute_deviated_angles_color_aberration(eta, zeta, calc_source.mean_color, self.degree_error)
             m, n, u = compute_mnu(eta, zeta)
