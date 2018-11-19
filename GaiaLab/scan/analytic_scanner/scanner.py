@@ -40,7 +40,7 @@ def eta_angle(t, sat, source, FoV='centered'):
     return eta
 
 
-def field_angles_per_FoV(source, attitude, sat, t, FoV='centered'):
+def field_angles_raw(source, attitude, sat, t):
     """
     :param FoV: specify which field of view we want. 'centered' if only one
     """
@@ -53,15 +53,30 @@ def field_angles_per_FoV(source, attitude, sat, t, FoV='centered'):
     phi = np.arctan2(Su_y, Su_x)
     zeta = np.arctan2(Su_z, np.sqrt(Su_x**2+Su_y**2))
 
-    if FoV == 'centered':
-        eta = phi
-    elif FoV == 'following':
-        eta = phi - Gamma_c / 2
+    return phi, zeta
+
+
+def get_etas_from_phis(phi_a, phi_b, FoV):
+    Gamma_c = const.Gamma_c
+    if FoV == 'following':
+        eta_a, eta_b = (phi_a - Gamma_c / 2, phi_b - Gamma_c / 2)
     elif FoV == 'preceding':
-        eta = phi + Gamma_c / 2
+        eta_a, eta_b = (phi_a + Gamma_c / 2, phi_b + Gamma_c / 2)
+    elif FoV == 'centered':
+        eta_a, eta_b = (phi_a, phi_b)
     else:
         raise ValueError('Invalid FoV parameter')
-    return eta, zeta
+    return eta_a, eta_b
+
+
+def violated_contraints(eta_a, zeta_a, eta_b, zeta_b, zeta_limit):
+    if eta_a*eta_b >= 0:  # check if f changes sign in [a,b]
+        return True
+    if np.abs(zeta_a + zeta_b)/2 > zeta_limit:   # ~ |zeta|<= 0.5°
+        return True
+    if (np.abs(eta_a) > np.pi/2) & (np.abs(eta_b) > np.pi/2):
+        return True
+    return False
 
 
 # Scanner class
@@ -105,62 +120,57 @@ class Scanner:
             print('Cleared variables!')
 
     # Scan function
-    def scan(self, sat, source, ti=0, tf=5*const.days_per_year):
+    def scan(self, sat, source, ti, tf):
         """
         Find the exact time in which the source is seen.
         :param sat: [Satellite object]
         :param source: [Source object]
+        :param ti & tf: [days] initial and end dates
         :action: Find the observation time of the sources
         ideas to optimize: create array with all errors and go pick them as needed
         """
         print('Starting scan with time from {} to {} days'.format(ti, tf))
         self.reset()
+        t0 = time.time()  # for timer
 
-        revolutions_per_day = sat.wz/(2*np.pi)
-        time_of_revolution = 1/revolutions_per_day  # time in [days]
-        time_step = time_of_revolution/6  # need <= 6th of revolution time
+        time_step = sat.time_of_revolution/6  # need <= 6th of revolution time
 
-        def violated_contraints(t_a, t_b, FoV):
-            # eta_a, zeta_a = observed_field_angles(source, sat.func_attitude(t_a), sat, t_a, double_telescope)
-            # eta_b, zeta_b = observed_field_angles(source, sat.func_attitude(t_b), sat, t_b, double_telescope)
-            eta_a, zeta_a = field_angles_per_FoV(source, sat.func_attitude(t_a), sat, t_a, FoV)
-            eta_b, zeta_b = field_angles_per_FoV(source, sat.func_attitude(t_b), sat, t_b, FoV)
+        # Get list on which to loop
+        day_list = get_interesting_days(ti, tf, sat, source)
+        t_list = generate_scanned_times_intervals(day_list, time_step)
 
-            if eta_a*eta_b >= 0:  # check if f changes sign in [a,b]
-                return True
-            if np.abs(zeta_a + zeta_b)/2 > np.radians(0.5):   # ~ |zeta|<= 0.5°
-                return True
-            if (np.abs(eta_a) > np.pi/2) & (np.abs(eta_b) > np.pi/2):
-                return True
-            return False
-
-        measured_time = 0
+        t_old = 0
         # Looping
-        for t in np.arange(ti, tf-time_step, time_step):
+        # for t in np.arange(ti, tf-time_step, time_step):
+        for t in t_list:
             # Check constraints
-            t0 = time.time()
+            # print(t)
+            if (t == t_old) & (t_old > 0):
+                # print(t)
+                phi_a, zeta_a = (phi_b, zeta_b)
+            else:
+                phi_a, zeta_a = field_angles_raw(source, sat.func_attitude(t), sat, t)
+            phi_b, zeta_b = field_angles_raw(source, sat.func_attitude(t+time_step), sat, t+time_step)
+
             for FoV in self.FoVs:
-                if violated_contraints(t, t+time_step, FoV):
-                    time_elapsed = time.time()-t0
-                    measured_time += time_elapsed
+                eta_a, eta_b = get_etas_from_phis(phi_a, phi_b, FoV)
+                if violated_contraints(eta_a, zeta_a, eta_b, zeta_b, self.zeta_limit):
                     continue
                 x0, r = optimize.brentq(f=eta_angle, a=t, b=t+time_step, args=(sat, source, FoV),
-                                        xtol=2e-20, rtol=8.881784197001252e-16,
-                                        maxiter=100, full_output=True, disp=True)
+                                        xtol=2e-16, rtol=8.881784197001252e-16,
+                                        maxiter=100, full_output=True, disp=False)
                 self.obs_times.append(x0)
-                if self.FoVs == 'preceding':
-                    self.obs_times_PFoV.append(x0)
-                elif self.FoVs == 'following':
-                    self.obs_times_FFoV.append(x0)
-                time_elapsed = time.time()-t0
-                measured_time += time_elapsed
-                print('time for constraints t:', x0, 'is', time_elapsed)
-        print('Total measured time:', measured_time)
+            t_old = t+time_step
+
+        print('Total measured time:', time.time()-t0)
         # End of function
 
     def compute_angles_eta_zeta(self, sat, source):
+        """ Compute angles and remove 'illegal' observations (|zeta| > zeta_lim)"""
         for t in self.obs_times:
             eta, zeta = observed_field_angles(source, sat.func_attitude(t), sat, t, self.double_telescope)
+            if np.abs(zeta) >= np.radians(0.5):
+                continue
             self.eta_scanned.append(eta)
             self.zeta_scanned.append(zeta)
 

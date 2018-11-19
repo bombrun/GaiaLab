@@ -304,7 +304,7 @@ class Agis:
         for i, t_L in enumerate(calc_source.obs_times):
             if self.updating == 'source':
                 attitude = self.get_attitude_for_source(source_index, t_L)
-            else:  # self.updating == 'scanned source'
+            elif self.updating == 'scanned source':
                 attitude = self.sat.func_attitude(t_L)
             eta, zeta = calculated_field_angles(calc_source, attitude, self.sat, i, self.double_telescope)
             eta, zeta = compute_deviated_angles_color_aberration(eta, zeta, calc_source.mean_color, self.degree_error)

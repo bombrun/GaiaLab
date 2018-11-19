@@ -73,6 +73,8 @@ class Satellite:
         self.xi = xi
         # self.wz = wz * const.sec_per_day * const.AU_per_pc  # original version ##to [rad/day]
         self.wz = wz * const.sec_per_day * const.rad_per_arcsec  # to [rad/day]
+        self.revolutions_per_day = self.wz/(2*np.pi)
+        self.time_of_revolution = 1/self.revolutions_per_day  # time in [days]
 
         # Nominal longitud of the sun in the ecliptic plane
         self.lambda_dot = 2 * np.pi / const.days_per_year  # [rad/day] (lambda dot set as const)
@@ -220,8 +222,8 @@ class Satellite:
         # self.s_z_tck = splrep(t_list, z_list, s=0, k=self.spline_order)
 
         # Attitude
-        self.func_attitude = lambda t: Quaternion(float(self.s_w(t)), float(self.s_x(t)), float(self.s_y(t)),
-                                                  float(self.s_z(t))).unit()
+        self.func_attitude = lambda t: Quaternion(self.s_w(t), self.s_x(t), self.s_y(t),
+                                                  self.s_z(t)).unit()
         # Attitude in the lmn frame
         self.func_x_axis_lmn = lambda t: ft.xyz_to_lmn(self.func_attitude(t), np.array([1, 0, 0]))  # where we want to be
         self.func_y_axis_lmn = lambda t: ft.xyz_to_lmn(self.func_attitude(t), np.array([0, 1, 0]))

@@ -136,29 +136,8 @@ class Source:
         :param satellite: satellite [class object]
         :return: [array] (x,y,z) direction-vector of the star from the satellite's lmn frame.
         """
-        """
-        # if not isinstance(satellite, Satellite):
-        #     raise TypeError('Expected Satellite, but got {} instead'.format(type(satellite)))
-        # WARNING: added next 2 lines for test
-        t = float(t)
-        self.set_time(t)
-        p, q, r = ft.compute_pqr(self.alpha, self.delta)
-
-        mu_alpha_dx = self.mu_alpha_dx * const.rad_per_mas / const.days_per_year   # mas/yr to rad/day
-        mu_delta = self.mu_delta * const.rad_per_mas / const.days_per_year  # mas/yr to rad/day
-        # km/s to aproximation rad/day
-        mu_radial = self.parallax * const.rad_per_mas * self.mu_radial * const.pc_per_km * const.sec_per_day
-
-        # print('bar: {} // r: {}'.format(self.barycentric_coor(0), r))
-        # topocentric_function direction
-        topocentric = self.barycentric_coor(0) + t*(p*mu_alpha_dx + q * mu_delta + r*mu_radial) \
-            - satellite.ephemeris_bcrs(t) * const.AU_per_pc
-        norm_topocentric = np.linalg.norm(topocentric)
-
-        return topocentric / norm_topocentric
-        """
-        self.set_time(0)  # (float(t))
-        param = np.array([self.alpha, self.delta, self.parallax, self.mu_alpha_dx, self.mu_delta, self.mu_radial])
+        # self.set_time(0)  # (float(t))
+        param = np.array([self.__alpha0, self.__delta0, self.parallax, self.mu_alpha_dx, self.mu_delta, self.mu_radial])
         return get_Cu(param, satellite, t)
 
     def topocentric_angles(self, satellite, t):

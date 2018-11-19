@@ -43,7 +43,7 @@ def generate_observation_wrt_attitude(attitude):
     """
     artificial_Su = [1, 0, 0]
     artificial_Cu = ft.xyz_to_lmn(attitude, artificial_Su)
-    alpha, delta, radius = ft.vector_to_polar(artificial_Cu)
+    alpha, delta, _ = ft.vector_to_polar(artificial_Cu)
     return alpha, delta
 
 
@@ -112,6 +112,34 @@ def get_fake_attitude(source, sat, t):
     # quat2 = Quaternion(vector=np.array([1, 0, 0]), angle=const.sat_angle)
     attitude = quat1  # * quat2
     return attitude  # sat.func_attitude(t)
+
+
+# ### For scanner --------------------------------------------------------------
+def get_interesting_days(ti, tf, sat, source):
+    day_list = []
+    zeta_limit = np.radians(3)
+    time_step = 1
+    days = np.arange(ti, tf, time_step)
+    for t in days:
+        attitude = sat.func_attitude(t)
+        eta, zeta = observed_field_angles(source, attitude, sat, t)
+        if np.abs(zeta) < zeta_limit:
+            day_list.append(t)
+    return day_list
+
+
+def generate_scanned_times_intervals(day_list, time_step):
+    extend_by = 1
+    previous_days = list(np.array(day_list)-extend_by)
+    extended_days = set(day_list + previous_days)
+    scanned_intervals = []
+    for day in day_list:
+        scanned_intervals += list(np.arange(day, day+extend_by-time_step, time_step))
+    # scanned_intervals = list(set(scanned_intervals))
+    return scanned_intervals
+
+
+# ### End for scanner ##########################################################
 
 
 # ### For attitude updating: ---------------------------------------------------
