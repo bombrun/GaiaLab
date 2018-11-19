@@ -114,7 +114,7 @@ def get_fake_attitude(source, sat, t):
     return attitude  # sat.func_attitude(t)
 
 
-# For attitude updating: #######################################################
+# ### For attitude updating: ---------------------------------------------------
 def get_basis_Bsplines(knots, coeffs, k, obs_times):
     """
     :returns: arrays of size (#coeffs, #obs_times)
@@ -229,25 +229,18 @@ def dR_da_i(dR_dq, bases_i):
     """ :param basis_i: B-spline basis of index i"""
     dR_da_i = dR_dq * bases_i
     return dR_da_i.reshape(4, 1)
-# End attitude updating ########################################################
+# ### End attitude updating ####################################################
 
 
+# ### Beginning field angles and associated functions --------------------------
 def observed_field_angles(source, attitude, sat, t, double_telescope=False):
     """
     Return field angles according to Lindegren eq. 12
     eta: along-scan field angle
     zeta: across-scan field angle
     """
-    # alpha, delta, _, _ = source.topocentric_angles(sat, t)
     Cu = source.unit_topocentric_function(sat, t)  # u in CoMRS frame
-    # Su = ft.lmn_to_xyz(sat.func_attitude(t), Cu)  # u in SRS frame
-    # attitude = attitude_from_alpha_delta(source, sat, t)
-
     Su = ft.lmn_to_xyz(attitude, Cu)
-    # For the source test:
-    # quat2 = Quaternion(vector=Su, angle=const.sat_angle)
-    # Su = ft.rotate_by_quaternion(quat2, Su)
-
     eta, zeta = compute_field_angles(Su, double_telescope)
     return eta, zeta
 
@@ -259,12 +252,9 @@ def calculated_field_angles(calc_source, attitude, sat, t, double_telescope=Fals
     """
     alpha, delta, parallax, mu_alpha, mu_delta = calc_source.s_params[:]
     params = np.array([alpha, delta, parallax, mu_alpha, mu_delta, calc_source.mu_radial])
-    Cu = get_Cu(params, sat, t)  # u in CoMRS frame
 
+    Cu = get_Cu(params, sat, t)  # u in CoMRS frame
     Su = ft.lmn_to_xyz(attitude, Cu)  # u in SRS frame
-    # For the source test:
-    # quat2 = Quaternion(vector=Su, angle=const.sat_angle)
-    # Su = ft.rotate_by_quaternion(quat2, Su)
 
     eta, zeta = compute_field_angles(Su, double_telescope)
     return eta, zeta
@@ -297,7 +287,22 @@ def compute_field_angles(Su, double_telescope=False):
     return eta, zeta
 
 
-# For source updating: #########################################################
+def compute_mnu(eta, zeta):
+    """
+    return column vectors of the S'[m_l, n_l, u_l] matrix
+    :param eta: float
+    :param zeta: float
+    """
+    phi = eta  # # WARNING:  implement the correct version (phi != eta)
+    # S_mnu = np.zeros((3,3))
+    m_l = np.array([-np.sin(phi), np.cos(phi), 0])
+    n_l = np.array([-np.sin(zeta)*np.cos(phi), np.sin(zeta)*np.sin(phi), np.cos(zeta)])
+    u_l = np.array([np.cos(zeta)*np.cos(phi), np.cos(zeta)*np.sin(phi), np.sin(zeta)])
+    return np.array([m_l, n_l, u_l])
+# ### End field angles and associated functions ################################
+
+
+# ### For source updating: -----------------------------------------------------
 def compute_du_dparallax(r, b_G):
     """computes du/dw"""
     if not isinstance(b_G, np.ndarray):
@@ -313,68 +318,18 @@ def compute_du_dparallax(r, b_G):
     update = (np.eye(3) - r @ r.T) @ b_G / const.Au_per_Au
     update.shape = (3)  # This way it returns an error if it has to copy data
     return -update  # np.ones(3)  #
-# End source updating ##########################################################
+# ###End source updating #######################################################
 
 
-def compute_mnu(eta, zeta):
-    """
-    return column vectors of the S'[m_l, n_l, u_l] matrix
-    :param eta: float
-    :param zeta: float
-    """
-    phi = eta  # # WARNING:  implement the correct version (phi != eta)
-    # S_mnu = np.zeros((3,3))
-    m_l = np.array([-np.sin(phi), np.cos(phi), 0])
-    n_l = np.array([-np.sin(zeta)*np.cos(phi), np.sin(zeta)*np.sin(phi), np.cos(zeta)])
-    u_l = np.array([np.cos(zeta)*np.cos(phi), np.cos(zeta)*np.sin(phi), np.sin(zeta)])
-    return np.array([m_l, n_l, u_l])
-
-
-def compute_deviated_angles_color_aberration(eta, zeta, color, error):  # CHANGE NAME
+# ### Beginning Color aberration -----------------------------------------------
+def compute_deviated_angles_color_aberration(eta, zeta, color, error):
     parameter = 1/10
 
     if error != 0:
         eta = eta + parameter * color
         zeta = zeta + parameter * color
     return eta, zeta
+# ### End Color aberration #####################################################
 
 
-# Draft of helper functions
-def phi(source, sat, t):
-    """
-    Calculates the diference between the x-axis of the satellite and the direction vector to the star.
-    Once this is calculated, it checks how far away is in the alpha direction (i.e. the y-component) wrt IRS.
-    :param source: Source [object]
-    :param sat: Satellite [object]
-    :param t: time [float][days]
-    :return: [float] angle, alpha wrt IRS.
-    """
-    t = float(t)
-    u_lmn_unit = source.unit_topocentric_function(sat, t)
-    direction_lmn = u_lmn_unit - sat.func_x_axis_lmn(t)  # ft.xyz_to_lmn(self.func_attitude(t), np.array([1, 0, 0]))
-    direction_xyz = ft.lmn_to_xyz(sat.func_attitude(t), direction_lmn)
-    phi = np.arcsin(direction_xyz[1])
-    eta = np.arcsin(direction_xyz[2])
-    # phi = np.arctan2(direction_xyz[1], direction_xyz[0])
-    # xi = np.arctan2(direction_xyz[2], np.sqrt(direction_xyz[0] ** 2 + direction_xyz[1] ** 2))
-    return phi, eta
-
-
-################################################################################
-# Unused functions
-
-def eta0_fng(mu, f, n, g):
-    # = eta0_ng
-    # TODO: define Y_FPA, F
-    return -Y_FPA[n, g]/F
-
-
-def xi0_fng(mu, f, n, g):
-    """
-    :attribute X_FPA[n]: physical AC coordinate of the nominal center of the nth CCD
-    :attribute Y_FPA[n,g]: physical AL coordinate of the nominal observation line for gate g on the nth CCD
-    :attribute Xcentre_FPA[f]:
-    """
-    mu_c = 996.5
-    p_AC = 30  # [micrometers]
-    return -(X_FPA[n] - (mu - mu_c) * p_AC - Xcenter_FPA[f])/F
+# End of file

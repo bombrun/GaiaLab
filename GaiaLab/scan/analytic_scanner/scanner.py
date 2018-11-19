@@ -1,7 +1,6 @@
 """
 Scanner class implementation in Python
 
-
 @author: LucaZampieri
 """
 
@@ -65,18 +64,7 @@ def field_angles_per_FoV(source, attitude, sat, t, FoV='centered'):
     return eta, zeta
 
 
-def eta_error(t, sat, source):
-    Cu_unit = source.unit_topocentric_function(sat, t)
-    vector_error_xyz = ft.lmn_to_xyz(sat.func_attitude(t), Cu_unit) - np.array([1, 0, 0])
-    return vector_error_xyz[1]  # WARNING: approx accurate only for small eta
-
-
-def vector_error(t, sat, source):
-    Cu_unit = source.unit_topocentric_function(sat, t)
-    vector_error_xyz = ft.lmn_to_xyz(sat.func_attitude(t), Cu_unit) - np.array([1, 0, 0])
-    return vector_error_xyz
-
-
+# Scanner class
 class Scanner:
 
     def __init__(self,  zeta_limit=np.radians(0.5), double_telescope=True):
@@ -130,7 +118,7 @@ class Scanner:
 
         revolutions_per_day = sat.wz/(2*np.pi)
         time_of_revolution = 1/revolutions_per_day  # time in [days]
-        time_step = time_of_revolution/6
+        time_step = time_of_revolution/6  # need <= 6th of revolution time
 
         def violated_contraints(t_a, t_b, FoV):
             # eta_a, zeta_a = observed_field_angles(source, sat.func_attitude(t_a), sat, t_a, double_telescope)
@@ -162,8 +150,7 @@ class Scanner:
                 self.obs_times.append(x0)
                 if self.FoVs == 'preceding':
                     self.obs_times_PFoV.append(x0)
-                if self.FoVs == 'following':
-                    self.obs_times_FFoV
+                elif self.FoVs == 'following':
                     self.obs_times_FFoV.append(x0)
                 time_elapsed = time.time()-t0
                 measured_time += time_elapsed
@@ -174,9 +161,6 @@ class Scanner:
     def compute_angles_eta_zeta(self, sat, source):
         for t in self.obs_times:
             eta, zeta = observed_field_angles(source, sat.func_attitude(t), sat, t, self.double_telescope)
-            # Cu_unit = source.unit_topocentric_function(sat, t)
-            # Su = ft.lmn_to_xyz(sat.func_attitude(t), Cu_unit)
-            # eta, zeta = compute_field_angles(Su, self.double_telescope)
             self.eta_scanned.append(eta)
             self.zeta_scanned.append(zeta)
 
