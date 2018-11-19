@@ -61,6 +61,60 @@ def error_between_func_attitudes(my_times, func_att1, func_att2):
     return error_in_attitude
 
 
+def rotation_matrix_from_alpha_delta(source, sat, t):
+    Cu = source.unit_topocentric_function(sat, t)
+    Su = np.array([1, 0, 0])
+    r = helpers.get_rotation_matrix(Cu, Su)
+    return r
+
+
+def attitude_from_alpha_delta(source, sat, t, vertical_angle_dev=0):
+    """:param vertical_angle_dev: how much we deviate from zeta"""
+    Cu = source.unit_topocentric_function(sat, t)
+    Su = np.array([1, 0, 0])
+    if vertical_angle_dev == 0:
+        vector, angle = helpers.get_rotation_vector_and_angle(Cu, Su)
+        q_out = Quaternion(vector=vector, angle=angle)
+    else:
+        Cu_xy = helpers.normalize(np.array([Cu[0], Cu[1], 0]))  # Cu on S-[xy] plane
+        v1, a1 = helpers.get_rotation_vector_and_angle(Cu_xy, Su)
+        q1 = Quaternion(vector=v1, angle=a1)
+
+        Su_xy = ft.rotate_by_quaternion(q1.inverse(), Su)  # Su rotated to be on same xy than Cu_xy
+        v2, a2 = helpers.get_rotation_vector_and_angle(Cu, Su_xy)
+        q2_dev = Quaternion(vector=v2, angle=a2+vertical_angle_dev)
+        # deviaetd_Su = ft.rotate_by_quaternion(q2_dev.inverse(), Su_xy)
+        q_out = q1*q2_dev
+        # angle -= 0.2
+    return q_out
+
+
+def spin_axis_from_alpha_delta(source, sat, t):
+    Cu = source.unit_topocentric_function(sat, t)
+    Su = np.array([1, 0, 0])
+    vector, angle = helpers.get_rotation_vector_and_angle(Cu, Su)
+    # vector = vector/np.linalg.norm(vector)
+    # satellite_position = sat.ephemeris_bcrs(t)
+    return vector
+
+
+def scanning_y_coordinate(source, sat, t):
+    # raise ValueError('Check that ')
+    att = get_fake_attitude(source, sat, t)
+    y_vec = ft.rotate_by_quaternion(att, [0, 1, 0])
+    # vector = vector/np.linalg.norm(vector)
+    # satellite_position = sat.ephemeris_bcrs(t)
+    return y_vec
+
+
+def get_fake_attitude(source, sat, t):
+    quat1 = attitude_from_alpha_delta(source, sat, t)
+    # quat2 = Quaternion(vector=np.array([1, 0, 0]), angle=const.sat_angle)
+    attitude = quat1  # * quat2
+    return attitude  # sat.func_attitude(t)
+
+
+# For attitude updating: #######################################################
 def get_basis_Bsplines(knots, coeffs, k, obs_times):
     """
     :returns: arrays of size (#coeffs, #obs_times)
@@ -123,59 +177,6 @@ def extend_knots(internal_knots, k):
     return extended_knots
 
 
-def rotation_matrix_from_alpha_delta(source, sat, t):
-    Cu = source.unit_topocentric_function(sat, t)
-    Su = np.array([1, 0, 0])
-    r = helpers.get_rotation_matrix(Cu, Su)
-    return r
-
-
-def attitude_from_alpha_delta(source, sat, t, vertical_angle_dev=0):
-    """:param vertical_angle_dev: how much we deviate from zeta"""
-    Cu = source.unit_topocentric_function(sat, t)
-    Su = np.array([1, 0, 0])
-    if vertical_angle_dev == 0:
-        vector, angle = helpers.get_rotation_vector_and_angle(Cu, Su)
-        q_out = Quaternion(vector=vector, angle=angle)
-    else:
-        Cu_xy = helpers.normalize(np.array([Cu[0], Cu[1], 0]))  # Cu on S-[xy] plane
-        v1, a1 = helpers.get_rotation_vector_and_angle(Cu_xy, Su)
-        q1 = Quaternion(vector=v1, angle=a1)
-
-        Su_xy = ft.rotate_by_quaternion(q1.inverse(), Su)  # Su rotated to be on same xy than Cu_xy
-        v2, a2 = helpers.get_rotation_vector_and_angle(Cu, Su_xy)
-        q2_dev = Quaternion(vector=v2, angle=a2+vertical_angle_dev)
-        # deviaetd_Su = ft.rotate_by_quaternion(q2_dev.inverse(), Su_xy)
-        q_out = q1*q2_dev
-        # angle -= 0.2
-    return q_out
-
-
-def spin_axis_from_alpha_delta(source, sat, t):
-    Cu = source.unit_topocentric_function(sat, t)
-    Su = np.array([1, 0, 0])
-    vector, angle = helpers.get_rotation_vector_and_angle(Cu, Su)
-    # vector = vector/np.linalg.norm(vector)
-    # satellite_position = sat.ephemeris_bcrs(t)
-    return vector
-
-
-def scanning_y_coordinate(source, sat, t):
-    # raise ValueError('Check that ')
-    att = get_fake_attitude(source, sat, t)
-    y_vec = ft.rotate_by_quaternion(att, [0, 1, 0])
-    # vector = vector/np.linalg.norm(vector)
-    # satellite_position = sat.ephemeris_bcrs(t)
-    return y_vec
-
-
-def get_fake_attitude(source, sat, t):
-    quat1 = attitude_from_alpha_delta(source, sat, t)
-    # quat2 = Quaternion(vector=np.array([1, 0, 0]), angle=const.sat_angle)
-    attitude = quat1  # * quat2
-    return attitude  # sat.func_attitude(t)
-
-
 def compute_coeff_basis_sum(coeffs, bases, L, M, time_index):
     """
     Computes the sum(a_n*b_n) with n=L-M+1 : L
@@ -228,6 +229,7 @@ def dR_da_i(dR_dq, bases_i):
     """ :param basis_i: B-spline basis of index i"""
     dR_da_i = dR_dq * bases_i
     return dR_da_i.reshape(4, 1)
+# End attitude updating ########################################################
 
 
 def observed_field_angles(source, attitude, sat, t, double_telescope=False):
@@ -256,8 +258,6 @@ def calculated_field_angles(calc_source, attitude, sat, t, double_telescope=Fals
     eta: along-scan field angle
     """
     alpha, delta, parallax, mu_alpha, mu_delta = calc_source.s_params[:]
-    alpha = alpha
-    delta = delta
     params = np.array([alpha, delta, parallax, mu_alpha, mu_delta, calc_source.mu_radial])
     Cu = get_Cu(params, sat, t)  # u in CoMRS frame
 
@@ -297,6 +297,7 @@ def compute_field_angles(Su, double_telescope=False):
     return eta, zeta
 
 
+# For source updating: #########################################################
 def compute_du_dparallax(r, b_G):
     """computes du/dw"""
     if not isinstance(b_G, np.ndarray):
@@ -312,6 +313,7 @@ def compute_du_dparallax(r, b_G):
     update = (np.eye(3) - r @ r.T) @ b_G / const.Au_per_Au
     update.shape = (3)  # This way it returns an error if it has to copy data
     return -update  # np.ones(3)  #
+# End source updating ##########################################################
 
 
 def compute_mnu(eta, zeta):
