@@ -7,6 +7,14 @@ Created in jun 2018
 
 modified by: LucaZampieri 2018
 
+*Notes:*
+    In this file, when there is a reference, unless explicitly stated otherwise,
+    it refers to Lindegren main article:
+    "The astronometric core solution for the Gaia mission - overview of models,
+    algorithms, and software implementation" by L. Lindegren, U. Lammer, D. Hobbs,
+    W. O'Mullane, U. Bastian, and J.Hernandez
+    The reference is usually made in the following way: Ref. Paper eq. [1]
+
 """
 
 import numpy as np
@@ -37,7 +45,8 @@ def vector_to_polar(vector):
     radius = np.sqrt(vector[0] ** 2 + vector[1] ** 2 + vector[2] ** 2)
     alpha = np.arctan2(vector[1], vector[0]) % (2*np.pi)
     delta = np.arcsin(vector[2]/radius)
-    # delta = np.arctan2(vector[2]/ dxy) % (2*np.pi)
+    dist_xy = np.sqrt(vector[0]**2+vector[1]**2)
+    delta = np.arctan2(vector[2],  dist_xy) % (2*np.pi)
     return alpha, delta, radius
 
 
@@ -106,6 +115,7 @@ def compute_ljk(epsilon):
 
 def compute_pqr(alpha, delta):
     """
+    Ref. Paper eq. [5]
     :param alpha: [rad] astronomic parameter alpha
     :param delta: [rad] astronomic parameter alpha
     :returns: p, q, r
@@ -119,35 +129,9 @@ def compute_pqr(alpha, delta):
     return p, q, r
 
 
-"""
-def rotation_to_quat(vector, angle):
-
-    Calculates quaternion equivalent to rotation about (vector) by an (angle).
-    :param vector:  [np.array]
-    :param angle: [deg]
-    :return equivalent quaternion:
-
-    vector = vector / np.linalg.norm(vector)
-    t = np.cos(angle/2.)
-    x = np.sin(angle/2.) * vector[0]
-    y = np.sin(angle/2.) * vector[1]
-    z = np.sin(angle/2.) * vector[2]
-
-    return Quaternion(t, x, y, z)
-"""
-
-
-def eta_to_phi(eta):
-    """following eq 13 of Lindegren (astronometric core solution)"""
-    # Gamma_c = 0  # const.Gamma_c
-    # Gamma_c = np.radians(Gamma_c)
-    # if eta + Gamma_c/2
-    # return phi
-    pass
-
-
 def rotate_by_quaternion(quaternion, vector):
     """
+    Ref. Paper eq. [9]
     rotate vector by quaternion
     """
     q_vector = vector_to_quaternion(vector)
@@ -157,6 +141,7 @@ def rotate_by_quaternion(quaternion, vector):
 
 def xyz_to_lmn(attitude, vector):
     """
+    Ref. Paper eq. [9]
     Go from the rotating (xyz) frame to the non-rotating (lmn) frame
 
     Info: The attitude Qauaternion q(t) gives the rotation from (lmn) to (xyz)
@@ -175,6 +160,7 @@ def xyz_to_lmn(attitude, vector):
 
 def lmn_to_xyz(attitude, vector):
     """
+    Ref. Paper eq. [9]
     Goes from the non-rotating (lmn) frame to the rotating (xyz) frame
 
     Info: The attitude Qauaternion q(t) gives the rotation from (lmn) to (xyz)
