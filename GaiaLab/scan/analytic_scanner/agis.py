@@ -1,11 +1,18 @@
 """
 file agis.py
-Contains implementation of classes calc_source and Agis
+Contains implementation of classes Calc_source and Agis
 
 author: Luca Zampieri
 
-Infos:
-    t (float): time from J2000 [days]
+*Notes:*
+    - In this file, when there is a reference, unless explicitly stated otherwise,
+    it refers to Lindegren main article:
+    "The astronometric core solution for the Gaia mission - overview of models,
+    algorithms, and software implementation" by L. Lindegren, U. Lammer,
+    D. Hobbs, W. O'Mullane, U. Bastian, and J.Hernandez
+    The reference is usually made in the following way: Ref. Paper eq. [1]
+
+    - t (float): time from J2000 [days]
     such that t_ep = 0
 """
 # # Imports
@@ -100,6 +107,7 @@ class Agis:
             self.att_bases = get_basis_Bsplines(self.att_knots, self.att_coeffs[0], self.k, self.all_obs_times)
             self.N = self.att_coeffs.shape[1]  # number of coeffs per parameter
 
+    # ### Generic functions for all kind of updating -----------------------------------
     def reset_iterations(self):
         print('Not resetting everything! Call again the solver instead')
         self.iter_counter = 0
@@ -109,6 +117,7 @@ class Agis:
 
     def error_function(self):
         """
+        Ref. Paper eq. [24]
         Compute the error function Q
         """
         error = 0
@@ -129,9 +138,11 @@ class Agis:
         elif self.updating == 'scanned source':
             attitude = self.sat.func_attitude(t)
             attitude_gaia = attitude
-        else:
+        elif self.updating == 'attitude':
             attitude = self.get_attitude(t, unit=True)
             attitude_gaia = self.sat.func_attitude(t)
+        else:
+            raise ValueError('incorrect value for self.updating')
 
         eta_obs, zeta_obs = observed_field_angles(self.real_sources[source_index],
                                                   attitude_gaia,
@@ -152,18 +163,20 @@ class Agis:
         return eta_obs, zeta_obs, eta_calc, zeta_calc
 
     def compute_R_L(self, source_index, t):
-        """ R = eta_obs + zeta_obs - eta_calc - zeta_calc """
+        """ Ref. Paper eq. [25]-[26]
+        R = eta_obs + zeta_obs - eta_calc - zeta_calc """
         # WARNING: maybe source is not in the field of vision of sat at time t!
-        R_eta = 0
-        R_zeta = 0
+        R_eta, R_zeta = (0, 0)
+
         angles = self.get_field_angles(source_index, t)
         eta_obs, zeta_obs, eta_calc, zeta_calc = self.deviate_field_angles_color_aberration(source_index, t, angles)
 
-        # print(t, 'observed: ', eta_obs, zeta_obs)
-        # print(t, 'computed: ', eta_calc, zeta_calc)
         R_eta = eta_obs - eta_calc  # AL
         R_zeta = zeta_obs - zeta_calc  # AC
         R_L = R_eta + R_zeta
+        if self.verbose:
+            print(t, 'observed: ', eta_obs, zeta_obs)
+            print(t, 'computed: ', eta_calc, zeta_calc)
         return R_L
 
     def iterate(self, num):
@@ -175,26 +188,30 @@ class Agis:
             print('***** Iteration: {} *****'.format(self.iter_counter))
             if self.verbose:
                 print('Error before iteration: {}'.format(self.error_function()))
-            # self.init_blocks()
+
             if self.updating == 'source' or self.updating == 'scanned source':
                 self.update_S_block()
+
             elif self.updating == 'attitude':
                 self.update_A_block()
                 error = error_between_func_attitudes(self.all_obs_times, self.sat.func_attitude, self.get_attitude)
                 print('attitude error:', error)
-            # if self.verbose:
-            print('Error after iteration: {}'.format(self.error_function()))
 
+            print('Error after iteration: {}'.format(self.error_function()))
+    # ### End generic functions ################################################
+
+    #
+    # ### Functions only for sources updating (source and scanned source)
     def update_S_block(self):
         """ Performs the update of the source parameters """
         for i, calc_source in enumerate(self.calc_sources):
             calc_source.s_old.append(calc_source.s_params.copy())
             calc_source.errors.append(self.error_function())
             self.update_block_S_i(i)
-            # print('parallax: ', self.calc_sources[i].s_params[2])
 
     def update_block_S_i(self, source_index):
-        """update source #i"""
+        """ Ref. Paper eq. [57]
+        update source #i"""
         calc_source = self.calc_sources[source_index]
         A = self.block_S_error_rate_matrix(source_index)
         W = np.eye(len(calc_source.obs_times))
@@ -209,7 +226,7 @@ class Agis:
                   .format(A.shape, W.shape, h.shape, d.shape))
 
     def du_tilde_ds(self, source_index):
-        """
+        """ Ref. Paper eq. [73]
         Compute dũ_ds far a given source
         :param:
         :returns:
@@ -219,14 +236,13 @@ class Agis:
             - t_B barycentric time (takes into account the Römer delay)
         Notes: t_ep in the paper is not used since we assume t_ep=0 and start counting the time from J2000
         """
-        # TODO: Consider writing this function with autograd
         # In this function consider all u as being ũ! (for notation we call them here u)
         # Values needed to compute the derivatives
         calc_source = self.calc_sources[source_index]
         n_i = len(calc_source.obs_times)  # the number of observations
         du_ds = np.zeros((5, 3, n_i))
-        alpha = calc_source.s_params[0]  # + calc_source.s_params[3]*t_l
-        delta = calc_source.s_params[1]  # + calc_source.s_params[4]*t_l
+        alpha = calc_source.s_params[0]
+        delta = calc_source.s_params[1]
         p, q, r = ft.compute_pqr(alpha, delta)
         r.shape = (3, 1)  # reshapes r
         # For each observation compute du/ds
@@ -246,7 +262,7 @@ class Agis:
         return du_ds
 
     def du_ds(self, source_index):
-        """
+        """ [not yet complete] Ref. Paper eq. [75]
         returns the derivative of the proper direction w.r.t. the astronomic
         parameters.
         take into account aberrationn of light
@@ -254,8 +270,8 @@ class Agis:
         :returns du_ds: in the SRS frame (xyz)
         """
         # TODO: implement stellar aberation
-        # if self.consider_stellar_aberation:
-        # raise ValueError('Stellar aberation not yet implemented')
+        if self.consider_stellar_aberation:
+            raise ValueError('Stellar aberation not yet implemented')
         # u = compute_coordinate_direction()
         # coeff = (1-u.transpose()*v_g/const.c)I - u*v_G.transpose()/const.c
         calc_source = self.calc_sources[source_index]
@@ -267,7 +283,7 @@ class Agis:
         return S_du_ds
 
     def C_du_ds_to_S_du_ds(self, source_index, C_du_ds):
-        """
+        """ Ref. Paper eq. [72]
         rotate the frame from CoRMS (lmn) to SRS (xyz) for du_ds
         """
         calc_source = self.calc_sources[source_index]
@@ -279,22 +295,18 @@ class Agis:
                     attitude = self.get_attitude_for_source(source_index, t_L)
                 elif self.updating == 'scanned source':
                     attitude = self.sat.func_attitude(t_L)
-                else:
-                    attitude = self.get_attitude(t_L)
+                else:  # attitude = self.get_attitude(t_L)
+                    raise ValueError('Not yet implemented for this case')
                 S_du_ds[i, :, j] = ft.lmn_to_xyz(attitude, C_du_ds[i, :, j])
         return S_du_ds
 
     def dR_ds(self, source_index):
-        """
+        """ Ref. Paper eq. [71]
         Computes the derivative of the error (R_l) wrt the 5 astronomic parameters
         s_i transposed.
         :param kind: either AL for ALong scan direction or AC for ACross scan direction
         :returns:
         """
-
-        def sec(x):
-            """ Compute secant. Should be stable since x close to 0"""
-            return 1/np.cos(x)
 
         calc_source = self.calc_sources[source_index]
         du_ds = self.du_ds(source_index)
@@ -306,20 +318,25 @@ class Agis:
                 attitude = self.get_attitude_for_source(source_index, t_L)
             elif self.updating == 'scanned source':
                 attitude = self.sat.func_attitude(t_L)
+            else:
+                raise ValueError('not yet implemented for this kind of updating')
             # Set double_telescope to False to get phi
             phi, zeta = calculated_field_angles(calc_source, attitude, self.sat, i, double_telescope=False)
             phi, zeta = compute_deviated_angles_color_aberration(phi, zeta, calc_source.mean_color, self.degree_error)
             m, n, u = compute_mnu(phi, zeta)
-            dR_ds_AL[i, :] = -m @ du_ds[:, :, i].transpose() * sec(zeta)
+            dR_ds_AL[i, :] = -m @ du_ds[:, :, i].transpose() * helpers.sec(zeta)
             dR_ds_AC[i, :] = -n @ du_ds[:, :, i].transpose()
 
         return dR_ds_AL + dR_ds_AC
 
     def block_S_error_rate_matrix(self, source_index):
-        """error matrix for the block update S"""
+        """ Ref. Paper eq. [58]
+        error matrix for the block update S"""
         return -self.dR_ds(source_index)
 
     def compute_h(self, source_index):
+        """Ref. Paper eq. [59]
+        Source update Right hand side"""
         calc_source = self.calc_sources[source_index]
         h = np.zeros((len(calc_source.obs_times), 1))
         for i, t_L in enumerate(calc_source.obs_times):
@@ -329,14 +346,17 @@ class Agis:
         return h
 
     def get_attitude_for_source(self, source_index, t):
-        if source_index < 10:
+        """ For only source updating with color aberration.
+        Change if condition to decide which sources are affected by that aberration"""
+        if source_index < 0:
             deviation = self.degree_error * const.rad_per_deg  # number in degrees and converted in radians
         else:
             deviation = 0
         return attitude_from_alpha_delta(self.real_sources[source_index], self.sat, t, deviation)
+    # ### End function only for source updating ################################
 
-    ############################################################################
-    # For attitude update
+    #
+    # ### For attitude update --------------------------------------------------
     def get_attitude(self, t, unit=True):
         s_w = self.attitude_splines[0]
         s_x = self.attitude_splines[1]
@@ -366,14 +386,12 @@ class Agis:
         self.actualise_splines()  # Create the new splines
 
     def update_A_block_bis(self):  # bis
-        """ updates the four components separately"""
+        """ updates the four components separately (wrong but not by much)"""
         LHS = self.compute_attitude_LHS()
         RHS = self.compute_attitude_RHS()
         for i in range(4):
             d = np.linalg.solve(LHS[i::4, i::4], RHS[i::4])
             c_update = d.reshape(-1)
-            # print('c_update shape', c_update.shape)
-            # print(self.att_coeffs[i].shape)
             self.att_coeffs[i] += c_update
         self.actualise_splines()  # Create the new splines
 
@@ -403,8 +421,8 @@ class Agis:
 
     def compute_attitude_RHS_n(self, n_index):
         rhs = np.zeros((4, 1))
-        observed_times = get_times_in_knot_interval(self.all_obs_times, self.att_knots, n_index, self.M)
-        for i, t_L in enumerate(observed_times):
+        time_support_spline_n = get_times_in_knot_interval(self.all_obs_times, self.att_knots, n_index, self.M)
+        for i, t_L in enumerate(time_support_spline_n):
             source_index = self.get_source_index(t_L)
             calc_source = self.calc_sources[source_index]
             attitude = self.get_attitude(t_L)
@@ -429,11 +447,11 @@ class Agis:
     def compute_Naa_mn(self, m_index, n_index):
         """compute dR/da (i.e. wrt coeffs)"""
         Naa_mn = np.zeros((4, 4))
-        observed_times_m = get_times_in_knot_interval(self.all_obs_times, self.att_knots, m_index, self.M)
-        observed_times_n = get_times_in_knot_interval(self.all_obs_times, self.att_knots, n_index, self.M)
-        observed_times_mn = np.sort(helpers.get_lists_intersection(observed_times_m, observed_times_n))
+        time_support_spline_m = get_times_in_knot_interval(self.all_obs_times, self.att_knots, m_index, self.M)
+        time_support_spline_n = get_times_in_knot_interval(self.all_obs_times, self.att_knots, n_index, self.M)
+        time_support_spline_mn = np.sort(helpers.get_lists_intersection(time_support_spline_m, time_support_spline_n))
 
-        for i, t_L in enumerate(observed_times_mn):
+        for i, t_L in enumerate(time_support_spline_mn):
             # for i, t_L in enumerate(self.all_obs_times):
             calc_source = self.calc_sources[self.get_source_index(t_L)]
             attitude = self.get_attitude(t_L)
