@@ -21,6 +21,9 @@ from agis_functions import *
 
 # fonctions used in the loop
 def eta_angle(t, sat, source, FoV='centered'):
+    """
+    Function to minimize in the scanner.
+    """
     Gamma_c = const.Gamma_c
 
     Cu_unit = source.unit_topocentric_function(sat, t)
@@ -38,22 +41,6 @@ def eta_angle(t, sat, source, FoV='centered'):
     else:
         raise ValueError('incorrect FoV argument.')
     return eta
-
-
-def field_angles_raw(source, attitude, sat, t):
-    """
-    :param FoV: specify which field of view we want. 'centered' if only one
-    """
-    Gamma_c = const.Gamma_c  # angle between the two telescopes
-
-    Cu = source.unit_topocentric_function(sat, t)  # u in CoMRS frame
-    Su = ft.lmn_to_xyz(attitude, Cu)
-    Su_x, Su_y, Su_z = Su[:]
-
-    phi = np.arctan2(Su_y, Su_x)
-    zeta = np.arctan2(Su_z, np.sqrt(Su_x**2+Su_y**2))
-
-    return phi, zeta
 
 
 def get_etas_from_phis(phi_a, phi_b, FoV):
@@ -133,7 +120,7 @@ class Scanner:
         self.reset()
         t0 = time.time()  # for timer
 
-        time_step = sat.time_of_revolution/6  # need <= 6th of revolution time
+        time_step = sat.time_of_revolution/12  # need <= 6th of revolution time
 
         # Get list on which to loop
         day_list = get_interesting_days(ti, tf, sat, source)
@@ -141,16 +128,17 @@ class Scanner:
 
         t_old = 0
         # Looping
-        # for t in np.arange(ti, tf-time_step, time_step):
-        for t in t_list:
+        for t in np.arange(ti, tf-time_step, time_step):
+        # for t in t_list:
             # Check constraints
             # print(t)
             if (t == t_old) & (t_old > 0):
                 # print(t)
                 phi_a, zeta_a = (phi_b, zeta_b)
             else:
-                phi_a, zeta_a = field_angles_raw(source, sat.func_attitude(t), sat, t)
-            phi_b, zeta_b = field_angles_raw(source, sat.func_attitude(t+time_step), sat, t+time_step)
+                phi_a, zeta_a = observed_field_angles(source, sat.func_attitude(t), sat, t, double_telescope=False)
+            phi_b, zeta_b = observed_field_angles(source, sat.func_attitude(t+time_step), sat, t+time_step,
+                                                  double_telescope=False)
 
             for FoV in self.FoVs:
                 eta_a, eta_b = get_etas_from_phis(phi_a, phi_b, FoV)
@@ -169,7 +157,7 @@ class Scanner:
         """ Compute angles and remove 'illegal' observations (|zeta| > zeta_lim)"""
         for t in self.obs_times:
             eta, zeta = observed_field_angles(source, sat.func_attitude(t), sat, t, self.double_telescope)
-            if np.abs(zeta) >= np.radians(0.5):
+            if np.abs(zeta) >= self.zeta_limit:
                 continue
             self.eta_scanned.append(eta)
             self.zeta_scanned.append(zeta)
