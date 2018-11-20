@@ -130,7 +130,7 @@ class Agis:
             attitude = self.sat.func_attitude(t)
             attitude_gaia = attitude
         else:
-            attitude = self.get_attitude(t)
+            attitude = self.get_attitude(t, unit=True)
             attitude_gaia = self.sat.func_attitude(t)
 
         eta_obs, zeta_obs = observed_field_angles(self.real_sources[source_index],
@@ -306,9 +306,10 @@ class Agis:
                 attitude = self.get_attitude_for_source(source_index, t_L)
             elif self.updating == 'scanned source':
                 attitude = self.sat.func_attitude(t_L)
-            eta, zeta = calculated_field_angles(calc_source, attitude, self.sat, i, self.double_telescope)
-            eta, zeta = compute_deviated_angles_color_aberration(eta, zeta, calc_source.mean_color, self.degree_error)
-            m, n, u = compute_mnu(eta, zeta)
+            # Set double_telescope to False to get phi
+            phi, zeta = calculated_field_angles(calc_source, attitude, self.sat, i, double_telescope=False)
+            phi, zeta = compute_deviated_angles_color_aberration(phi, zeta, calc_source.mean_color, self.degree_error)
+            m, n, u = compute_mnu(phi, zeta)
             dR_ds_AL[i, :] = -m @ du_ds[:, :, i].transpose() * sec(zeta)
             dR_ds_AC[i, :] = -n @ du_ds[:, :, i].transpose()
 
@@ -378,7 +379,7 @@ class Agis:
 
     def compute_attitude_LHS(self):
         N_aa_dim = self.att_coeffs.shape[1]  # *4
-        print(N_aa_dim)
+        print('N_aa_dim:', N_aa_dim)
         N_aa = np.zeros((N_aa_dim*4, N_aa_dim*4))
         for n in range(0, N_aa_dim):  # # TODO:  take advantage of the symmetry
             for m in range(0, N_aa_dim):  # # TODO: avoid doing the brute force version
