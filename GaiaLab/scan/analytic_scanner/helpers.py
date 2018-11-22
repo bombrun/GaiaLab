@@ -1,13 +1,78 @@
-# # Helper functions for the analytic scanner
-#
-# Contains:
-#   - compute_intersection
-#   - compute_angle
-# LucaZampieri 2018
+"""
+File helpers.py
 
+Helper functions for the analytic scanner
+
+Contains:
+    - compute_intersection
+    - compute_angle
+
+author: LucaZampieri 2018
+"""
+
+# # Imports
 import numpy as np
+import matplotlib.pylab as plt
+import scipy.sparse as sps
 
 
+def normalize(v, tol=1e-10):
+    """return normalized version of v"""
+    norm = np.linalg.norm(v)
+    if norm == 0:
+        # raise ValueError('vector norm close to 0, cannot normalise vector')
+        return v
+    return v/norm
+
+
+def check_symmetry(a, tol=1e-12):
+    """ Check the symmetry of array a. True if symmetric up to tolerance"""
+    return np.allclose(a, a.T, atol=tol)
+
+
+def get_lists_intersection(list1, list2):
+    return list(set(list1) & set(list2))
+
+
+def symmetrize_triangular_matrix(a):
+    """ Symmetrize an already triangular matrix (lower or upper)
+    :param a: upper ot lower triangular matrix
+    :returns: corresponding symmetric matrix"""
+    return a + a.T - numpy.diag(a.diagonal())
+
+
+def sec(x):
+    """Stable if x close to 0"""
+    return 1/np.cos(x)
+
+
+def get_rotation_matrix(v1, v2):
+    """
+    Get the rotation matrix necessary to go from v1 to v2
+    :param vi: 3D vector as np.array
+    To rotate vector v1 into v2 then do r@v1
+    """
+    v1 = v1.reshape(3, 1)  # reshapes as vectors
+    v2 = v2.reshape(3, 1)
+    a, b = (v1 / np.linalg.norm(v1)).reshape(3), (v2 / np.linalg.norm(v2)).reshape(3)
+    v = np.cross(a, b)
+    c = np.dot(a, b)
+    s = np.linalg.norm(v)
+    k = np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
+    R = np.identity(3) + k + k@k * ((1 - c)/(s**2))  # Euler Roriguez formulae
+    return R
+
+
+def get_rotation_vector_and_angle(v1, v2):
+    v1 = v1/np.linalg.norm(v1)  # # NOTE: it should be useless to normalize
+    v2 = v2/np.linalg.norm(v2)
+    angle = np.arccos(np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2)))
+    vector = np.cross(v1 / np.linalg.norm(v1), v2 / np.linalg.norm(v2))
+    vector = vector / np.linalg.norm(vector)
+    return vector, angle
+
+
+# Only need numpy as np
 def compute_angle(v1, v2):
     """
     Computes the angle between two Vectors
@@ -17,6 +82,13 @@ def compute_angle(v1, v2):
     return np.arccos(np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2)))
 
 
+def rescaled_direction(vector, length):
+    unit_vector = vector/np.linalg.norm(vector)
+    v = np.multiply(unit_vector, length)
+    return v
+
+
+# Only need numpy as np
 def compute_intersection(x1, y1, x2, y2, x3, y3, x4, y4, segment=True):
     """
     Return intersection of two lines (or segments) if it exists, raise an error otherwise.
@@ -75,3 +147,27 @@ def compute_intersection(x1, y1, x2, y2, x3, y3, x4, y4, segment=True):
             error_msg.append('Conditions are: 1:{} 2:{} 3:{} 4:{}'.format(cond_1, cond_2, cond_3, cond_4))
 
     return (x_intersection, y_intersection), error_msg
+
+
+# import matplotlib.pylab as plt
+# import scipy.sparse as sps
+def plot_sparse():
+    A = sps.rand(10000, 10000, density=0.00001)
+    M = sps.csr_matrix(A)
+    plt.spy(M)
+    plt.show()
+
+
+def plot_sparsity_pattern(A, tick_frequency):
+    """:param A: np array containing the matrix"""
+    A[np.where(A != 0)] = 1
+    plt.matshow(A, fignum=None)
+    plt.colorbar()
+    plt.xticks(np.arange(0, A.shape[0], tick_frequency))
+    plt.yticks(np.arange(0, A.shape[0], tick_frequency))
+    plt.grid()
+    plt.show()
+
+
+def ephemeris_bcrs(t):
+    pass

@@ -15,4 +15,13 @@ The first version will be based on a very simple model :
 
 The project will make used of the technical notes written by Lennart Lindegren http://www.astro.lu.se/~lennart/Astrometry/TN.html
 
-The codestyle tries to follow PEP8 guidelines, for example using linter 2.2 codestyle package. (see https://atom.io/packages/linter as of 20.09.2018) 
+In particular the following notes and papers:
+- (Lindegren, SAG-LL-14)
+- (Lindegren, SAG-LL-30)
+- (Lindegren, SAG-LL-35)
+- The astrometric core solution for the gaia mission, overview of models, algorithms,
+and software implementation, L.Lindegren et al.
+
+The codestyle tries to follow PEP8 guidelines, for example using linter 2.2 codestyle package. (see https://atom.io/packages/linter as of 20.09.2018)
+
+The documentation can be created setting up the **doc** folder. See http://www.sphinx-doc.org/en/master/usage/extensions/viewcode.html for setting up the :source: link!

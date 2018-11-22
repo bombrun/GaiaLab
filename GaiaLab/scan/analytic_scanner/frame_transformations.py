@@ -7,10 +7,24 @@ Created in jun 2018
 
 modified by: LucaZampieri 2018
 
+*Notes:*
+    In this file, when there is a reference, unless explicitly stated otherwise,
+    it refers to Lindegren main article:
+    "The astronometric core solution for the Gaia mission - overview of models,
+    algorithms, and software implementation" by L. Lindegren, U. Lammer, D. Hobbs,
+    W. O'Mullane, U. Bastian, and J.Hernandez
+    The reference is usually made in the following way: Ref. Paper eq. [1]
+
 """
 
 import numpy as np
 from quaternion import Quaternion
+
+
+def rotate_by_angle(vector, angle):
+    quaternion = Quaternion(vector=vector, angle=angle)
+    rotated_vector = rotate_by_quaternion(quaternion, vector)
+    return rotated_vector
 
 
 def vector_to_quaternion(vector):
@@ -31,6 +45,8 @@ def vector_to_polar(vector):
     radius = np.sqrt(vector[0] ** 2 + vector[1] ** 2 + vector[2] ** 2)
     alpha = np.arctan2(vector[1], vector[0]) % (2*np.pi)
     delta = np.arcsin(vector[2]/radius)
+    dist_xy = np.sqrt(vector[0]**2+vector[1]**2)
+    delta = np.arctan2(vector[2],  dist_xy) % (2*np.pi)
     return alpha, delta, radius
 
 
@@ -54,15 +70,32 @@ def adp_to_cartesian(alpha, delta, parallax):
     :param azimuth: [rad]
     :param altitude: [rad]
     :param parallax: [mas]
-    :return: [parsec](x, y, z)array in parsecs.
+    :return: [parsec](x, y, z) array in parsecs.
     """
-    parallax = parallax/1000  # from mas to arcsec
-
+    parallax = 1  # parallax/1000  # from mas to arcsec
+    # parallax = parallax/const.rad_per_arcsec
+    # WARNING: but why parallax??
     x = (1/parallax)*np.cos(delta)*np.cos(alpha)
     y = (1/parallax)*np.cos(delta)*np.sin(alpha)
     z = (1/parallax)*np.sin(delta)
 
     return np.array([x, y, z])
+
+
+def vector_to_adp(vector, tolerance=1e-6):
+    """
+    :return: alpha, delta in radians
+    """
+    x, y, z = vector[:]
+    delta = np.arcsin(z)
+    alpha_1 = np.arccos(x/np.cos(delta))
+    alpha_2 = np.arccos(x/np.cos(delta))
+    diff_a1_a2 = alpha_1 - alpha_2
+    mean_alpha = (alpha_1 + alpha_2) / 2
+    relative_error = diff_a1_a2/mean_alpha
+    if relative_error > tolerance:
+        raise ValueError('relative difference in alpha of {} is too big'.format(relative_error))
+    return mean_alpha, delta
 
 
 def compute_ljk(epsilon):
@@ -82,6 +115,7 @@ def compute_ljk(epsilon):
 
 def compute_pqr(alpha, delta):
     """
+    Ref. Paper eq. [5]
     :param alpha: [rad] astronomic parameter alpha
     :param delta: [rad] astronomic parameter alpha
     :returns: p, q, r
@@ -95,24 +129,19 @@ def compute_pqr(alpha, delta):
     return p, q, r
 
 
-def rotation_to_quat(vector, angle):
+def rotate_by_quaternion(quaternion, vector):
     """
-    Calculates quaternion equivalent to rotation about (vector) by an (angle).
-    :param vector:  [np.array]
-    :param angle: [deg]
-    :return equivalent quaternion:
+    Ref. Paper eq. [9]
+    rotate vector by quaternion
     """
-    vector = vector / np.linalg.norm(vector)
-    t = np.cos(angle/2.)
-    x = np.sin(angle/2.) * vector[0]
-    y = np.sin(angle/2.) * vector[1]
-    z = np.sin(angle/2.) * vector[2]
-
-    return Quaternion(t, x, y, z)
+    q_vector = vector_to_quaternion(vector)
+    q_rotated_vector = quaternion * q_vector * quaternion.conjugate()
+    return q_rotated_vector.to_vector()
 
 
 def xyz_to_lmn(attitude, vector):
     """
+    Ref. Paper eq. [9]
     Go from the rotating (xyz) frame to the non-rotating (lmn) frame
 
     Info: The attitude Qauaternion q(t) gives the rotation from (lmn) to (xyz)
@@ -125,12 +154,13 @@ def xyz_to_lmn(attitude, vector):
     :return: the coordinates in LMN-frame of the input vector.
     """
     q_vector_xyz = vector_to_quaternion(vector)
-    q_vector_lmn = attitude * q_vector_xyz * attitude.conjugate()
+    q_vector_lmn = attitude * q_vector_xyz * attitude.inverse()
     return q_vector_lmn.to_vector()
 
 
 def lmn_to_xyz(attitude, vector):
     """
+    Ref. Paper eq. [9]
     Goes from the non-rotating (lmn) frame to the rotating (xyz) frame
 
     Info: The attitude Qauaternion q(t) gives the rotation from (lmn) to (xyz)
@@ -143,5 +173,5 @@ def lmn_to_xyz(attitude, vector):
     :return: the coordinates in XYZ-frame of the input vector.
     """
     q_vector_lmn = vector_to_quaternion(vector)
-    q_vector_xyz = attitude.conjugate() * q_vector_lmn * attitude
+    q_vector_xyz = attitude.inverse() * q_vector_lmn * attitude
     return q_vector_xyz.to_vector()

@@ -12,14 +12,15 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
-# import sys
+import os
+import sys
 # sys.path.insert(0, os.path.abspath('.'))
+sys.path.insert(0, os.path.abspath('../..'))
 
 
 # -- Project information -----------------------------------------------------
 
-project = 'gaia_toymodel'
+project = 'gaiaLab'
 copyright = '2018, Alex Bombrun, Toby James, mdelvallevaro, LucaZampieri'
 author = 'Alex Bombrun, Toby James, mdelvallevaro, LucaZampieri'
 
@@ -107,7 +108,7 @@ html_static_path = ['_static']
 # -- Options for HTMLHelp output ---------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'gaia_toymodeldoc'
+htmlhelp_basename = 'gaiaLab_doc'
 
 
 # -- Options for LaTeX output ------------------------------------------------

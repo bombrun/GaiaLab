@@ -4,7 +4,7 @@
 # You can set these variables from the command line.
 SPHINXOPTS    =
 SPHINXBUILD   = sphinx-build
-SPHINXPROJ    = gaia_toymodel
+SPHINXPROJ    = gaiaLab
 SOURCEDIR     = source
 BUILDDIR      = build # should we use "." or "docs" ?
 
