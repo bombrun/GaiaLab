@@ -127,7 +127,7 @@ class Agis:
             for j, t_L in enumerate(s.obs_times):
                 R_L = self.compute_R_L(source_index, t_L)
                 error += R_L ** 2
-        return error
+        return error  # / self.all_obs_times.shape[0])/const.rad_per_mas
 
     def get_field_angles(self, source_index, t):
         """ :returns: [eta_obs, zeta_obs, eta_calc, zeta_calc]"""
@@ -139,7 +139,7 @@ class Agis:
             attitude = self.sat.func_attitude(t)
             attitude_gaia = attitude
         elif self.updating == 'attitude':
-            attitude = self.get_attitude(t, unit=True)
+            attitude = self.get_attitude(t)
             attitude_gaia = self.sat.func_attitude(t)
         else:
             raise ValueError('incorrect value for self.updating')
@@ -158,8 +158,8 @@ class Agis:
         f_color = self.real_sources[source_index].func_color(t)  # # TODO: separate eta zeta
         m_color = self.real_sources[source_index].mean_color
         eta_obs, zeta_obs, eta_calc, zeta_calc = angles
-        eta_obs, zeta_obs = compute_deviated_angles_color_aberration(eta_obs, zeta_obs, f_color, self.degree_error)
-        eta_calc, zeta_calc = compute_deviated_angles_color_aberration(eta_calc, zeta_calc, m_color, self.degree_error)
+        # eta_obs, zeta_obs = compute_deviated_angles_color_aberration(eta_obs, zeta_obs, f_color, self.degree_error)
+        # eta_calc, zeta_calc = compute_deviated_angles_color_aberration(eta_calc, zeta_calc, m_color, self.degree_error)
         return eta_obs, zeta_obs, eta_calc, zeta_calc
 
     def compute_R_L(self, source_index, t):
@@ -357,7 +357,7 @@ class Agis:
 
     #
     # ### For attitude update --------------------------------------------------
-    def get_attitude(self, t, unit=True):
+    def get_attitude(self, t, unit=False):
         s_w = self.attitude_splines[0]
         s_x = self.attitude_splines[1]
         s_y = self.attitude_splines[2]
@@ -378,11 +378,24 @@ class Agis:
     def update_A_block(self):  # one
         """ solve the components together"""
         LHS = self.compute_attitude_LHS()
+        # LHS = self.N_aa
         RHS = self.compute_attitude_RHS()
+        # RHS = self.h
         d = np.linalg.solve(LHS, RHS)
+
+        # L = np.linalg.cholesky(LHS)
+        # y = np.linalg.solve(L, RHS)
+        # d = np.linalg.solve(L.T, y)
         # d = np.linalg.lstsq(LHS, RHS)  # not what it is for
+        self.d = d
         c_update = d.reshape(self.att_coeffs.shape)
-        self.att_coeffs += c_update
+        for i in range(0, self.att_coeffs.shape[1]):
+            c_update[0, i] = d[i*4]
+            c_update[1, i] = d[i*4+1]
+            c_update[2, i] = d[i*4+2]
+            c_update[3, i] = d[i*4+3]
+        self.c_update = c_update.copy()
+        self.att_coeffs[:, :] += c_update[:, :].copy()
         self.actualise_splines()  # Create the new splines
 
     def update_A_block_bis(self):  # bis
@@ -401,8 +414,9 @@ class Agis:
         N_aa = np.zeros((N_aa_dim*4, N_aa_dim*4))
         for n in range(0, N_aa_dim):  # # TODO:  take advantage of the symmetry
             for m in range(0, N_aa_dim):  # # TODO: avoid doing the brute force version
-                # for m in range(max(n-self.M+1, 0), min(n+self.M-1, N_aa_dim)+1):
+                # for m in range(max((n-self.k), 0), min((n+self.k)+1, N_aa_dim+1)):
                 N_aa[n*4:n*4+4, m*4:m*4+4] = self.compute_Naa_mn(m, n)
+        self.N_aa = N_aa
         return N_aa
 
     def compute_attitude_RHS(self):
@@ -410,6 +424,7 @@ class Agis:
         RHS = np.zeros((N_aa_dim*4, 1))
         for n in range(0, N_aa_dim):
             RHS[n*4:n*4+4] = self.compute_attitude_RHS_n(n)
+        self.h = RHS.copy()
         return RHS
 
     def get_source_index(self, t):
@@ -447,6 +462,8 @@ class Agis:
     def compute_Naa_mn(self, m_index, n_index):
         """compute dR/da (i.e. wrt coeffs)"""
         Naa_mn = np.zeros((4, 4))
+        # if ( (m_index+self.M) == self.att_knots.shape[0]) or ((n_index+self.M) == self.att_knots.shape[0]):
+        # print('m:', m_index, '   || n:', n_index)
         time_support_spline_m = get_times_in_knot_interval(self.all_obs_times, self.att_knots, m_index, self.M)
         time_support_spline_n = get_times_in_knot_interval(self.all_obs_times, self.att_knots, n_index, self.M)
         time_support_spline_mn = np.sort(helpers.get_lists_intersection(time_support_spline_m, time_support_spline_n))
@@ -472,7 +489,7 @@ class Agis:
             dR_dq = compute_dR_dq(calc_source, self.sat, attitude, t_L)
             dR_da_m = dR_da_i(dR_dq, self.att_bases[m_index, obs_time_index])
             dR_da_n = dR_da_i(dR_dq, self.att_bases[n_index, obs_time_index])
-            Naa_mn += dR_da_n @ dR_da_m.T + regularisation_part
+            Naa_mn += regularisation_part + dR_da_n @ dR_da_m.T 
 
             if self.verbose:
                 if m_index >= 0:

@@ -139,7 +139,7 @@ def plot_observations(source, satellite, scan):
     # of the scanner
     for i, t in enumerate(scan.obs_times):
 
-        alpha, delta, radius = ft.vector_to_polar(satellite.func_x_axis_lmn(t))
+        alpha, delta = ft.vector_to_alpha_delta(satellite.func_x_axis_lmn(t))
         alphas_obs.append(alpha % (2 * np.pi))
         deltas_obs.append(delta)
         # radius_obs.append(radius)
@@ -154,8 +154,8 @@ def plot_observations(source, satellite, scan):
         vectorz1 = xaxis + scan.z_threshold * zaxis
         vectorz2 = xaxis - scan.z_threshold * zaxis
 
-        z_alpha_1, z_delta_1, z_radius_1 = ft.vector_to_polar(vectorz1)
-        z_alpha_2, z_delta_2, z_radius_2 = ft.vector_to_polar(vectorz2)
+        z_alpha_1, z_delta_1 = ft.vector_to_alpha_delta(vectorz1)
+        z_alpha_2, z_delta_2 = ft.vector_to_alpha_delta(vectorz2)
 
         z_alphas.append([z_alpha_1, z_alpha_2])
         z_deltas.append([z_delta_1, z_delta_2])
@@ -206,7 +206,7 @@ def plot_prediction_VS_reality(source, satellite, scan, num_observations=0, angl
     # of the scanner
     for i, t in enumerate(obs_times):
 
-        alpha, delta, radius = ft.vector_to_polar(satellite.func_x_axis_lmn(t))
+        alpha, delta = ft.vector_to_alpha_delta(satellite.func_x_axis_lmn(t))
         alphas_obs.append(alpha % (2 * np.pi))
         deltas_obs.append(delta)
         # radius_obs.append(radius)
@@ -222,9 +222,9 @@ def plot_prediction_VS_reality(source, satellite, scan, num_observations=0, angl
         # Vectors describing the endpoints of the interval in which the source must be
         # first in the lmn frame then in the polar one
         vectorz1 = xaxis + scan.z_threshold * zaxis
-        z_alpha_1, z_delta_1, z_radius_1 = ft.vector_to_polar(vectorz1)
+        z_alpha_1, z_delta_1 = ft.vector_to_alpha_delta(vectorz1)
         vectorz2 = xaxis - scan.z_threshold * zaxis
-        z_alpha_2, z_delta_2, z_radius_2 = ft.vector_to_polar(vectorz2)
+        z_alpha_2, z_delta_2 = ft.vector_to_alpha_delta(vectorz2)
 
         z_alphas.append([z_alpha_1, z_alpha_2])
         z_deltas.append([z_delta_1, z_delta_2])
@@ -512,7 +512,7 @@ def plot_stars_trajectory(source, sat, obs_times=[], equatorial=False):
             point = np.array([a, d])
             vector = scanning_y_coordinate(source, sat, t)
             adp = ft.vector_to_adp(vector)
-            dir_alpha, dir_delta, radius = ft.vector_to_polar(vector)
+            dir_alpha, dir_delta = ft.vector_to_alpha_delta(vector)
             directions = [dir_alpha, dir_delta]
             # directions = helpers.rescaled_direction((dir_alpha, dir_delta), length)
             to_plot_x = [point[0], point[0]+dir_alpha]

@@ -50,6 +50,20 @@ def vector_to_polar(vector):
     return alpha, delta, radius
 
 
+def vector_to_alpha_delta(vector):
+    """
+    Ref. Paper eq. [96]
+    Convert carthesian coordinates of a vector into its corresponding polar
+    coordinates (0 - 2*pi)
+    :param vector: [whatever] X,Y,Z coordinates in CoMRS frame (non-rotating)
+    :return: [rad][rad] alpha, delta --> between 0 and 2*pi (in ICRS coordinates)
+    """
+    alpha = np.arctan2(vector[1], vector[0]) % (2*np.pi)
+    dist_xy = np.sqrt(vector[0]**2+vector[1]**2)
+    delta = np.arctan2(vector[2],  dist_xy) % (2*np.pi)
+    return alpha, delta
+
+
 def polar_to_direction(alpha, delta):
     """
     Convert polar angles to unit direction vector
