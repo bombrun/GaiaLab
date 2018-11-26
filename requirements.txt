@@ -5,3 +5,4 @@ setuptools==20.7.0
 numba==0.38.1
 scipy==1.0.1
 # conf==1.0.3
+sphinx_rtd_theme

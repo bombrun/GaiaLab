@@ -120,18 +120,18 @@ class Scanner:
         self.reset()
         t0 = time.time()  # for timer
 
-        time_step = sat.time_of_revolution/12  # need <= 6th of revolution time
+        time_step = sat.time_of_revolution/6  # need <= 6th of revolution time
 
         # Get list on which to loop
-        # day_list = get_interesting_days(ti, tf, sat, source, self.zeta_limit)
-        # t_list = generate_scanned_times_intervals(day_list, time_step)
-
+        if ti-tf>10:
+            day_list = get_interesting_days(ti, tf, sat, source, self.zeta_limit)
+            t_list = generate_scanned_times_intervals(day_list, time_step)
+        else:
+            t_list = np.arange(ti, tf, time_step)
         t_old = 0
         # Looping
-        for t in np.arange(ti, tf, time_step):
-        # for t in t_list:
+        for t in t_list:
             # Check constraints
-            # print(t)
             if (t == t_old) & (t_old > 0):
                 # print(t)
                 phi_a, zeta_a = (phi_b, zeta_b)

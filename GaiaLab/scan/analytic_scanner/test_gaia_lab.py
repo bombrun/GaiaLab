@@ -81,7 +81,10 @@ class test_satellite(unittest.TestCase):
 
 class test_scanner(unittest.TestCase):
     def setUp(self):
-        self.scan = Scanner()
+        self.scanner = Scanner()
+
+    def test_scanner_by_day():
+        pass
 
 
 class test_agis_functions(unittest.TestCase):

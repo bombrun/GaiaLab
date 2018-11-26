@@ -6,9 +6,13 @@
 Welcome to GaiaLab's documentation!
 ===================================
 
+.. automodule:: source
+    :members:
+
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
+
 
 
 
