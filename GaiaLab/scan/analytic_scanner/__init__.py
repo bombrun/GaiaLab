@@ -5,4 +5,8 @@ __all__ = ['source',
            'quaternion',
            'frame_transformations',
            'test',
-           'hitsimulator']
+           'hitsimulator',
+           'satellite',
+           'agis',
+           'helpers',
+           ]

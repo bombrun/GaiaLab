@@ -1,9 +1,7 @@
 """
 Satellite class implementation in Python
-
-
-@author: mdelvallevaro
 TODO: repair attitude for t_init != 0
+@author: mdelvallevaro
 """
 
 # # Imports
@@ -22,16 +20,16 @@ class Satellite:
     Class Object, that represents a satellite, e.g. Gaia.
     Creates spline from attitude data for 5 years by default.
     info: (see e.g. Lindegren, SAG-LL-35)
-        The Nominal Scanning Law (NSL) for gaia is descibed by two constant
-        angles:
-        - Epsilon: obliquity of equator
-        - Xi (greek letter): revolving angles
-        and 3 angles that increase continuously but non-uniformly:
-        - _lambda(t): nominal longitude of the sun
-        - nu(t): revolving phase
-        - omega(t): spin phase
-        With also initial values nu(0), omega(0) at time t_0 the NSL is completely
-        specified.
+    The Nominal Scanning Law (NSL) for gaia is descibed by two constant
+    angles:
+    - Epsilon: obliquity of equator
+    - Xi (greek letter): revolving angles
+    and 3 angles that increase continuously but non-uniformly:
+    - _lambda(t): nominal longitude of the sun
+    - nu(t): revolving phase
+    - omega(t): spin phase
+    With also initial values nu(0), omega(0) at time t_0 the NSL is completely
+    specified.
 
     :param ti: initial time, float [day]
     :param tf: final time, float [day]

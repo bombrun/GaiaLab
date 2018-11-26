@@ -1,4 +1,5 @@
 """
+File constants.py
 This file stores the constants used, in order to avoid magic numbers in the code
 
 File containing the constants that will be used in the other files. This will

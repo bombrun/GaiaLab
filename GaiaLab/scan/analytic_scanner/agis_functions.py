@@ -151,7 +151,7 @@ def get_angular_FFoV_PFoV(sat, t):
 def get_interesting_days(ti, tf, sat, source, zeta_limit):
     # print(zeta_limit)
     day_list = []
-    zeta_limit = min(0.5*6, 3)  # why *6 ??
+    zeta_limit = min(zeta_limit*6, 3)  # why *6 ?? [rad]
     time_step = 1
     days = np.arange(ti, tf, time_step)
     for t in days:
@@ -159,6 +159,7 @@ def get_interesting_days(ti, tf, sat, source, zeta_limit):
         eta, zeta = observed_field_angles(source, attitude, sat, t)
         if np.abs(zeta) < zeta_limit:
             day_list.append(t)
+
     return day_list
 
 
@@ -168,8 +169,8 @@ def generate_scanned_times_intervals(day_list, time_step):
     extended_days = set(day_list + previous_days)
     scanned_intervals = []
     for day in day_list:
-        scanned_intervals += list(np.arange(day, day+extend_by-time_step, time_step))
-    # scanned_intervals = list(set(scanned_intervals))
+        scanned_intervals += list(np.arange(day, day+extend_by, time_step))
+    scanned_intervals = list(set(scanned_intervals))
     return scanned_intervals
 
 
