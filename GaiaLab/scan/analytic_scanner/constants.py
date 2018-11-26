@@ -23,8 +23,7 @@ AU_per_pc = 4.8481705933824e-6  # [au/pc] austronomical unit per parsec
 Au_per_km = 1/km_per_Au
 c = 299.792458e6  # [m/s]
 Au_per_Au = 1  # useless, just to make computations explicit?
-# km_per_au = 149597870.700  # [km/au]
-# pc_per_au = 4.8481e-6
+
 
 # # Proper to Gaia
 # constant specific to gaia that have been chosen. (see e.g. )
