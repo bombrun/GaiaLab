@@ -1,5 +1,3 @@
-
-import unittest
 from source import Source
 from satellite import Satellite
 from scanner import Scanner
@@ -10,10 +8,12 @@ import frame_transformations as ft
 from quaternion import Quaternion
 import agis_functions as af
 
+
 import numpy as np
 from scipy import interpolate
 from scipy.interpolate import BSpline
 from scipy.interpolate import splev
+import unittest
 
 
 class test_Quaternion(unittest.TestCase):

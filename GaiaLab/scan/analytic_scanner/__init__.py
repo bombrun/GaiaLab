@@ -1,4 +1,8 @@
 from . import *
 
 
-__all__ = ['quaternion', 'frame_transformations', 'test', 'hitsimulator']
+__all__ = ['source',
+           'quaternion',
+           'frame_transformations',
+           'test',
+           'hitsimulator']

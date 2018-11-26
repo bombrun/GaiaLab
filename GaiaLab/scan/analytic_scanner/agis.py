@@ -160,8 +160,8 @@ class Agis:
         f_color = self.real_sources[source_index].func_color(t)  # # TODO: separate eta zeta
         m_color = self.real_sources[source_index].mean_color
         eta_obs, zeta_obs, eta_calc, zeta_calc = angles
-        # eta_obs, zeta_obs = compute_deviated_angles_color_aberration(eta_obs, zeta_obs, f_color, self.degree_error)
-        # eta_calc, zeta_calc = compute_deviated_angles_color_aberration(eta_calc, zeta_calc, m_color, self.degree_error)
+        eta_obs, zeta_obs = compute_deviated_angles_color_aberration(eta_obs, zeta_obs, f_color, self.degree_error)
+        eta_calc, zeta_calc = compute_deviated_angles_color_aberration(eta_calc, zeta_calc, m_color, self.degree_error)
         return eta_obs, zeta_obs, eta_calc, zeta_calc
 
     def compute_R_L(self, source_index, t):
@@ -171,7 +171,8 @@ class Agis:
         R_eta, R_zeta = (0, 0)
 
         angles = self.get_field_angles(source_index, t)
-        eta_obs, zeta_obs, eta_calc, zeta_calc = self.deviate_field_angles_color_aberration(source_index, t, angles)
+        if self.degree_error != 0:
+            eta_obs, zeta_obs, eta_calc, zeta_calc = self.deviate_field_angles_color_aberration(source_index, t, angles)
 
         R_eta = eta_obs - eta_calc  # AL
         R_zeta = zeta_obs - zeta_calc  # AC
