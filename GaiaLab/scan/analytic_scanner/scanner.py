@@ -123,12 +123,12 @@ class Scanner:
         time_step = sat.time_of_revolution/12  # need <= 6th of revolution time
 
         # Get list on which to loop
-        day_list = get_interesting_days(ti, tf, sat, source)
-        t_list = generate_scanned_times_intervals(day_list, time_step)
+        # day_list = get_interesting_days(ti, tf, sat, source, self.zeta_limit)
+        # t_list = generate_scanned_times_intervals(day_list, time_step)
 
         t_old = 0
         # Looping
-        for t in np.arange(ti, tf-time_step, time_step):
+        for t in np.arange(ti, tf, time_step):
         # for t in t_list:
             # Check constraints
             # print(t)
@@ -145,9 +145,16 @@ class Scanner:
                 if violated_contraints(eta_a, zeta_a, eta_b, zeta_b, self.zeta_limit):
                     continue
                 x0, r = optimize.brentq(f=eta_angle, a=t, b=t+time_step, args=(sat, source, FoV),
-                                        xtol=2e-16, rtol=8.881784197001252e-16,
+                                        xtol=2e-20, rtol=8.881784197001252e-16,
                                         maxiter=100, full_output=True, disp=False)
                 self.obs_times.append(x0)
+                if FoV == 'preceding':
+                    self.obs_times_PFoV.append(x0)
+                elif FoV == 'following':
+                    self.obs_times_FFoV.append(x0)
+                else:
+                    pass
+
             t_old = t+time_step
 
         print('Total measured time:', time.time()-t0)

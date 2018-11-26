@@ -23,8 +23,7 @@ AU_per_pc = 4.8481705933824e-6  # [au/pc] austronomical unit per parsec
 Au_per_km = 1/km_per_Au
 c = 299.792458e6  # [m/s]
 Au_per_Au = 1  # useless, just to make computations explicit?
-# km_per_au = 149597870.700  # [km/au]
-# pc_per_au = 4.8481e-6
+
 
 # # Proper to Gaia
 # constant specific to gaia that have been chosen. (see e.g. )
@@ -32,7 +31,7 @@ epsilon = 23 + 26/60 + 21.448/3600  # [deg] obiquity of equator chosen to be 23Â
 Gamma_c = np.radians(106.5)  # [rad] basic angle, Gamma_c = arccos(f_p' f_F)
 xi = 55  # [deg] angle between the z-axis and s (s being the nominal sun direction)
 S = 4.035  # [deg/day] for a xi of 55Â°. S=|dz/dlambda|
-w_z = 60  # [arcsec/s] z component of the inertial spin vector w (small omega)
+w_z = 120  # [arcsec/s] z component of the inertial spin vector w (small omega)
 # The reference epoch is J2000 but it is taken into account in how we count time thus t_ep is 0
 t_ep = 0  # epoch time
 

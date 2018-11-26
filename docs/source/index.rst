@@ -1,39 +1,16 @@
-.. gaia_toymodel documentation master file, created by
-   sphinx-quickstart on Wed Sep 26 10:52:17 2018.
+.. GaiaLab documentation master file, created by
+   sphinx-quickstart on Mon Nov 26 14:46:55 2018.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to gaia_toymodel's documentation!
-=========================================
+Welcome to GaiaLab's documentation!
+===================================
 
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
 
-Documentation for the Code
-**************************
 
-useful #1 -- auto members
-=========================
-
-This is something I want to say that is not in the docstring.
-
-.. automodule:: GaiaLab.scan.analytic_scanner.constants
-   :members:
-
-useful #2 -- explicit members
-=============================
-
-This is something I want to say that is not in the docstring.
-
-.. automodule:: GaiaLab.scan.analytic_scanner.quaternion
-   :members:
-
-.. autoclass:: Quaternion
-   :members: unit
-
-.. automodule:: GaiaLab.scan.analytic_scanner.frame_transformations
-   :members:
 
 Indices and tables
 ==================

@@ -64,21 +64,6 @@ class test_source(unittest.TestCase):
         self.source = Source('test', 0, 1, 2, 3, 4, 5)
 
     def test_init_param_types(self):
-        # self.assertRaises(TypeError, self.source.alpha, 3 + 5j)
-        # self.assertRaises(TypeError, self.source.alpha, True)
-        # self.assertRaises(TypeError, self.source.alpha, 'string')
-
-        # self.assertRaises(TypeError, self.source.parallax, 3 + 5j)
-        # self.assertRaises(TypeError, self.source.parallax, True)
-        # self.assertRaises(TypeError, self.source.parallax, 'string')
-
-        # self.assertRaises(TypeError, self.source.mu_alpha_dx, 3 + 5j)
-        # self.assertRaises(TypeError, self.source.mu_alpha_dx, True)
-        # self.assertRaises(TypeError, self.source.mu_alpha_dx, 'string')
-
-        # self.assertRaises(TypeError, self.source.mu_delta, 3 + 5j)
-        # self.assertRaises(TypeError, self.source.mu_delta, True)
-        # self.assertRaises(TypeError, self.source.mu_delta, 'string')
         pass
 
 
@@ -251,7 +236,7 @@ class test_agis(unittest.TestCase):
                                                    (self.Solver.all_obs_times <= knots[m+M])]
         if not list(observed_times):
             raise ValueError('not observed times in interval')
-        t = observed_times[0]
+        t = observed_times[5]
         index = np.where(self.Solver.all_obs_times == t)[0][0]
 
         L = af.get_left_index(self.Solver.att_knots, t, M)

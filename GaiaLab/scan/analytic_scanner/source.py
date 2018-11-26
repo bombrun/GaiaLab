@@ -149,7 +149,7 @@ class Source:
         """
 
         u_lmn_unit = self.unit_topocentric_function(satellite, t)
-        alpha_obs, delta_obs, radius = ft.vector_to_polar(u_lmn_unit)
+        alpha_obs, delta_obs = ft.vector_to_alpha_delta(u_lmn_unit)
 
         if alpha_obs < 0:
             alpha_obs = (alpha_obs + 2*np.pi)

@@ -26,6 +26,7 @@ from agis_functions import *
 # global modules
 import numpy as np
 from scipy.interpolate import BSpline
+from scipy import sparse as sps
 
 
 class Calc_source:
@@ -89,6 +90,7 @@ class Agis:
 
         # Mutable:
         self.iter_counter = 0
+        self.N = 0  # not necessary
 
         # Setting observation times
         all_obs_times = []
@@ -127,7 +129,7 @@ class Agis:
             for j, t_L in enumerate(s.obs_times):
                 R_L = self.compute_R_L(source_index, t_L)
                 error += R_L ** 2
-        return error
+        return error  # / self.all_obs_times.shape[0])/const.rad_per_mas
 
     def get_field_angles(self, source_index, t):
         """ :returns: [eta_obs, zeta_obs, eta_calc, zeta_calc]"""
@@ -139,7 +141,7 @@ class Agis:
             attitude = self.sat.func_attitude(t)
             attitude_gaia = attitude
         elif self.updating == 'attitude':
-            attitude = self.get_attitude(t, unit=True)
+            attitude = self.get_attitude(t)
             attitude_gaia = self.sat.func_attitude(t)
         else:
             raise ValueError('incorrect value for self.updating')
@@ -158,8 +160,8 @@ class Agis:
         f_color = self.real_sources[source_index].func_color(t)  # # TODO: separate eta zeta
         m_color = self.real_sources[source_index].mean_color
         eta_obs, zeta_obs, eta_calc, zeta_calc = angles
-        eta_obs, zeta_obs = compute_deviated_angles_color_aberration(eta_obs, zeta_obs, f_color, self.degree_error)
-        eta_calc, zeta_calc = compute_deviated_angles_color_aberration(eta_calc, zeta_calc, m_color, self.degree_error)
+        # eta_obs, zeta_obs = compute_deviated_angles_color_aberration(eta_obs, zeta_obs, f_color, self.degree_error)
+        # eta_calc, zeta_calc = compute_deviated_angles_color_aberration(eta_calc, zeta_calc, m_color, self.degree_error)
         return eta_obs, zeta_obs, eta_calc, zeta_calc
 
     def compute_R_L(self, source_index, t):
@@ -364,7 +366,7 @@ class Agis:
         s_z = self.attitude_splines[3]
         attitude = Quaternion(s_w(t), s_x(t), s_y(t), s_z(t))
         if unit:
-            attitude = attitude.unit()  # # TODO: is this necessary?
+            attitude = attitude.unit()
         return attitude
 
     def actualise_splines(self):
@@ -378,11 +380,24 @@ class Agis:
     def update_A_block(self):  # one
         """ solve the components together"""
         LHS = self.compute_attitude_LHS()
+        # LHS = self.N_aa
         RHS = self.compute_attitude_RHS()
+        # RHS = self.h
         d = np.linalg.solve(LHS, RHS)
+
+        # L = np.linalg.cholesky(LHS)
+        # y = np.linalg.solve(L, RHS)
+        # d = np.linalg.solve(L.T, y)
         # d = np.linalg.lstsq(LHS, RHS)  # not what it is for
+        self.d = d
         c_update = d.reshape(self.att_coeffs.shape)
-        self.att_coeffs += c_update
+        for i in range(0, self.att_coeffs.shape[1]):
+            c_update[0, i] = d[i*4]
+            c_update[1, i] = d[i*4+1]
+            c_update[2, i] = d[i*4+2]
+            c_update[3, i] = d[i*4+3]
+        self.c_update = c_update.copy()
+        self.att_coeffs[:, :] += c_update[:, :].copy()
         self.actualise_splines()  # Create the new splines
 
     def update_A_block_bis(self):  # bis
@@ -401,8 +416,9 @@ class Agis:
         N_aa = np.zeros((N_aa_dim*4, N_aa_dim*4))
         for n in range(0, N_aa_dim):  # # TODO:  take advantage of the symmetry
             for m in range(0, N_aa_dim):  # # TODO: avoid doing the brute force version
-                # for m in range(max(n-self.M+1, 0), min(n+self.M-1, N_aa_dim)+1):
+                # for m in range(max((n-self.k), 0), min((n+self.k)+1, N_aa_dim+1)):
                 N_aa[n*4:n*4+4, m*4:m*4+4] = self.compute_Naa_mn(m, n)
+        self.N_aa = N_aa
         return N_aa
 
     def compute_attitude_RHS(self):
@@ -410,7 +426,19 @@ class Agis:
         RHS = np.zeros((N_aa_dim*4, 1))
         for n in range(0, N_aa_dim):
             RHS[n*4:n*4+4] = self.compute_attitude_RHS_n(n)
+        self.h = RHS.copy()
         return RHS
+
+    def attitude_LHS_band(self):
+        N_aa_band = np.zeros((self.N*4, 16))
+        for n in range(0, self.N):
+            for i, m in enumerate(range(n, min(n+4, self.N*4))):
+                N_aa_band[n*4:n*4+4, i:i+4] = self.compute_Naa_mn(m, n)
+        return N_aa_band
+
+    def attitude_LHS_from_band(N_aa_band):
+        N_aa_sps = helpers.get_sparse_diagonal_matrix_from_half_band(N_aa_band)
+        return N_aa_sps.toarray()
 
     def get_source_index(self, t):
         """ get the index of the source corresponding to observation t"""
@@ -425,7 +453,7 @@ class Agis:
         for i, t_L in enumerate(time_support_spline_n):
             source_index = self.get_source_index(t_L)
             calc_source = self.calc_sources[source_index]
-            attitude = self.get_attitude(t_L)
+            attitude = self.get_attitude(t_L, unit=False)
             left_index = get_left_index(self.att_knots, t_L, M=self.M)
             obs_time_index = list(self.all_obs_times).index(t_L)
 
@@ -454,7 +482,7 @@ class Agis:
         for i, t_L in enumerate(time_support_spline_mn):
             # for i, t_L in enumerate(self.all_obs_times):
             calc_source = self.calc_sources[self.get_source_index(t_L)]
-            attitude = self.get_attitude(t_L)
+            attitude = self.get_attitude(t_L, unit=False)
             left_index = get_left_index(self.att_knots, t=t_L, M=self.M)
             obs_time_index = list(self.all_obs_times).index(t_L)
 
@@ -472,7 +500,7 @@ class Agis:
             dR_dq = compute_dR_dq(calc_source, self.sat, attitude, t_L)
             dR_da_m = dR_da_i(dR_dq, self.att_bases[m_index, obs_time_index])
             dR_da_n = dR_da_i(dR_dq, self.att_bases[n_index, obs_time_index])
-            Naa_mn += dR_da_n @ dR_da_m.T + regularisation_part
+            Naa_mn += regularisation_part + dR_da_n @ dR_da_m.T
 
             if self.verbose:
                 if m_index >= 0:
@@ -482,9 +510,6 @@ class Agis:
                         print('dR_da_m', dR_da_m)
                         print('dR_da_n', dR_da_n)
                         print('Naa_mn', Naa_mn)
-                        print('regularisation_part', regularisation_part)
-                        print('dDL_da_n', dDL_da_n)
-                        print('dDL_da_n shape', dDL_da_n.shape)
         return Naa_mn  # np.eye(4)
 
 

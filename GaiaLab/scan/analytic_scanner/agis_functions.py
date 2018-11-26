@@ -53,7 +53,7 @@ def generate_observation_wrt_attitude(attitude):
     """
     artificial_Su = [1, 0, 0]
     artificial_Cu = ft.xyz_to_lmn(attitude, artificial_Su)
-    alpha, delta, _ = ft.vector_to_polar(artificial_Cu)
+    alpha, delta = ft.vector_to_alpha_delta(artificial_Cu)
     return alpha, delta
 
 
@@ -141,16 +141,17 @@ def get_angular_FFoV_PFoV(sat, t):
     PFoV_CoMRS = ft.xyz_to_lmn(attitude, PFoV_SRS)
     FFoV_CoMRS = ft.xyz_to_lmn(attitude, FFoV_SRS)
 
-    alpha_PFoV, delta_PFoV, _ = ft.vector_to_polar(PFoV_CoMRS)
-    alpha_FFoV, delta_FFoV, _ = ft.vector_to_polar(FFoV_CoMRS)
+    alpha_PFoV, delta_PFoV = ft.vector_to_alpha_delta(PFoV_CoMRS)
+    alpha_FFoV, delta_FFoV = ft.vector_to_alpha_delta(FFoV_CoMRS)
 
     return alpha_PFoV, delta_PFoV, alpha_FFoV, delta_FFoV
 
 
 # ### For scanner --------------------------------------------------------------
-def get_interesting_days(ti, tf, sat, source):
+def get_interesting_days(ti, tf, sat, source, zeta_limit):
+    # print(zeta_limit)
     day_list = []
-    zeta_limit = np.radians(3)
+    zeta_limit = min(0.5*6, 3)  # why *6 ??
     time_step = 1
     days = np.arange(ti, tf, time_step)
     for t in days:
@@ -199,19 +200,25 @@ def multi_compare_attitudes(gaia, Solver, my_times):
     # axes = [axs[0, 0], axs[0, 1], axs[ 1,0], axs[1,1]]
     colors = ['red', 'cyan', 'blue', 'green']
     titles = ["w", "x", "y", "z"]
-    labels_gaia = ["w", "x", "y", "z"]
+    labels_gaia = ["w_gaia", "x_gaia", "y_gaia", "z_gaia"]
     labels_solver = ["w_solv", "x_solv", "y_solv", "z_solv"]
     gaia_attitudes = [gaia.s_w(my_times), gaia.s_x(my_times),
                       gaia.s_y(my_times), gaia.s_z(my_times)]
     solver_attitudes = []
+    error_component = []
     for i, ax in enumerate(axs):
-        ax.plot(my_times, gaia_attitudes[i], '-', color='k', label=labels_gaia[i])
-        ax.plot(my_times, Solver.attitude_splines[i](my_times), ':+', color=colors[i], label=labels_solver[i],
+
+        Solver_attitude = Solver.attitude_splines[i](my_times)
+        error_component = np.abs(gaia_attitudes[i] - Solver_attitude).sum()
+        ax.plot(my_times, gaia_attitudes[i], '.:', color='k', label=labels_gaia[i])
+        ax.plot(my_times, Solver_attitude, ':+', color=colors[i], label=labels_solver[i],
                 alpha=0.8)
-        ax.grid(), ax.legend(), ax.set_title(titles[i]), ax.set_xlabel("my_times [%s]" % len(my_times))
+        ax.set_title(titles[i] + ' error: ' + str(error_component))
+        ax.grid(), ax.legend(), ax.set_xlabel("my_times [%s]" % len(my_times))
 
     plt.suptitle('Attitudes in time intervals')
     plt.show()
+    return fig
 # ## end just for plotting
 
 

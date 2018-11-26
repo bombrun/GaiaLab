@@ -3,10 +3,10 @@
 
 # You can set these variables from the command line.
 SPHINXOPTS    =
-SPHINXBUILD   = sphinx-build
-SPHINXPROJ    = gaiaLab
+# sphinx-build
+SPHINXBUILD   = python3 -msphinx
 SOURCEDIR     = source
-BUILDDIR      = build # should we use "." or "docs" ?
+BUILDDIR      = build
 
 # Put it first so that "make" without argument is like "make help".
 help:
