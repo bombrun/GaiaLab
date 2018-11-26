@@ -16,6 +16,31 @@ import matplotlib.pylab as plt
 import scipy.sparse as sps
 
 
+def make_symmetric(sparse_matrix):
+    rows, cols = sparse_matrix.nonzero()
+    sparse_matrix[cols, rows] = sparse_matrix[rows, cols]
+
+    return sparse_matrix
+
+
+def get_sparse_diagonal_matrix_from_half_band(half_band):
+    """it assumes we have the upper hal of the band, i.e. we some zeros at the
+    bottom of band fo rcolumn index greater than 0"""
+    half_band = np.array(half_band)
+    N = half_band.shape[0]
+    half_band_width = half_band.shape[1]
+    diags = []
+    diags.append(half_band[:, 0])
+    for i in range(1, half_band_width):
+        diags.append(half_band[:, i])
+    data = np.array(diags)
+    diags = np.array(range(0, -half_band_width, -1))
+    print(diags)
+    Low = sps.spdiags(data, diags, N, N)  # lower triangular
+    banded_matrix = Low + Low.T - sps.diags(Low.diagonal())  # symmetrize matrix
+    return banded_matrix
+
+
 def normalize(v, tol=1e-10):
     """return normalized version of v"""
     norm = np.linalg.norm(v)

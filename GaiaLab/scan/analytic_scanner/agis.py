@@ -26,6 +26,7 @@ from agis_functions import *
 # global modules
 import numpy as np
 from scipy.interpolate import BSpline
+from scipy import sparse as sps
 
 
 class Calc_source:
@@ -89,6 +90,7 @@ class Agis:
 
         # Mutable:
         self.iter_counter = 0
+        self.N = 0  # not necessary
 
         # Setting observation times
         all_obs_times = []
@@ -357,14 +359,14 @@ class Agis:
 
     #
     # ### For attitude update --------------------------------------------------
-    def get_attitude(self, t, unit=False):
+    def get_attitude(self, t, unit=True):
         s_w = self.attitude_splines[0]
         s_x = self.attitude_splines[1]
         s_y = self.attitude_splines[2]
         s_z = self.attitude_splines[3]
         attitude = Quaternion(s_w(t), s_x(t), s_y(t), s_z(t))
         if unit:
-            attitude = attitude.unit()  # # TODO: is this necessary?
+            attitude = attitude.unit()
         return attitude
 
     def actualise_splines(self):
@@ -427,6 +429,17 @@ class Agis:
         self.h = RHS.copy()
         return RHS
 
+    def attitude_LHS_band(self):
+        N_aa_band = np.zeros((self.N*4, 16))
+        for n in range(0, self.N):
+            for i, m in enumerate(range(n, min(n+4, self.N*4))):
+                N_aa_band[n*4:n*4+4, i:i+4] = self.compute_Naa_mn(m, n)
+        return N_aa_band
+
+    def attitude_LHS_from_band(N_aa_band):
+        N_aa_sps = helpers.get_sparse_diagonal_matrix_from_half_band(N_aa_band)
+        return N_aa_sps.toarray()
+
     def get_source_index(self, t):
         """ get the index of the source corresponding to observation t"""
         if t in self.time_dict:
@@ -440,7 +453,7 @@ class Agis:
         for i, t_L in enumerate(time_support_spline_n):
             source_index = self.get_source_index(t_L)
             calc_source = self.calc_sources[source_index]
-            attitude = self.get_attitude(t_L)
+            attitude = self.get_attitude(t_L, unit=False)
             left_index = get_left_index(self.att_knots, t_L, M=self.M)
             obs_time_index = list(self.all_obs_times).index(t_L)
 
@@ -462,8 +475,6 @@ class Agis:
     def compute_Naa_mn(self, m_index, n_index):
         """compute dR/da (i.e. wrt coeffs)"""
         Naa_mn = np.zeros((4, 4))
-        # if ( (m_index+self.M) == self.att_knots.shape[0]) or ((n_index+self.M) == self.att_knots.shape[0]):
-        # print('m:', m_index, '   || n:', n_index)
         time_support_spline_m = get_times_in_knot_interval(self.all_obs_times, self.att_knots, m_index, self.M)
         time_support_spline_n = get_times_in_knot_interval(self.all_obs_times, self.att_knots, n_index, self.M)
         time_support_spline_mn = np.sort(helpers.get_lists_intersection(time_support_spline_m, time_support_spline_n))
@@ -471,7 +482,7 @@ class Agis:
         for i, t_L in enumerate(time_support_spline_mn):
             # for i, t_L in enumerate(self.all_obs_times):
             calc_source = self.calc_sources[self.get_source_index(t_L)]
-            attitude = self.get_attitude(t_L)
+            attitude = self.get_attitude(t_L, unit=False)
             left_index = get_left_index(self.att_knots, t=t_L, M=self.M)
             obs_time_index = list(self.all_obs_times).index(t_L)
 
@@ -489,7 +500,7 @@ class Agis:
             dR_dq = compute_dR_dq(calc_source, self.sat, attitude, t_L)
             dR_da_m = dR_da_i(dR_dq, self.att_bases[m_index, obs_time_index])
             dR_da_n = dR_da_i(dR_dq, self.att_bases[n_index, obs_time_index])
-            Naa_mn += regularisation_part + dR_da_n @ dR_da_m.T 
+            Naa_mn += regularisation_part + dR_da_n @ dR_da_m.T
 
             if self.verbose:
                 if m_index >= 0:
@@ -499,9 +510,6 @@ class Agis:
                         print('dR_da_m', dR_da_m)
                         print('dR_da_n', dR_da_n)
                         print('Naa_mn', Naa_mn)
-                        print('regularisation_part', regularisation_part)
-                        print('dDL_da_n', dDL_da_n)
-                        print('dDL_da_n shape', dDL_da_n.shape)
         return Naa_mn  # np.eye(4)
 
 
