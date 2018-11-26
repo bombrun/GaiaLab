@@ -1,7 +1,6 @@
 Documentation for the Code
 **************************
 
-
 constants
 =========
 .. automodule:: constants
