@@ -2,18 +2,20 @@
 file agis.py
 Contains implementation of classes Calc_source and Agis
 
-author: Luca Zampieri
+:Authors:
+    Luca Zampieri
 
-*Notes:*
-    - In this file, when there is a reference, unless explicitly stated otherwise,
-    it refers to Lindegren main article:
-    "The astronometric core solution for the Gaia mission - overview of models,
-    algorithms, and software implementation" by L. Lindegren, U. Lammer,
-    D. Hobbs, W. O'Mullane, U. Bastian, and J.Hernandez
-    The reference is usually made in the following way: Ref. Paper eq. [1]
+:Notes:
 
-    - t (float): time from J2000 [days]
-    such that t_ep = 0
+- In this file, when there is a reference, unless explicitly stated otherwise,
+  it refers to Lindegren main article:
+  "The astronometric core solution for the Gaia mission - overview of models,
+  algorithms, and software implementation" by L. Lindegren, U. Lammer,
+  D. Hobbs, W. O'Mullane, U. Bastian, and J.Hernandez
+  The reference is usually made in the following way; Ref. Paper eq. [1]
+- t (float),  time from J2000 [days]
+  such that t_ep = 0
+
 """
 # # Imports
 # Local modules

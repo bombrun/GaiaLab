@@ -7,6 +7,9 @@ Welcome to GaiaLab's documentation!
    :caption: Contents:
 
    README
+   installation
+   Code_documentation/code
+
 
 
 Indices and tables
