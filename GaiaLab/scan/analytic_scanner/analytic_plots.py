@@ -40,9 +40,9 @@ def plot_attitude(sat, ti, tf, n_points=1000, figsize=(9, 5)):
     :param ti: initial time [days]
     :param tf: final time [days]
     :param n_points: number of points to be plotted of the function
-    :return:
-    Plot of the 4 components of the attitude of the satellite.
-    attitude = (t, x, y, z)
+    :action: Plot of the 4 components of the attitude of the satellite.
+             attitude = (t, x, y, z)
+
     Each graph plots time in days versus each component evolution wrt time.
 
     note: the difference between this function and the function under the same
@@ -184,7 +184,6 @@ def plot_prediction_VS_reality(source, satellite, scan, num_observations=0, angl
     :param satellite: Satellite object
     :param scan: scan object
     :param num_observations: number of observation we want to plot
-    :param
     :return: plot of position of observations and their error bars.
     """
 
@@ -681,7 +680,7 @@ def plot_longitud_latitude(sat, ti, tf, dt):
     :param tf: final time [days]
     :param dt: step time for calculating the data point [days]
     :return: plots the longitud and latitude angles in degrees of the z-axis of the scanner
-    with respect to the LMN frame.
+             with respect to the LMN frame.
     """
 
     sat.reset(ti, tf, dt)
