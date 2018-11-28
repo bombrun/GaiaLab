@@ -1,12 +1,13 @@
+# -*- coding: utf-8 -*-
+
 """
 File constants.py
-This file stores the constants used, in order to avoid magic numbers in the code
 
 File containing the constants that will be used in the other files. This will
 allow to avoid "magic numbers" in the code and also to easily change these
 constants if we later need them more or less precises
 
-author:: Luca Zampieri 2018
+:Author: Luca Zampieri 2018
 """
 
 # # Imports

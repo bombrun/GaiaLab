@@ -1,9 +1,11 @@
+# -*- coding: utf-8 -*-
+
 """
 file agis.py
 Contains implementation of classes Calc_source and Agis
 
 :Authors:
-    Luca Zampieri
+    LucaZampieri
 
 :Notes:
 
@@ -159,9 +161,10 @@ class Agis:
     def deviate_field_angles_color_aberration(self, source_index, t, angles):
         """ apply color aberration deviation to field angles (eta, zeta)"""
         # # WARNING: check also deviation in the source update
+        eta_obs, zeta_obs, eta_calc, zeta_calc = angles
+        # if self.degree_error != 0:
         f_color = self.real_sources[source_index].func_color(t)  # # TODO: separate eta zeta
         m_color = self.real_sources[source_index].mean_color
-        eta_obs, zeta_obs, eta_calc, zeta_calc = angles
         eta_obs, zeta_obs = compute_deviated_angles_color_aberration(eta_obs, zeta_obs, f_color, self.degree_error)
         eta_calc, zeta_calc = compute_deviated_angles_color_aberration(eta_calc, zeta_calc, m_color, self.degree_error)
         return eta_obs, zeta_obs, eta_calc, zeta_calc
@@ -173,8 +176,8 @@ class Agis:
         R_eta, R_zeta = (0, 0)
 
         angles = self.get_field_angles(source_index, t)
-        if self.degree_error != 0:
-            eta_obs, zeta_obs, eta_calc, zeta_calc = self.deviate_field_angles_color_aberration(source_index, t, angles)
+
+        eta_obs, zeta_obs, eta_calc, zeta_calc = self.deviate_field_angles_color_aberration(source_index, t, angles)
 
         R_eta = eta_obs - eta_calc  # AL
         R_zeta = zeta_obs - zeta_calc  # AC

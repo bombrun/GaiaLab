@@ -1,13 +1,15 @@
+# -*- coding: utf-8 -*-
+
 """
 File helpers.py
 
 Helper functions for the analytic scanner
 
-Contains:
+Contains: (at least)
     - compute_intersection
     - compute_angle
 
-author: LucaZampieri 2018
+:Author: LucaZampieri (2018)
 """
 
 # # Imports

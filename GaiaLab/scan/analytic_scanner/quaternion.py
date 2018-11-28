@@ -4,8 +4,9 @@ Quaternion class implementation for python.
 Offers native integration of operators between quaternions generated and
 numpy data structures.
 
-Toby James 2018
-modified LucaZampieri 2018
+:Authors:
+    Toby James 2018
+    LucaZampieri 2018 (modifications)
 """
 
 import numpy as np

@@ -1,9 +1,11 @@
+# -*- coding: utf-8 -*-
+
 """
-agis_helpers.py
+File agis_helpers.py
 functions that uses the classes source, satellite but don't belong to a
 given file yet
 :used by: (at least) agis.py & scanner.py
-author: LucaZampieri
+:author: LucaZampieri
 
 When cleaning this file search for ???, LUCa, warning , error, debug, print?
 
