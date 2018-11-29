@@ -95,6 +95,8 @@ class Agis:
         # Mutable:
         self.iter_counter = 0
         self.N = 0  # not necessary
+        self.attitude_der_matrix = None  # sparse attitude derivative matrix
+        self.attitude_reg_matrix = None  # sparse attitude derivative matrix
 
         # Setting observation times
         all_obs_times = []
@@ -187,7 +189,7 @@ class Agis:
             print(t, 'computed: ', eta_calc, zeta_calc)
         return R_L
 
-    def iterate(self, num):
+    def iterate(self, num, use_sparse=False):
         """
         Do _num_ iterations
         """
@@ -201,7 +203,7 @@ class Agis:
                 self.update_S_block()
 
             elif self.updating == 'attitude':
-                self.update_A_block()
+                self.update_A_block(use_sparse)
                 error = error_between_func_attitudes(self.all_obs_times, self.sat.func_attitude, self.get_attitude)
                 print('attitude error:', error)
 
@@ -383,27 +385,34 @@ class Agis:
         for i in range(self.N):
             self.att_coeffs[:, i] /= np.linalg.norm(self.att_coeffs[:, i])
 
-    def update_A_block(self):  # one
+    def update_A_block(self, use_sparse=False):  # one
         """ solve the components together"""
-        LHS = self.compute_attitude_LHS()
-        # LHS = self.N_aa
-        RHS = self.compute_attitude_RHS()
-        # RHS = self.h
-        d = np.linalg.solve(LHS, RHS)
+        if use_sparse is True:
+            self.compute_sparses_matrices()
+            LHS = self.attitude_der_matrix + self.attitude_reg_matrix
+            RHS = self.compute_attitude_RHS()
+            d = sps.linalg.spsolve(LHS, RHS)
+            print(d.shape)
 
-        # L = np.linalg.cholesky(LHS)
-        # y = np.linalg.solve(L, RHS)
-        # d = np.linalg.solve(L.T, y)
-        # d = np.linalg.lstsq(LHS, RHS)  # not what it is for
-        self.d = d
-        c_update = d.reshape(self.att_coeffs.shape)
-        for i in range(0, self.att_coeffs.shape[1]):
-            c_update[0, i] = d[i*4]
-            c_update[1, i] = d[i*4+1]
-            c_update[2, i] = d[i*4+2]
-            c_update[3, i] = d[i*4+3]
-        self.c_update = c_update.copy()
-        self.att_coeffs[:, :] += c_update[:, :].copy()
+        else:
+            LHS = self.compute_attitude_LHS()
+            # LHS = self.N_aa
+            RHS = self.compute_attitude_RHS()
+            # RHS = self.h
+            d = np.linalg.solve(LHS, RHS)
+            # L = np.linalg.cholesky(LHS)
+            # y = np.linalg.solve(L, RHS)
+            # d = np.linalg.solve(L.T, y)
+            # d = np.linalg.lstsq(LHS, RHS)  # not what it is for
+            self.d = d
+            c_update = d.reshape(self.att_coeffs.shape)
+            for i in range(0, self.att_coeffs.shape[1]):
+                c_update[0, i] = d[i*4]
+                c_update[1, i] = d[i*4+1]
+                c_update[2, i] = d[i*4+2]
+                c_update[3, i] = d[i*4+3]
+            self.c_update = c_update.copy()
+            self.att_coeffs[:, :] += c_update[:, :].copy()
         self.actualise_splines()  # Create the new splines
 
     def update_A_block_bis(self):  # bis
@@ -435,17 +444,6 @@ class Agis:
         self.h = RHS.copy()
         return RHS
 
-    def attitude_LHS_band(self):
-        N_aa_band = np.zeros((self.N*4, 16))
-        for n in range(0, self.N):
-            for i, m in enumerate(range(n, min(n+4, self.N*4))):
-                N_aa_band[n*4:n*4+4, i:i+4] = self.compute_Naa_mn(m, n)
-        return N_aa_band
-
-    def attitude_LHS_from_band(N_aa_band):
-        N_aa_sps = helpers.get_sparse_diagonal_matrix_from_half_band(N_aa_band)
-        return N_aa_sps.toarray()
-
     def get_source_index(self, t):
         """ get the index of the source corresponding to observation t"""
         if t in self.time_dict:
@@ -475,7 +473,7 @@ class Agis:
             dR_da_n = dR_da_i(dR_dq, self.att_bases[n_index, obs_time_index])
             R_L = self.compute_R_L(source_index, t_L)
 
-            rhs += dR_da_n * R_L + regularisation_part
+            rhs += regularisation_part + dR_da_n * R_L
         return -rhs
 
     def compute_Naa_mn(self, m_index, n_index):
@@ -517,6 +515,67 @@ class Agis:
                         print('dR_da_n', dR_da_n)
                         print('Naa_mn', Naa_mn)
         return Naa_mn  # np.eye(4)
+
+    # ### Sparse implementation
+    def compute_attitude_banded_derivative_and_regularisation_matrices(self):
+        dR_da_band = np.zeros((self.N*4, 16))
+        dD_da_band = np.zeros((self.N*4, 16))
+        for n in range(0, self.N):
+            for i, m in enumerate(range(n, min(n+4, self.N*4))):
+                dR_da_band[n*4:n*4+4, i:i+4] = self.compute_matrix_dR_da_mn(m, n)
+                dD_da_band[n*4:n*4+4, i:i+4] = self.compute_matrix_dD_da_mn(m, n)
+        return dR_da_band, dD_da_band
+
+    def compute_sparses_matrices(self, der_band, reg_band):
+        self.attitude_der_matrix = helpers.get_sparse_diagonal_matrix_from_half_band(der_band)
+        self.attitude_reg_matrix = helpers.get_sparse_diagonal_matrix_from_half_band(reg_band)
+
+
+    def attitude_LHS_from_band(N_aa_band):
+        N_aa_sps = helpers.get_sparse_diagonal_matrix_from_half_band(N_aa_band)
+        return N_aa_sps.toarray()
+
+    def compute_matrix_dD_da_mn(self, m_index, n_index):
+        """compute $lambda^2 dD/da_m * dD/da_n^T$ (i.e. wrt coeffs)"""
+        dD_da_mn = np.zeros((4, 4))
+        time_support_spline_m = get_times_in_knot_interval(self.all_obs_times, self.att_knots, m_index, self.M)
+        time_support_spline_n = get_times_in_knot_interval(self.all_obs_times, self.att_knots, n_index, self.M)
+        time_support_spline_mn = np.sort(helpers.get_lists_intersection(time_support_spline_m, time_support_spline_n))
+
+        for i, t_L in enumerate(time_support_spline_mn):
+            attitude = self.get_attitude(t_L, unit=False)
+            left_index = get_left_index(self.att_knots, t=t_L, M=self.M)
+            obs_time_index = list(self.all_obs_times).index(t_L)
+            # Compute the regulation part
+            coeff_basis_sum = compute_coeff_basis_sum(self.att_coeffs, self.att_bases,
+                                                      left_index, self.M, obs_time_index)
+            dDL_da_n = compute_DL_da_i(coeff_basis_sum, self.att_bases, obs_time_index, n_index)
+            dDL_da_m = compute_DL_da_i(coeff_basis_sum, self.att_bases, obs_time_index, m_index)
+            dD_da_mn += self.attitude_regularisation_factor**2 * dDL_da_n @ dDL_da_m.T
+
+        return dD_da_mn
+
+    def compute_matrix_dR_da_mn(self, m_index, n_index):
+        """compute dR/da (i.e. wrt coeffs)"""
+        dR_da_mn = np.zeros((4, 4))
+        time_support_spline_m = get_times_in_knot_interval(self.all_obs_times, self.att_knots, m_index, self.M)
+        time_support_spline_n = get_times_in_knot_interval(self.all_obs_times, self.att_knots, n_index, self.M)
+        time_support_spline_mn = np.sort(helpers.get_lists_intersection(time_support_spline_m, time_support_spline_n))
+
+        for i, t_L in enumerate(time_support_spline_mn):
+            # for i, t_L in enumerate(self.all_obs_times):
+            calc_source = self.calc_sources[self.get_source_index(t_L)]
+            attitude = self.get_attitude(t_L, unit=False)
+            obs_time_index = list(self.all_obs_times).index(t_L)
+
+            # Compute the original objective function part
+            # # WARNING: Here we put the Across scan and the along scan together
+            dR_dq = compute_dR_dq(calc_source, self.sat, attitude, t_L)
+            dR_da_m = dR_da_i(dR_dq, self.att_bases[m_index, obs_time_index])
+            dR_da_n = dR_da_i(dR_dq, self.att_bases[n_index, obs_time_index])
+            dR_da_mn += dR_da_n @ dR_da_m.T
+
+        return dR_da_mn
 
 
 if __name__ == '__main__':
