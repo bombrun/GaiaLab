@@ -20,6 +20,17 @@ import numpy as np
 from quaternion import Quaternion
 
 
+def zero_to_two_pi_to_minus_pi_pi(angle):
+    """
+    Tranforms an angle in range [0-2*pi] to range [-pi, pi]
+    :param angle: [rad] angle or array of angles in [0-2*pi] format
+    :returns: angles in the [-pi, pi] format
+    """
+    indices_to_modify = np.where(angle > np.pi)
+    angle[indices_to_modify] = angle[indices_to_modify] - 2*pi
+    return angle
+
+
 def rotate_by_angle(vector, angle):
     quaternion = Quaternion(vector=vector, angle=angle)
     rotated_vector = rotate_by_quaternion(quaternion, vector)

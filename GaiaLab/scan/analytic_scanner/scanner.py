@@ -152,12 +152,12 @@ class Scanner:
                                         xtol=2e-20, rtol=8.881784197001252e-16,
                                         maxiter=100, full_output=True, disp=False)
                 self.obs_times.append(x0)
-                if FoV == 'preceding':
+                """if FoV == 'preceding':
                     self.obs_times_PFoV.append(x0)
                 elif FoV == 'following':
                     self.obs_times_FFoV.append(x0)
                 else:
-                    pass
+                    pass"""
             t_old = t+time_step
         return time.time()-t0  # Total measured time
         # End of function
