@@ -76,6 +76,8 @@ class Agis:
         # The four parameter vector
         # self.s_param  # source parameters (for each calc_source)
         # self.att_coeffs  # attitude parameters
+        Attributes:
+            calc_sources: list of estimated sources
         """
         # Objects:
         self.calc_sources = calc_sources
@@ -135,7 +137,7 @@ class Agis:
             for j, t_L in enumerate(s.obs_times):
                 R_L = self.compute_R_L(source_index, t_L)
                 error += R_L ** 2
-        return error  # / self.all_obs_times.shape[0])/const.rad_per_mas
+        return error / self.all_obs_times.shape[0]  # /const.rad_per_mas
 
     def get_field_angles(self, source_index, t):
         """ :returns: [eta_obs, zeta_obs, eta_calc, zeta_calc]"""
@@ -235,9 +237,54 @@ class Agis:
             print('dim A:{}\ndim W:{}\ndim h:{}\ndim d:{}'
                   .format(A.shape, W.shape, h.shape, d.shape))
 
-    def du_tilde_ds(self, source_index):
+    def compute_h(self, source_index):
+        """Ref. Paper eq. [59]
+        Source update Right hand side"""
+        calc_source = self.calc_sources[source_index]
+        h = np.zeros((len(calc_source.obs_times), 1))
+        for i, t_L in enumerate(calc_source.obs_times):
+            h[i, 0] = self.compute_R_L(source_index, t_L)
+        if self.verbose:
+            print('h: {}'.format(h))
+        return h
+
+    def block_S_error_rate_matrix(self, source_index):
+        """ Ref. Paper eq. [58]
+        error matrix for the block update S"""
+        du_ds = self.compute_du_ds(source_index)
+        return -self.dR_ds(source_index, du_ds)
+
+    def dR_ds(self, source_index, du_ds):
+        """ Ref. Paper eq. [71]
+        Computes the derivative of the error (R_l) wrt the 5 astronomic parameters
+        s_i transposed.
+        :param kind: either AL for ALong scan direction or AC for ACross scan direction
+        :returns:
+        """
+
+        calc_source = self.calc_sources[source_index]
+        dR_ds_AL = np.zeros((len(calc_source.obs_times), 5))
+        dR_ds_AC = np.zeros(dR_ds_AL.shape)
+
+        for i, t_L in enumerate(calc_source.obs_times):
+            if self.updating == 'source':
+                attitude = self.get_attitude_for_source(source_index, t_L)
+            elif self.updating == 'scanned source':
+                attitude = self.sat.func_attitude(t_L)
+            else:
+                raise ValueError('not yet implemented for this kind of updating')
+            # Set double_telescope to False to get phi
+            phi, zeta = calculated_field_angles(calc_source, attitude, self.sat, i, double_telescope=False)
+            phi, zeta = compute_deviated_angles_color_aberration(phi, zeta, calc_source.mean_color, self.degree_error)
+            m, n, u = compute_mnu(phi, zeta)
+            dR_ds_AL[i, :] = -m @ du_ds[:, :, i].transpose() * helpers.sec(zeta)
+            dR_ds_AC[i, :] = -n @ du_ds[:, :, i].transpose()
+
+        return dR_ds_AL + dR_ds_AC
+
+    def compute_du_ds(self, source_index):
         """ Ref. Paper eq. [73]
-        Compute dũ_ds far a given source
+        Compute dũ_ds for a given source
         :param:
         :returns:
         :used names:
@@ -266,94 +313,28 @@ class Agis:
             du_dparallax = compute_du_dparallax(r, b_G)
             du_dmualpha = p*tau
             du_dmudelta = q*tau
-            du_ds[:, :, j] = [du_dalpha, du_ddelta, du_dparallax, du_dmualpha, du_dmudelta]
+            CoMRS_derivatives = [du_dalpha, du_ddelta, du_dparallax, du_dmualpha, du_dmudelta]
+            SRS_derivatives = self.CoMRS_to_SRS_for_source_derivatives(CoMRS_derivatives, calc_source, t_l)
+            du_ds[:, :, j] = SRS_derivatives
         if self.verbose:
             print('du_ds.shape: {}'.format(du_ds.shape))
         return du_ds
 
-    def du_ds(self, source_index):
-        """ [not yet complete] Ref. Paper eq. [75]
-        returns the derivative of the proper direction w.r.t. the astronomic
-        parameters.
-        take into account aberrationn of light
-        :param du_ds_tilde: in the CoRMS frame (lmn)
-        :returns du_ds: in the SRS frame (xyz)
-        """
-        # TODO: implement stellar aberation
-        if self.consider_stellar_aberation:
-            raise ValueError('Stellar aberation not yet implemented')
-        # u = compute_coordinate_direction()
-        # coeff = (1-u.transpose()*v_g/const.c)I - u*v_G.transpose()/const.c
-        calc_source = self.calc_sources[source_index]
-        coeff = 1
-        C_du_ds = coeff * self.du_tilde_ds(source_index)
-        S_du_ds = self.C_du_ds_to_S_du_ds(source_index, C_du_ds)
-        if self.verbose:
-            print('S_du_ds shape: {}'.format(S_du_ds.shape))
-        return S_du_ds
-
-    def C_du_ds_to_S_du_ds(self, source_index, C_du_ds):
+    def CoMRS_to_SRS_for_source_derivatives(self, CoMRS_derivatives, calc_source, t_L):
         """ Ref. Paper eq. [72]
-        rotate the frame from CoRMS (lmn) to SRS (xyz) for du_ds
+        rotate the frame from CoRMS (lmn) to SRS (xyz) for the given derivatives
         """
-        calc_source = self.calc_sources[source_index]
-        S_du_ds = np.zeros(C_du_ds.shape)
-        for i in range(C_du_ds.shape[0]):  # TODO: remove these ugly for loop
-            for j in range(C_du_ds.shape[-1]):
-                t_L = calc_source.obs_times[j]
-                if self.updating == 'source':
-                    attitude = self.get_attitude_for_source(source_index, t_L)
-                elif self.updating == 'scanned source':
-                    attitude = self.sat.func_attitude(t_L)
-                else:  # attitude = self.get_attitude(t_L)
-                    raise ValueError('Not yet implemented for this case')
-                S_du_ds[i, :, j] = ft.lmn_to_xyz(attitude, C_du_ds[i, :, j])
-        return S_du_ds
+        SRS_derivatives = []
+        if self.updating == 'source':
+            attitude = self.get_attitude_for_source(source_index, t_L)
+        elif self.updating == 'scanned source':
+            attitude = self.sat.func_attitude(t_L)
+        else:  # attitude = self.get_attitude(t_L)
+            raise ValueError('Not yet implemented for this case')
 
-    def dR_ds(self, source_index):
-        """ Ref. Paper eq. [71]
-        Computes the derivative of the error (R_l) wrt the 5 astronomic parameters
-        s_i transposed.
-        :param kind: either AL for ALong scan direction or AC for ACross scan direction
-        :returns:
-        """
-
-        calc_source = self.calc_sources[source_index]
-        du_ds = self.du_ds(source_index)
-        dR_ds_AL = np.zeros((len(calc_source.obs_times), 5))
-        dR_ds_AC = np.zeros(dR_ds_AL.shape)
-
-        for i, t_L in enumerate(calc_source.obs_times):
-            if self.updating == 'source':
-                attitude = self.get_attitude_for_source(source_index, t_L)
-            elif self.updating == 'scanned source':
-                attitude = self.sat.func_attitude(t_L)
-            else:
-                raise ValueError('not yet implemented for this kind of updating')
-            # Set double_telescope to False to get phi
-            phi, zeta = calculated_field_angles(calc_source, attitude, self.sat, i, double_telescope=False)
-            phi, zeta = compute_deviated_angles_color_aberration(phi, zeta, calc_source.mean_color, self.degree_error)
-            m, n, u = compute_mnu(phi, zeta)
-            dR_ds_AL[i, :] = -m @ du_ds[:, :, i].transpose() * helpers.sec(zeta)
-            dR_ds_AC[i, :] = -n @ du_ds[:, :, i].transpose()
-
-        return dR_ds_AL + dR_ds_AC
-
-    def block_S_error_rate_matrix(self, source_index):
-        """ Ref. Paper eq. [58]
-        error matrix for the block update S"""
-        return -self.dR_ds(source_index)
-
-    def compute_h(self, source_index):
-        """Ref. Paper eq. [59]
-        Source update Right hand side"""
-        calc_source = self.calc_sources[source_index]
-        h = np.zeros((len(calc_source.obs_times), 1))
-        for i, t_L in enumerate(calc_source.obs_times):
-            h[i, 0] = self.compute_R_L(source_index, t_L)
-        if self.verbose:
-            print('h: {}'.format(h))
-        return h
+        for derivative in CoMRS_derivatives:  # TODO: remove these ugly for loop
+            SRS_derivatives.append(ft.lmn_to_xyz(attitude, derivative))
+        return SRS_derivatives
 
     def get_attitude_for_source(self, source_index, t):
         """ For only source updating with color aberration.
@@ -388,7 +369,8 @@ class Agis:
     def update_A_block(self, use_sparse=False):  # one
         """ solve the components together"""
         if use_sparse is True:
-            self.compute_sparses_matrices()
+            der_band, reg_band = self.compute_attitude_banded_derivative_and_regularisation_matrices()
+            self.compute_sparses_matrices(der_band, reg_band)
             LHS = self.attitude_der_matrix + self.attitude_reg_matrix
             RHS = self.compute_attitude_RHS()
             d = sps.linalg.spsolve(LHS, RHS)
@@ -530,7 +512,6 @@ class Agis:
         self.attitude_der_matrix = helpers.get_sparse_diagonal_matrix_from_half_band(der_band)
         self.attitude_reg_matrix = helpers.get_sparse_diagonal_matrix_from_half_band(reg_band)
 
-
     def attitude_LHS_from_band(N_aa_band):
         N_aa_sps = helpers.get_sparse_diagonal_matrix_from_half_band(N_aa_band)
         return N_aa_sps.toarray()
@@ -580,3 +561,47 @@ class Agis:
 
 if __name__ == '__main__':
     print('Executing agis.py as main file')
+
+
+# ### Deprecated function (here just as backup) ################################
+def C_du_ds_to_S_du_ds(self, source_index, C_du_ds):
+    """ Ref. Paper eq. [72]
+    rotate the frame from CoRMS (lmn) to SRS (xyz) for du_ds
+    """
+    calc_source = self.calc_sources[source_index]
+    S_du_ds = np.zeros(C_du_ds.shape)
+
+    for j in range(C_du_ds.shape[-1]):  # TODO: remove these ugly for loop
+        t_L = calc_source.obs_times[j]
+        if self.updating == 'source':
+            attitude = self.get_attitude_for_source(source_index, t_L)
+        elif self.updating == 'scanned source':
+            attitude = self.sat.func_attitude(t_L)
+        else:  # attitude = self.get_attitude(t_L)
+            raise ValueError('Not yet implemented for this case')
+        for i in range(C_du_ds.shape[0]):  # TODO: remove these ugly for loop
+            S_du_ds[i, :, j] = ft.lmn_to_xyz(attitude, C_du_ds[i, :, j])
+    return S_du_ds
+
+
+def du_ds(self, source_index, du_tilde_ds):
+    """ [not yet complete] Ref. Paper eq. [75]
+    returns the derivative of the proper direction w.r.t. the astronomic
+    parameters.
+    take into account aberrationn of light
+    :param du_ds_tilde: in the CoRMS frame (lmn)
+    :returns du_ds: in the SRS frame (xyz)
+    """
+    # TODO: implement stellar aberation
+    if self.consider_stellar_aberation:
+        raise ValueError('Stellar aberation not yet implemented')
+    # u = compute_coordinate_direction()
+    # coeff = (1-u.transpose()*v_g/const.c)I - u*v_G.transpose()/const.c
+    coeff = 1
+
+    calc_source = self.calc_sources[source_index]
+    C_du_ds = coeff * du_tilde_ds
+    S_du_ds = self.C_du_ds_to_S_du_ds(source_index, C_du_ds)
+    if self.verbose:
+        print('S_du_ds shape: {}'.format(S_du_ds.shape))
+    return S_du_ds
