@@ -1,8 +1,11 @@
+# -*- coding: utf-8 -*-
+
 """
 Source class implementation in Python
 
 
-@author: mdelvallevaro
+:Authors: mdelvallevaro
+          LucaZampier (modifications)
 """
 
 # # Imports

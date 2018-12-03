@@ -1,13 +1,15 @@
+# -*- coding: utf-8 -*-
+
 """
 File helpers.py
 
 Helper functions for the analytic scanner
 
-Contains:
+Contains: (at least)
     - compute_intersection
     - compute_angle
 
-author: LucaZampieri 2018
+:Author: LucaZampieri (2018)
 """
 
 # # Imports
@@ -25,18 +27,23 @@ def make_symmetric(sparse_matrix):
 
 def get_sparse_diagonal_matrix_from_half_band(half_band):
     """it assumes we have the upper hal of the band, i.e. we some zeros at the
-    bottom of band fo rcolumn index greater than 0"""
+    bottom of band for column index greater than 0"""
     half_band = np.array(half_band)
     N = half_band.shape[0]
+    for i in range(0, N//4, 1):
+        half_band[i*4+1, :] = np.append(half_band[i*4+1, 1:], [0], axis=0)
+        half_band[i*4+2, :] = np.append(half_band[i*4+2, 2:], [0, 0], axis=0)
+        half_band[i*4+3, :] = np.append(half_band[i*4+3, 3:], [0, 0, 0], axis=0)
     half_band_width = half_band.shape[1]
     diags = []
-    diags.append(half_band[:, 0])
-    for i in range(1, half_band_width):
+    for i in range(0, half_band_width):
         diags.append(half_band[:, i])
+
     data = np.array(diags)
-    diags = np.array(range(0, -half_band_width, -1))
-    print(diags)
-    Low = sps.spdiags(data, diags, N, N)  # lower triangular
+    # print(diags)
+    offsets = np.array(range(0, -half_band_width, -1))
+    # print(diags)
+    Low = sps.spdiags(data, offsets, N, N)  # lower triangular
     banded_matrix = Low + Low.T - sps.diags(Low.diagonal())  # symmetrize matrix
     return banded_matrix
 

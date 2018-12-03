@@ -83,7 +83,7 @@ class test_scanner(unittest.TestCase):
     def setUp(self):
         self.scanner = Scanner()
 
-    def test_scanner_by_day():
+    def test_scanner_by_day(self):
         pass
 
 
@@ -291,6 +291,16 @@ class test_agis(unittest.TestCase):
         self.assertAlmostEqual(dDL_da_1[0], dDL_da_2[0], delta=1e-15)
         self.assertAlmostEqual(dDL_da_1[2], dDL_da_2[2], delta=1e-15)
         np.testing.assert_array_almost_equal(dDL_da_1, dDL_da_2, decimal=15)
+
+    def test_equivalence_with_sparse_attitude(self):
+        """
+        Tests if attitude update matrix is the same if computed with the sparse
+        version or the full version. """
+        der_band, reg_band = self.Solver.compute_attitude_banded_derivative_and_regularisation_matrices()
+        self.Solver.compute_sparses_matrices(der_band, reg_band)
+        sparse_matrix = self.Solver.attitude_der_matrix + self.Solver.attitude_reg_matrix
+        full_matrix = self.Solver.compute_attitude_LHS()
+        np.testing.assert_array_almost_equal(sparse_matrix.toarray(), full_matrix)
 
 
 class test_helpers(unittest.TestCase):

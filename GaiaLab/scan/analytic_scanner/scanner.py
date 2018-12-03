@@ -1,7 +1,10 @@
+# -*- coding: utf-8 -*-
+
 """
 Scanner class implementation in Python
 
-@author: LucaZampieri
+:Authors: LucaZampieri (2018)
+         mdelvallevaro (2018)
 """
 
 # # Imports
@@ -23,6 +26,7 @@ from agis_functions import *
 def eta_angle(t, sat, source, FoV='centered'):
     """
     Function to minimize in the scanner.
+    See `observed_field_angles()`
     """
     Gamma_c = const.Gamma_c
 
@@ -116,14 +120,14 @@ class Scanner:
         :action: Find the observation time of the sources
         ideas to optimize: create array with all errors and go pick them as needed
         """
-        print('Starting scan with time from {} to {} days'.format(ti, tf))
+        # print('Starting scan with time from {} to {} days'.format(ti, tf))
         self.reset()
         t0 = time.time()  # for timer
 
         time_step = sat.time_of_revolution/6  # need <= 6th of revolution time
 
         # Get list on which to loop
-        if ti-tf>10:
+        if (tf - ti) > 10:
             day_list = get_interesting_days(ti, tf, sat, source, self.zeta_limit)
             t_list = generate_scanned_times_intervals(day_list, time_step)
         else:
@@ -148,16 +152,14 @@ class Scanner:
                                         xtol=2e-20, rtol=8.881784197001252e-16,
                                         maxiter=100, full_output=True, disp=False)
                 self.obs_times.append(x0)
-                if FoV == 'preceding':
+                """if FoV == 'preceding':
                     self.obs_times_PFoV.append(x0)
                 elif FoV == 'following':
                     self.obs_times_FFoV.append(x0)
                 else:
-                    pass
-
+                    pass"""
             t_old = t+time_step
-
-        print('Total measured time:', time.time()-t0)
+        return time.time()-t0  # Total measured time
         # End of function
 
     def compute_angles_eta_zeta(self, sat, source):

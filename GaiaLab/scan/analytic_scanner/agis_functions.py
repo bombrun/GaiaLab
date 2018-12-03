@@ -1,9 +1,11 @@
+# -*- coding: utf-8 -*-
+
 """
-agis_helpers.py
+File agis_helpers.py
 functions that uses the classes source, satellite but don't belong to a
 given file yet
 :used by: (at least) agis.py & scanner.py
-author: LucaZampieri
+:author: LucaZampieri
 
 When cleaning this file search for ???, LUCa, warning , error, debug, print?
 
@@ -182,7 +184,7 @@ def generate_scanned_times_intervals(day_list, time_step):
 def compare_attitudes(gaia, Solver, my_times):
     fig = plt.figure()
     colors = ['red', 'orange', 'blue', 'green']
-    labels_gaia = ["w", "x", "y", "z"]
+    labels_gaia = ["w_gaia", "x_gaia", "y_gaia", "z_gaia"]
     labels_solver = ["w_solv", "x_solv", "y_solv", "z_solv"]
     gaia_attitudes = [gaia.s_w(my_times), gaia.s_x(my_times),
                       gaia.s_y(my_times), gaia.s_z(my_times)]
