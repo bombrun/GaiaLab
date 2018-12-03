@@ -191,15 +191,19 @@ class Agis:
             print(t, 'computed: ', eta_calc, zeta_calc)
         return R_L
 
-    def iterate(self, num, use_sparse=False):
+    def iterate(self, num, use_sparse=False, verbosity=0):
         """
         Do _num_ iterations
         """
+        if self.verbose is True:
+            verbosity += 1
+
         for i in range(num):
             self.iter_counter += 1
-            print('***** Iteration: {} *****'.format(self.iter_counter))
-            if self.verbose:
-                print('Error before iteration: {}'.format(self.error_function()))
+            if verbosity > 0:
+                print('***** Iteration: {} *****'.format(self.iter_counter))
+                if verbosity > 1:
+                    print('Error before iteration: {}'.format(self.error_function()))
 
             if self.updating == 'source' or self.updating == 'scanned source':
                 self.update_S_block()
@@ -207,9 +211,10 @@ class Agis:
             elif self.updating == 'attitude':
                 self.update_A_block(use_sparse)
                 error = error_between_func_attitudes(self.all_obs_times, self.sat.func_attitude, self.get_attitude)
-                print('attitude error:', error)
-
-            print('Error after iteration: {}'.format(self.error_function()))
+                if verbosity > 1:
+                    print('attitude error:', error)
+            if verbosity > 0:
+                print('Error after iteration: {}'.format(self.error_function()))
     # ### End generic functions ################################################
 
     #
@@ -362,10 +367,6 @@ class Agis:
         for i in range(self.attitude_splines.shape[0]):
             self.attitude_splines[i] = BSpline(self.att_knots, self.att_coeffs[i], k=self.k)
 
-    def normalize_coefficients(self):
-        for i in range(self.N):
-            self.att_coeffs[:, i] /= np.linalg.norm(self.att_coeffs[:, i])
-
     def update_A_block(self, use_sparse=False):  # one
         """ solve the components together"""
         if use_sparse is True:
@@ -374,7 +375,6 @@ class Agis:
             LHS = self.attitude_der_matrix + self.attitude_reg_matrix
             RHS = self.compute_attitude_RHS()
             d = sps.linalg.spsolve(LHS, RHS)
-            print(d.shape)
 
         else:
             LHS = self.compute_attitude_LHS()
@@ -386,15 +386,15 @@ class Agis:
             # y = np.linalg.solve(L, RHS)
             # d = np.linalg.solve(L.T, y)
             # d = np.linalg.lstsq(LHS, RHS)  # not what it is for
-            self.d = d
-            c_update = d.reshape(self.att_coeffs.shape)
-            for i in range(0, self.att_coeffs.shape[1]):
-                c_update[0, i] = d[i*4]
-                c_update[1, i] = d[i*4+1]
-                c_update[2, i] = d[i*4+2]
-                c_update[3, i] = d[i*4+3]
-            self.c_update = c_update.copy()
-            self.att_coeffs[:, :] += c_update[:, :].copy()
+        self.d = d.reshape(self.att_coeffs.shape)
+        c_update = d.reshape(self.att_coeffs.shape)
+        for i in range(0, self.att_coeffs.shape[1]):
+            c_update[0, i] = d[i*4]
+            c_update[1, i] = d[i*4+1]
+            c_update[2, i] = d[i*4+2]
+            c_update[3, i] = d[i*4+3]
+        self.c_update = c_update.copy()
+        self.att_coeffs[:, :] += c_update[:, :].copy()
         self.actualise_splines()  # Create the new splines
 
     def update_A_block_bis(self):  # bis
@@ -409,7 +409,6 @@ class Agis:
 
     def compute_attitude_LHS(self):
         N_aa_dim = self.att_coeffs.shape[1]  # *4
-        print('N_aa_dim:', N_aa_dim)
         N_aa = np.zeros((N_aa_dim*4, N_aa_dim*4))
         for n in range(0, N_aa_dim):  # # TODO:  take advantage of the symmetry
             for m in range(0, N_aa_dim):  # # TODO: avoid doing the brute force version
@@ -498,23 +497,19 @@ class Agis:
                         print('Naa_mn', Naa_mn)
         return Naa_mn  # np.eye(4)
 
-    # ### Sparse implementation
+    # ### Sparse implementation of attitude update-----
     def compute_attitude_banded_derivative_and_regularisation_matrices(self):
         dR_da_band = np.zeros((self.N*4, 16))
         dD_da_band = np.zeros((self.N*4, 16))
         for n in range(0, self.N):
-            for i, m in enumerate(range(n, min(n+4, self.N*4))):
-                dR_da_band[n*4:n*4+4, i:i+4] = self.compute_matrix_dR_da_mn(m, n)
-                dD_da_band[n*4:n*4+4, i:i+4] = self.compute_matrix_dD_da_mn(m, n)
-        return dR_da_band, dD_da_band
+            for i, m in enumerate(range(n, min(n+4, self.N))):
+                dR_da_band[n*4:n*4+4, i*4:i*4+4] = self.compute_matrix_dR_da_mn(m, n)
+                dD_da_band[n*4:n*4+4, i*4:i*4+4] = self.compute_matrix_dD_da_mn(m, n)
+        return dR_da_band, dD_da_band  # der_band, reg_band
 
     def compute_sparses_matrices(self, der_band, reg_band):
         self.attitude_der_matrix = helpers.get_sparse_diagonal_matrix_from_half_band(der_band)
         self.attitude_reg_matrix = helpers.get_sparse_diagonal_matrix_from_half_band(reg_band)
-
-    def attitude_LHS_from_band(N_aa_band):
-        N_aa_sps = helpers.get_sparse_diagonal_matrix_from_half_band(N_aa_band)
-        return N_aa_sps.toarray()
 
     def compute_matrix_dD_da_mn(self, m_index, n_index):
         """compute $lambda^2 dD/da_m * dD/da_n^T$ (i.e. wrt coeffs)"""
