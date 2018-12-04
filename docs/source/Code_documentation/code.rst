@@ -1,10 +1,13 @@
 Documentation for the Code
 **************************
-Here is described the list of files documented and corresponding functions  
+Here is described the list of files documented and corresponding functions
 
 quaternion_implementation.py
 ============================
+
 .. automodule:: quaternion_implementation
+
+.. autoclass:: Quaternion
     :members:
 
 agis_functions.py
@@ -31,6 +34,11 @@ agis.py
 =======
 
 .. automodule:: agis
+
+.. autoclass:: Agis
+    :members:
+
+.. autoclass:: Calc_source
     :members:
 
 constants.py
