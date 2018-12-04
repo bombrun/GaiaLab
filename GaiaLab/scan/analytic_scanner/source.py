@@ -57,13 +57,15 @@ class Source:
         :param radial_velocity: km/s
         :param func_color: function representing the color of the source in nanometers
         :param mean_color: mean color observed by satellite
+
         Transforms in rads/day or rads
-        [alpha] = rads
-        [delta] = rads
-        [parallax] = rads
-        [mu_alpha_dx] = rads/days
-        [mu_delta] = rads/days
-        [mu_radial] = rads/days?
+        Attributes:
+            [alpha] = rads
+            [delta] = rads
+            [parallax] = rads
+            [mu_alpha_dx] = rads/days
+            [mu_delta] = rads/days
+            [mu_radial] = rads/days?
         """
         self.name = name
         self.__alpha0 = np.radians(alpha0)

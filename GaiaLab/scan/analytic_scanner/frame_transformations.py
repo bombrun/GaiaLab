@@ -167,10 +167,10 @@ def xyz_to_lmn(attitude, vector):
     Ref. Paper eq. [9]
     Go from the rotating (xyz) frame to the non-rotating (lmn) frame
 
-    Info: The attitude Qauaternion q(t) gives the rotation from (lmn) to (xyz)
+    Info:
+        The attitude Qauaternion q(t) gives the rotation from (lmn) to (xyz)
         (lmn) being the CoMRS (C), and (xyz) the SRS (S). The relation between
-        the two frames is given by:
-            {C'v,0} = q {S'v,0} q^-1      for an any vector v
+        the two frames is given by: {C'v,0} = q {S'v,0} q^-1 for an any vector v
 
     :param attitude: Quaternion object
     :param vector: array of 3D
@@ -188,8 +188,7 @@ def lmn_to_xyz(attitude, vector):
 
     Info: The attitude Qauaternion q(t) gives the rotation from (lmn) to (xyz)
         (lmn) being the CoMRS (C), and (xyz) the SRS (S). The relation between
-        the two frames is given by:
-            {S'v,0} = q^-1 {C'v,0} q      for an any vector v
+        the two frames is given by: {S'v,0} = q^-1 {C'v,0} q for an any vector v
 
     :param attitude: Quaternion object
     :param vector: array of 3D

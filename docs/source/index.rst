@@ -8,7 +8,9 @@ Welcome to GaiaLab's documentation!
 
    README
    installation
-   Code_documentation/code
+   Code_documentation/core_code
+   Code_documentation/auxiliary_code
+   Code_documentation/known_issues
 
 
 

@@ -322,17 +322,21 @@ def compute_DL_da_i_from_attitude(attitude, bases, time_index, i):
     return dDL_da.reshape(4, 1)
 
 
-def compute_dR_dq(calc_source, sat, attitude, t):
+def compute_dR_dq(calc_source, sat, attitude, t, use_only_AL=False):
     """ Ref. Paper eq. [79]
     return [array] with dR/dq"""
-    # Here we have "phi" since we set double_telescope to False
+    # Here below we have "phi" since we set double_telescope to False
     phi, zeta = calculated_field_angles(calc_source, attitude, sat, t, double_telescope=False)
     Sm, Sn, Su = compute_mnu(phi, zeta)
     q = attitude
 
     dR_dq_AL = 2 * helpers.sec(zeta) * (q * ft.vector_to_quaternion(Sn))
     dR_dq_AC = -2 * (q * ft.vector_to_quaternion(Sm))
-    return dR_dq_AL.to_4D_vector() + dR_dq_AC.to_4D_vector()
+    if use_only_AL is True:
+        dR_dq = dR_dq_AL.to_4D_vector()
+    else:
+        dR_dq = dR_dq_AL.to_4D_vector() + dR_dq_AC.to_4D_vector()
+    return dR_dq
 
 
 def dR_da_i(dR_dq, bases_i):

@@ -66,7 +66,8 @@ class Agis:
 
     def __init__(self, sat, calc_sources=[], real_sources=[], attitude_splines=None,
                  verbose=False, spline_degree=3, attitude_regularisation_factor=0,
-                 updating='attitude', degree_error=0, double_telescope=False):
+                 updating='attitude', degree_error=0, double_telescope=False,
+                 use_only_AL=False):
         """
         Also contains:
         **Temporary variables**
@@ -77,7 +78,7 @@ class Agis:
         # self.s_param  # source parameters (for each calc_source)
         # self.att_coeffs  # attitude parameters
         Attributes:
-            calc_sources: list of estimated sources
+            :calc_sources: list of estimated sources
         """
         # Objects:
         self.calc_sources = calc_sources
@@ -90,7 +91,8 @@ class Agis:
         self.attitude_regularisation_factor = attitude_regularisation_factor
         self.verbose = verbose
         self.updating = updating
-        self.consider_stellar_aberation = False
+        self.use_only_AL = use_only_AL
+        self.consider_stellar_aberation = False  # TODO: remove because obsolete?
         self.degree_error = degree_error  # [only for source] deviation in vertical direction of the attitude
         self.double_telescope = double_telescope  # bool indicating if we use the double_telescope config
 
@@ -185,10 +187,10 @@ class Agis:
 
         R_eta = eta_obs - eta_calc  # AL
         R_zeta = zeta_obs - zeta_calc  # AC
-        R_L = R_eta + R_zeta
-        if self.verbose:
-            print(t, 'observed: ', eta_obs, zeta_obs)
-            print(t, 'computed: ', eta_calc, zeta_calc)
+        if self.use_only_AL is True:
+            R_L = R_eta
+        else:
+            R_L = R_eta + R_zeta
         return R_L
 
     def iterate(self, num, use_sparse=False, verbosity=0):
@@ -227,8 +229,11 @@ class Agis:
             self.update_block_S_i(i)
 
     def update_block_S_i(self, source_index):
-        """ Ref. Paper eq. [57]
-        update source #i"""
+        """
+        Ref. Paper eq. [57]
+        :param source_index: [int] Index of the source that will be updated
+        :action: update source number *source_index*
+        """
         calc_source = self.calc_sources[source_index]
         A = self.block_S_error_rate_matrix(source_index)
         W = np.eye(len(calc_source.obs_times))
@@ -243,8 +248,11 @@ class Agis:
                   .format(A.shape, W.shape, h.shape, d.shape))
 
     def compute_h(self, source_index):
-        """Ref. Paper eq. [59]
-        Source update Right hand side"""
+        """
+        Ref. Paper eq. [59]
+        Source update Right hand side
+        :param source_index: [int] Index of the source that will be updated
+        """
         calc_source = self.calc_sources[source_index]
         h = np.zeros((len(calc_source.obs_times), 1))
         for i, t_L in enumerate(calc_source.obs_times):
@@ -264,7 +272,8 @@ class Agis:
         Computes the derivative of the error (R_l) wrt the 5 astronomic parameters
         s_i transposed.
         :param kind: either AL for ALong scan direction or AC for ACross scan direction
-        :returns:
+        :param source_index: [int] Index of the source that will be updated
+        :returns: [numpy array]
         """
 
         calc_source = self.calc_sources[source_index]
@@ -285,17 +294,23 @@ class Agis:
             dR_ds_AL[i, :] = -m @ du_ds[:, :, i].transpose() * helpers.sec(zeta)
             dR_ds_AC[i, :] = -n @ du_ds[:, :, i].transpose()
 
-        return dR_ds_AL + dR_ds_AC
+        if self.use_only_AL is True:
+            dR_ds = dR_ds_AL
+        else:
+            dR_ds = dR_ds_AL + dR_ds_AC
+        return dR_ds
 
     def compute_du_ds(self, source_index):
-        """ Ref. Paper eq. [73]
+        """
+        Ref. Paper eq. [73]
         Compute dũ_ds for a given source
-        :param:
+        :param source_index: [int] Index of the source that will be updated
         :returns:
-        :used names:
+        Note:
             - b_G(t) barycentric position of Gaia at the time of observation, also
               called barycentric ephemeris of the Gaia Satellite
             - t_B barycentric time (takes into account the Römer delay)
+
         Notes: t_ep in the paper is not used since we assume t_ep=0 and start counting the time from J2000
         """
         # In this function consider all u as being ũ! (for notation we call them here u)
@@ -343,7 +358,9 @@ class Agis:
 
     def get_attitude_for_source(self, source_index, t):
         """ For only source updating with color aberration.
-        Change if condition to decide which sources are affected by that aberration"""
+        Change if condition to decide which sources are affected by that aberration
+        :param source_index: [int] Index of the source that will be updated
+        """
         if source_index < 0:
             deviation = self.degree_error * const.rad_per_deg  # number in degrees and converted in radians
         else:
