@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
-
 """
 File frame_transformations.py
 Contains functions that for frame transformations and rotations
-:Authors: mdelvallevaro
-          LucaZampieri (2018)
+
+:Authors: mdelvallevaro, LucaZampieri (2018) modified
 
 :Notes:
     In this file, when there is a reference, unless explicitly stated otherwise,

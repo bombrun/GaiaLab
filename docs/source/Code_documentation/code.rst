@@ -1,10 +1,15 @@
 Documentation for the Code
 **************************
-Here is described the list of files documented and corresponding functions
+Here is described the list of files documented and corresponding functions  
 
 quaternion_implementation.py
-=============
+============================
 .. automodule:: quaternion_implementation
+    :members:
+
+agis_functions.py
+=================
+.. automodule:: agis_functions
     :members:
 
 satellite.py

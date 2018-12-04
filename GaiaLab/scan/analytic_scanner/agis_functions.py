@@ -24,7 +24,8 @@ TODO:
     - [DONE] two telescope
     - Attitute with scanner
     - scaling
-    -
+
+Other:
     * if we add acceleration what happens
     * add noise to observation
     * QSO
@@ -259,7 +260,7 @@ def extract_coeffs_knots_from_splines(attitude_splines, k):
 def get_times_in_knot_interval(time_array, knots, index, M):
     """
     :param time_array: [numpy array]
-    return times in knot interval defined by [index, index+M]
+    :return: times in knot interval defined by [index, index+M]
     """
     return time_array[(knots[index] < time_array) & (time_array < knots[index+M])]
 
@@ -267,7 +268,8 @@ def get_times_in_knot_interval(time_array, knots, index, M):
 def get_left_index(knots, t, M):
     """
     :param M: spline order (k+1)
-    return the left_index corresponding to t i.e. *i* s.t. t_i < t < t_{i+1}
+    :returns left_index: the left_index corresponding to t i.e. *i* s.t.
+        $t_i < t < t_{i+1}$
     """
     left_index_array = np.where(knots <= t)
     if not list(left_index_array[0]):
