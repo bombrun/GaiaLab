@@ -41,10 +41,10 @@ import matplotlib.pyplot as plt
 import constants as const
 import helpers as helpers
 import frame_transformations as ft
-from quaternion import Quaternion
+from quaternion_implementation import Quaternion
 from source import Source
 from satellite import Satellite
-from source import get_Cu
+from source import compute_topocentric_direction
 
 
 def generate_observation_wrt_attitude(attitude):
@@ -364,7 +364,7 @@ def calculated_field_angles(calc_source, attitude, sat, t, double_telescope=Fals
     alpha, delta, parallax, mu_alpha, mu_delta = calc_source.s_params[:]
     params = np.array([alpha, delta, parallax, mu_alpha, mu_delta, calc_source.mu_radial])
 
-    Cu = get_Cu(params, sat, t)  # u in CoMRS frame
+    Cu = compute_topocentric_direction(params, sat, t)  # u in CoMRS frame
     Su = ft.lmn_to_xyz(attitude, Cu)  # u in SRS frame
 
     eta, zeta = compute_field_angles(Su, double_telescope)

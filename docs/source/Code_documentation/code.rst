@@ -2,9 +2,9 @@ Documentation for the Code
 **************************
 Here is described the list of files documented and corresponding functions
 
-quaternion.py
+quaternion_implementation.py
 =============
-.. automodule:: quaternion
+.. automodule:: quaternion_implementation
     :members:
 
 satellite.py

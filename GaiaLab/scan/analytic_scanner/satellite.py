@@ -12,7 +12,7 @@ from scipy.interpolate import splrep
 # Local imports
 import constants as const
 import frame_transformations as ft
-from quaternion import Quaternion
+from quaternion_implementation import Quaternion
 
 
 class Satellite:
@@ -223,7 +223,7 @@ class Satellite:
         self.func_attitude = lambda t: Quaternion(self.s_w(t), self.s_x(t), self.s_y(t),
                                                   self.s_z(t)).unit()
         # Attitude in the lmn frame
-        self.func_x_axis_lmn = lambda t: ft.xyz_to_lmn(self.func_attitude(t), np.array([1, 0, 0]))  # where we want to be
+        self.func_x_axis_lmn = lambda t: ft.xyz_to_lmn(self.func_attitude(t), np.array([1, 0, 0]))  # wherewe want to be
         self.func_y_axis_lmn = lambda t: ft.xyz_to_lmn(self.func_attitude(t), np.array([0, 1, 0]))
         self.func_z_axis_lmn = lambda t: ft.xyz_to_lmn(self.func_attitude(t), np.array([0, 0, 1]))
 

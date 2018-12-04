@@ -22,7 +22,7 @@ import mpl_toolkits.mplot3d.axes3d
 import constants as const
 import helpers as helpers
 import frame_transformations as ft
-from quaternion import Quaternion
+from quaternion_implementation import Quaternion
 from source import Source
 from satellite import Satellite
 from scanner import Scanner

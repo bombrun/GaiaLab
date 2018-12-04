@@ -15,7 +15,7 @@ from scipy import optimize
 # Local imports
 import constants as const
 import frame_transformations as ft
-from quaternion import Quaternion
+from quaternion_implementation import Quaternion
 from satellite import Satellite
 from source import Source
 import helpers

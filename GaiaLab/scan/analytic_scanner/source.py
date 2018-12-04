@@ -14,11 +14,11 @@ import numpy as np
 # Local imports
 import constants as const
 import frame_transformations as ft
-from quaternion import Quaternion
+from quaternion_implementation import Quaternion
 from satellite import Satellite
 
 
-def get_Cu(astro_parameters, sat, t):
+def compute_topocentric_direction(astro_parameters, sat, t):
     """
     Compute the topocentric_function direction i.e. ũ
     The horizontal coordinate system, also known as topocentric coordinate
@@ -141,7 +141,7 @@ class Source:
         """
         # self.set_time(0)  # (float(t))
         param = np.array([self.__alpha0, self.__delta0, self.parallax, self.mu_alpha_dx, self.mu_delta, self.mu_radial])
-        return get_Cu(param, satellite, t)
+        return compute_topocentric_direction(param, satellite, t)
 
     def topocentric_angles(self, satellite, t):
         """

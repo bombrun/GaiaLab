@@ -17,7 +17,7 @@ Contains functions that for frame transformations and rotations
 """
 
 import numpy as np
-from quaternion import Quaternion
+from quaternion_implementation import Quaternion
 
 
 def zero_to_two_pi_to_minus_pi_pi(angle):
@@ -27,7 +27,7 @@ def zero_to_two_pi_to_minus_pi_pi(angle):
     :returns: angles in the [-pi, pi] format
     """
     indices_to_modify = np.where(angle > np.pi)
-    angle[indices_to_modify] = angle[indices_to_modify] - 2*pi
+    angle[indices_to_modify] = angle[indices_to_modify] - 2*np.pi
     return angle
 
 
