@@ -4,6 +4,11 @@ Here is described the list of files documented and corresponding functions for
 the core part of the code. Helper functions and plotting functions are
 documented apart, under auxiliary code.
 
+Here is how to use latex formulaes:
+
+.. math::
+      \sum_{i=1}^{\infty} x_{i}
+
 
 satellite.py
 ============
