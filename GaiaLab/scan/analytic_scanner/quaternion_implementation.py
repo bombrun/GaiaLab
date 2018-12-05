@@ -125,7 +125,14 @@ class Quaternion():
         return (self.conjugate()/(self.magnitude**2))
 
     def inverse(self):              # Same as reciprocal
+        """
+        Computes:
+
+        .. math::
+            q^{-1} = \\frac{w - xi - yj - zk}{w^2 + x^2 + y^2 + z^2}
+        """
         return self.reciprocal()
+        # return self.conjugate()
 
     def __add__(self, other):        # Addition of quaternions
         if isinstance(other, Quaternion):

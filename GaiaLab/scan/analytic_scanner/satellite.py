@@ -1,7 +1,10 @@
 """
 Satellite class implementation in Python
-TODO: repair attitude for t_init != 0
-@author: mdelvallevaro
+
+TODO:
+    - repair attitude for t_init != 0
+
+:Author: mdelvallevaro
 """
 
 # # Imports

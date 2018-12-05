@@ -290,8 +290,17 @@ def extend_knots(internal_knots, k):
 
 def compute_coeff_basis_sum(coeffs, bases, L, M, time_index):
     """
-    Computes the sum(a_n*b_n) with n=L-M+1 : L
-    :param L: left_index
+    Computes the sum:
+
+    .. math::
+        \sum_{n=L-M+1}^{L}(a_n \cdot b_n)
+
+    :param coeffs: [numpy array] splines coefficients
+    :param bases: [numpy array] B-spline bases
+    :param L: [int] left_index
+    :param M: [int] spline order (= spline degree + 1)
+    :param time_index: [float] time index where we want to evaluate the spline
+    :returns: [numpy array] vector of the
     """
     # Note the +1 to include last term
     return np.sum(bases[L-M+1:L+1, time_index] * coeffs[:, L-M+1:L+1], axis=1)
@@ -299,6 +308,7 @@ def compute_coeff_basis_sum(coeffs, bases, L, M, time_index):
 
 def compute_attitude_deviation(coeff_basis_sum):
     """
+    :Action: Compute the attitude deviation from unity
     :param coeff_basis_sum: the sum(a_n*b_n) with n=L-M+1 : L
     :returns: attitude deviation from unity D_l"""
     return 1 - np.linalg.norm(coeff_basis_sum)**2
@@ -322,7 +332,7 @@ def compute_DL_da_i_from_attitude(attitude, bases, time_index, i):
     return dDL_da.reshape(4, 1)
 
 
-def compute_dR_dq(calc_source, sat, attitude, t, use_only_AL=False):
+def compute_dR_dq(calc_source, sat, attitude, t):
     """ Ref. Paper eq. [79]
     return [array] with dR/dq"""
     # Here below we have "phi" since we set double_telescope to False
@@ -332,11 +342,8 @@ def compute_dR_dq(calc_source, sat, attitude, t, use_only_AL=False):
 
     dR_dq_AL = 2 * helpers.sec(zeta) * (q * ft.vector_to_quaternion(Sn))
     dR_dq_AC = -2 * (q * ft.vector_to_quaternion(Sm))
-    if use_only_AL is True:
-        dR_dq = dR_dq_AL.to_4D_vector()
-    else:
-        dR_dq = dR_dq_AL.to_4D_vector() + dR_dq_AC.to_4D_vector()
-    return dR_dq
+
+    return (dR_dq_AL.to_4D_vector(),  dR_dq_AC.to_4D_vector())
 
 
 def dR_da_i(dR_dq, bases_i):

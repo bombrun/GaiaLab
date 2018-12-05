@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 """
 file agis.py
 Contains implementation of classes Calc_source and Agis
@@ -137,8 +136,8 @@ class Agis:
             if self.verbose:
                 print('source: {}'.format(s.s_params))
             for j, t_L in enumerate(s.obs_times):
-                R_L = self.compute_R_L(source_index, t_L)
-                error += R_L ** 2
+                R_L_AL, R_L_AC = self.compute_R_L(source_index, t_L)
+                error += (R_L_AL ** 2 + R_L_AC ** 2)
         return error / self.all_obs_times.shape[0]  # /const.rad_per_mas
 
     def get_field_angles(self, source_index, t):
@@ -177,21 +176,21 @@ class Agis:
 
     def compute_R_L(self, source_index, t):
         """ Ref. Paper eq. [25]-[26]
-        R = eta_obs + zeta_obs - eta_calc - zeta_calc """
+        R = eta_obs + zeta_obs - eta_calc - zeta_calc
+        R_AL = R_eta
+        R_AC = R_zeta
+        """
         # WARNING: maybe source is not in the field of vision of sat at time t!
-        R_eta, R_zeta = (0, 0)
+        R_L_eta, R_L_zeta = (0, 0)
 
         angles = self.get_field_angles(source_index, t)
 
         eta_obs, zeta_obs, eta_calc, zeta_calc = self.deviate_field_angles_color_aberration(source_index, t, angles)
 
-        R_eta = eta_obs - eta_calc  # AL
-        R_zeta = zeta_obs - zeta_calc  # AC
-        if self.use_only_AL is True:
-            R_L = R_eta
-        else:
-            R_L = R_eta + R_zeta
-        return R_L
+        R_L_eta = eta_obs - eta_calc  # AL
+        R_L_zeta = zeta_obs - zeta_calc  # AC
+
+        return (R_L_eta, R_L_zeta)
 
     def iterate(self, num, use_sparse=False, verbosity=0):
         """
@@ -217,6 +216,7 @@ class Agis:
                     print('attitude error:', error)
             if verbosity > 0:
                 print('Error after iteration: {}'.format(self.error_function()))
+
     # ### End generic functions ################################################
 
     #
@@ -256,30 +256,41 @@ class Agis:
         calc_source = self.calc_sources[source_index]
         h = np.zeros((len(calc_source.obs_times), 1))
         for i, t_L in enumerate(calc_source.obs_times):
-            h[i, 0] = self.compute_R_L(source_index, t_L)
+            R_L_AL, R_L_AC = self.compute_R_L(source_index, t_L)
+            h[i, 0] = (R_L_AL + R_L_AC)
         if self.verbose:
             print('h: {}'.format(h))
         return h
 
     def block_S_error_rate_matrix(self, source_index):
-        """ Ref. Paper eq. [58]
-        error matrix for the block update S"""
+        """
+        Ref. Paper eq. [58]
+        error matrix for the block update S
+        :param source_index: [int] Index of the source that will be updated
+        """
         du_ds = self.compute_du_ds(source_index)
-        return -self.dR_ds(source_index, du_ds)
+        dR_ds_AL, dR_ds_AC = self.dR_ds(source_index, du_ds)
+        return - (dR_ds_AL + dR_ds_AC)
 
     def dR_ds(self, source_index, du_ds):
-        """ Ref. Paper eq. [71]
+        """
+        Ref. Paper eq. [71]
         Computes the derivative of the error (R_l) wrt the 5 astronomic parameters
         s_i transposed.
-        :param kind: either AL for ALong scan direction or AC for ACross scan direction
+
         :param source_index: [int] Index of the source that will be updated
-        :returns: [numpy array]
+        :param du_ds: [numpy array] derivative of the topocentric function wrt
+                      astronometric parameters
+        :returns: [tuple of numpy arrays] with derivatives of observations in
+                  the Along-scan (AL) and Across-scan (AC) directions
         """
 
         calc_source = self.calc_sources[source_index]
         dR_ds_AL = np.zeros((len(calc_source.obs_times), 5))
         dR_ds_AC = np.zeros(dR_ds_AL.shape)
 
+        # Iterate through the observation times of the source we are currently
+        # updating
         for i, t_L in enumerate(calc_source.obs_times):
             if self.updating == 'source':
                 attitude = self.get_attitude_for_source(source_index, t_L)
@@ -294,11 +305,7 @@ class Agis:
             dR_ds_AL[i, :] = -m @ du_ds[:, :, i].transpose() * helpers.sec(zeta)
             dR_ds_AC[i, :] = -n @ du_ds[:, :, i].transpose()
 
-        if self.use_only_AL is True:
-            dR_ds = dR_ds_AL
-        else:
-            dR_ds = dR_ds_AL + dR_ds_AC
-        return dR_ds
+        return (dR_ds_AL, dR_ds_AC)
 
     def compute_du_ds(self, source_index):
         """
@@ -371,6 +378,14 @@ class Agis:
     #
     # ### For attitude update --------------------------------------------------
     def get_attitude(self, t, unit=True):
+        """
+        Get attitude from the attitude coefficients at time *t*. If *unit*
+        is True, the return normalized attitude.
+
+        :param t: [float] time at which we desire the attitude
+        :param unit: [bool] if true normalize the quaternion
+        :returns: [Quaternion object] attitude
+        """
         s_w = self.attitude_splines[0]
         s_x = self.attitude_splines[1]
         s_y = self.attitude_splines[2]
@@ -385,7 +400,7 @@ class Agis:
             self.attitude_splines[i] = BSpline(self.att_knots, self.att_coeffs[i], k=self.k)
 
     def update_A_block(self, use_sparse=False):  # one
-        """ solve the components together"""
+        """ solve for the attitude"""
         if use_sparse is True:
             der_band, reg_band = self.compute_attitude_banded_derivative_and_regularisation_matrices()
             self.compute_sparses_matrices(der_band, reg_band)
@@ -452,6 +467,8 @@ class Agis:
     def compute_attitude_RHS_n(self, n_index):
         rhs = np.zeros((4, 1))
         time_support_spline_n = get_times_in_knot_interval(self.all_obs_times, self.att_knots, n_index, self.M)
+
+        # Iterate through the support of spline_n
         for i, t_L in enumerate(time_support_spline_n):
             source_index = self.get_source_index(t_L)
             calc_source = self.calc_sources[source_index]
@@ -459,28 +476,34 @@ class Agis:
             left_index = get_left_index(self.att_knots, t_L, M=self.M)
             obs_time_index = list(self.all_obs_times).index(t_L)
 
-            # Compute the regulation part
+            # Get the regulation part:
             coeff_basis_sum = compute_coeff_basis_sum(self.att_coeffs, self.att_bases,
                                                       left_index, self.M, obs_time_index)
             D_L = compute_attitude_deviation(coeff_basis_sum)
             dDL_da_n = compute_DL_da_i(coeff_basis_sum, self.att_bases, obs_time_index, n_index)
             # dDL_da_n = compute_DL_da_i_from_attitude(attitude, self.att_bases, obs_time_index, n_index)
             regularisation_part = self.attitude_regularisation_factor**2 * dDL_da_n * D_L
-            # # WARNING: Here we put the Across scan and the along scan together
-            dR_dq = compute_dR_dq(calc_source, self.sat, attitude, t_L)
-            dR_da_n = dR_da_i(dR_dq, self.att_bases[n_index, obs_time_index])
-            R_L = self.compute_R_L(source_index, t_L)
 
-            rhs += regularisation_part + dR_da_n * R_L
+            # Get derivatives:
+            dR_dq_AL, dR_dq_AC = compute_dR_dq(calc_source, self.sat, attitude, t_L)
+            dR_da_n_AL = dR_da_i(dR_dq_AL, self.att_bases[n_index, obs_time_index])
+            dR_da_n_AC = dR_da_i(dR_dq_AC, self.att_bases[n_index, obs_time_index])
+
+            R_L_AL, R_L_AC = self.compute_R_L(source_index, t_L)
+
+            rhs += dR_da_n_AL * R_L_AL + dR_da_n_AC * R_L_AC + regularisation_part
         return -rhs
 
     def compute_Naa_mn(self, m_index, n_index):
         """compute dR/da (i.e. wrt coeffs)"""
         Naa_mn = np.zeros((4, 4))
+
+        # Get times in the support of both spline_m and spline_n
         time_support_spline_m = get_times_in_knot_interval(self.all_obs_times, self.att_knots, m_index, self.M)
         time_support_spline_n = get_times_in_knot_interval(self.all_obs_times, self.att_knots, n_index, self.M)
         time_support_spline_mn = np.sort(helpers.get_lists_intersection(time_support_spline_m, time_support_spline_n))
 
+        # Iterate through all observation in the support of spline n and spline m
         for i, t_L in enumerate(time_support_spline_mn):
             # for i, t_L in enumerate(self.all_obs_times):
             calc_source = self.calc_sources[self.get_source_index(t_L)]
@@ -498,11 +521,15 @@ class Agis:
             regularisation_part = self.attitude_regularisation_factor**2 * dDL_da_n @ dDL_da_m.T
 
             # Compute the original objective function part
-            # # WARNING: Here we put the Across scan and the along scan together
-            dR_dq = compute_dR_dq(calc_source, self.sat, attitude, t_L)
-            dR_da_m = dR_da_i(dR_dq, self.att_bases[m_index, obs_time_index])
-            dR_da_n = dR_da_i(dR_dq, self.att_bases[n_index, obs_time_index])
-            Naa_mn += regularisation_part + dR_da_n @ dR_da_m.T
+            dR_dq_AL, dR_dq_AC = compute_dR_dq(calc_source, self.sat, attitude, t_L)
+
+            dR_da_m_AL = dR_da_i(dR_dq_AL, self.att_bases[m_index, obs_time_index])
+            dR_da_m_AC = dR_da_i(dR_dq_AC, self.att_bases[m_index, obs_time_index])
+
+            dR_da_n_AL = dR_da_i(dR_dq_AL, self.att_bases[n_index, obs_time_index])
+            dR_da_n_AC = dR_da_i(dR_dq_AC, self.att_bases[n_index, obs_time_index])
+
+            Naa_mn += dR_da_n_AL @ dR_da_m_AL.T + dR_da_n_AC @ dR_da_m_AC.T + regularisation_part
 
             if self.verbose:
                 if m_index >= 0:
@@ -512,7 +539,7 @@ class Agis:
                         print('dR_da_m', dR_da_m)
                         print('dR_da_n', dR_da_n)
                         print('Naa_mn', Naa_mn)
-        return Naa_mn  # np.eye(4)
+        return Naa_mn
 
     # ### Sparse implementation of attitude update-----
     def compute_attitude_banded_derivative_and_regularisation_matrices(self):
@@ -563,10 +590,12 @@ class Agis:
 
             # Compute the original objective function part
             # # WARNING: Here we put the Across scan and the along scan together
-            dR_dq = compute_dR_dq(calc_source, self.sat, attitude, t_L)
-            dR_da_m = dR_da_i(dR_dq, self.att_bases[m_index, obs_time_index])
-            dR_da_n = dR_da_i(dR_dq, self.att_bases[n_index, obs_time_index])
-            dR_da_mn += dR_da_n @ dR_da_m.T
+            dR_dq_AL, dR_dq_AC = compute_dR_dq(calc_source, self.sat, attitude, t_L)
+            dR_da_m_AL = dR_da_i(dR_dq_AL, self.att_bases[m_index, obs_time_index])
+            dR_da_m_AC = dR_da_i(dR_dq_AC, self.att_bases[m_index, obs_time_index])
+            dR_da_n_AL = dR_da_i(dR_dq_AL, self.att_bases[n_index, obs_time_index])
+            dR_da_n_AC = dR_da_i(dR_dq_AC, self.att_bases[n_index, obs_time_index])
+            dR_da_mn += dR_da_n_AL @ dR_da_m_AL.T + dR_da_n_AC @ dR_da_m_AC.T
 
         return dR_da_mn
 

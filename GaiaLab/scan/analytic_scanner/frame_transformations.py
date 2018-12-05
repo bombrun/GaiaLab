@@ -5,7 +5,7 @@ Contains functions that for frame transformations and rotations
 
 :Authors: mdelvallevaro, LucaZampieri (2018) modified
 
-:Notes:
+:notes:
     In this file, when there is a reference, unless explicitly stated otherwise,
     it refers to Lindegren main article:
     "The astronometric core solution for the Gaia mission - overview of models,
