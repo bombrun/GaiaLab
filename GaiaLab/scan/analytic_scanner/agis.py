@@ -30,6 +30,7 @@ from agis_functions import *
 import numpy as np
 from scipy.interpolate import BSpline
 from scipy import sparse as sps
+import quaternion  # moble's quaternion (numpy compatible quaternions)
 
 
 class Calc_source:
@@ -79,18 +80,24 @@ class Agis:
         Attributes:
             :calc_sources: list of estimated sources
         """
-        # Objects:
-        self.calc_sources = calc_sources
+        # Objects
+
+        #: List of the sources objects
         self.real_sources = real_sources
+        #: List of calculated sources with 1-1 correspondance to the real sources
+        self.calc_sources = calc_sources
+        #: Satellite object that we are using to solve the problem
         self.sat = sat
 
         # Constants
-        self.k = spline_degree  # degree of the interpolating polynomial
+        #: Degree of the interpolating polynomial
+        self.k = spline_degree
+        #: Order of the spline (degree+1)
         self.M = self.k + 1
         self.attitude_regularisation_factor = attitude_regularisation_factor
         self.verbose = verbose
         self.updating = updating
-        self.use_only_AL = use_only_AL
+        self.use_only_AL = use_only_AL  # # TODO: remove because obsolete?
         self.consider_stellar_aberation = False  # TODO: remove because obsolete?
         self.degree_error = degree_error  # [only for source] deviation in vertical direction of the attitude
         self.double_telescope = double_telescope  # bool indicating if we use the double_telescope config
@@ -100,6 +107,7 @@ class Agis:
         self.N = 0  # not necessary
         self.attitude_der_matrix = None  # sparse attitude derivative matrix
         self.attitude_reg_matrix = None  # sparse attitude derivative matrix
+        self.discretized_attitude = None  # attitude evaluated at all the observed times
 
         # Setting observation times
         all_obs_times = []
@@ -396,6 +404,9 @@ class Agis:
         return attitude
 
     def actualise_splines(self):
+        """
+        :action: Update the splines re-creating them from the new coefficients
+        """
         for i in range(self.attitude_splines.shape[0]):
             self.attitude_splines[i] = BSpline(self.att_knots, self.att_coeffs[i], k=self.k)
 
@@ -472,6 +483,7 @@ class Agis:
         for i, t_L in enumerate(time_support_spline_n):
             source_index = self.get_source_index(t_L)
             calc_source = self.calc_sources[source_index]
+
             attitude = self.get_attitude(t_L, unit=False)
             left_index = get_left_index(self.att_knots, t_L, M=self.M)
             obs_time_index = list(self.all_obs_times).index(t_L)
@@ -491,7 +503,7 @@ class Agis:
 
             R_L_AL, R_L_AC = self.compute_R_L(source_index, t_L)
 
-            rhs += dR_da_n_AL * R_L_AL + dR_da_n_AC * R_L_AC + regularisation_part
+            rhs += regularisation_part + dR_da_n_AL * R_L_AL + dR_da_n_AC * R_L_AC
         return -rhs
 
     def compute_Naa_mn(self, m_index, n_index):
@@ -529,7 +541,7 @@ class Agis:
             dR_da_n_AL = dR_da_i(dR_dq_AL, self.att_bases[n_index, obs_time_index])
             dR_da_n_AC = dR_da_i(dR_dq_AC, self.att_bases[n_index, obs_time_index])
 
-            Naa_mn += dR_da_n_AL @ dR_da_m_AL.T + dR_da_n_AC @ dR_da_m_AC.T + regularisation_part
+            Naa_mn += regularisation_part + dR_da_n_AL @ dR_da_m_AL.T + dR_da_n_AC @ dR_da_m_AC.T
 
             if self.verbose:
                 if m_index >= 0:
@@ -563,7 +575,7 @@ class Agis:
         time_support_spline_mn = np.sort(helpers.get_lists_intersection(time_support_spline_m, time_support_spline_n))
 
         for i, t_L in enumerate(time_support_spline_mn):
-            attitude = self.get_attitude(t_L, unit=False)
+            # attitude = self.get_attitude(t_L, unit=False)
             left_index = get_left_index(self.att_knots, t=t_L, M=self.M)
             obs_time_index = list(self.all_obs_times).index(t_L)
             # Compute the regulation part
@@ -589,7 +601,6 @@ class Agis:
             obs_time_index = list(self.all_obs_times).index(t_L)
 
             # Compute the original objective function part
-            # # WARNING: Here we put the Across scan and the along scan together
             dR_dq_AL, dR_dq_AC = compute_dR_dq(calc_source, self.sat, attitude, t_L)
             dR_da_m_AL = dR_da_i(dR_dq_AL, self.att_bases[m_index, obs_time_index])
             dR_da_m_AC = dR_da_i(dR_dq_AC, self.att_bases[m_index, obs_time_index])
@@ -598,6 +609,41 @@ class Agis:
             dR_da_mn += dR_da_n_AL @ dR_da_m_AL.T + dR_da_n_AC @ dR_da_m_AC.T
 
         return dR_da_mn
+
+    # ### Implementation with moble's quaternion
+    def compute_attitude_splines(self):
+        s_w = self.attitude_splines[0]
+        s_x = self.attitude_splines[1]
+        s_y = self.attitude_splines[2]
+        s_z = self.attitude_splines[3]
+        splines_coeffs = np.array([s_w, s_x, s_y, s_z]).T
+        self.discretized_attitude = quaternion.from_float_array(splines_coeffs)
+        return self.discretized_attitude
+
+    def get_attitude_from_attitude_array(self, t):
+        pass
+
+    def compute_stuff_for_source(self, s):
+        alpha, delta, parallax, mu_alpha, mu_delta = calc_source.s_params[:]
+        params = np.array([alpha, delta, parallax, mu_alpha, mu_delta, calc_source.mu_radial])
+        Cu = compute_topocentric_direction(params, sat, t)  # u in CoMRS frame
+        Su = ft.lmn_to_xyz(attitude, Cu)  # u in SRS frame
+        phi, zeta = compute_field_angles(Su, double_telescope=False)
+
+        pass
+
+    # ### Implementation with iterating on sources-----
+    """def compute_attitude_banded_matrices_per_sources(self):
+        dR_da_band = np.zeros((self.N*4, 16))
+        dD_da_band = np.zeros((self.N*4, 16))
+        for s in self.calc_sources:
+            for t in calc_source.obs_times:
+
+        for n in range(0, self.N):
+            for i, m in enumerate(range(n, min(n+4, self.N))):
+                dR_da_band[n*4:n*4+4, i*4:i*4+4] = self.compute_matrix_dR_da_mn(m, n)
+                dD_da_band[n*4:n*4+4, i*4:i*4+4] = self.compute_matrix_dD_da_mn(m, n)
+        return dR_da_band, dD_da_band  # der_band, reg_band"""
 
 
 if __name__ == '__main__':

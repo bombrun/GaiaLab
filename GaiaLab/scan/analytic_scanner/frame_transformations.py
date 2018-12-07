@@ -139,6 +139,9 @@ def compute_ljk(epsilon):
 def compute_pqr(alpha, delta):
     """
     Ref. Paper eq. [5]
+    .. note::
+        Can be used also with numpy arrays
+
     :param alpha: [rad] astronomic parameter alpha
     :param delta: [rad] astronomic parameter alpha
     :returns: p, q, r
