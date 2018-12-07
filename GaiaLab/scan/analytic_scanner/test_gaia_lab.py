@@ -5,8 +5,10 @@ import helpers as helpers
 from agis import Calc_source
 from agis import Agis
 import frame_transformations as ft
-from quaternion_implementation import Quaternion
 import agis_functions as af
+
+from quaternion_implementation import Quaternion
+import quaternion
 
 
 import numpy as np

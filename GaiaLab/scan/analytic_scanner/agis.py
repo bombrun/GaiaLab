@@ -398,9 +398,9 @@ class Agis:
         s_x = self.attitude_splines[1]
         s_y = self.attitude_splines[2]
         s_z = self.attitude_splines[3]
-        attitude = Quaternion(s_w(t), s_x(t), s_y(t), s_z(t))
+        attitude = np.quaternion(s_w(t), s_x(t), s_y(t), s_z(t))
         if unit:
-            attitude = attitude.unit()
+            attitude = attitude.normalized()
         return attitude
 
     def actualise_splines(self):
@@ -575,7 +575,6 @@ class Agis:
         time_support_spline_mn = np.sort(helpers.get_lists_intersection(time_support_spline_m, time_support_spline_n))
 
         for i, t_L in enumerate(time_support_spline_mn):
-            # attitude = self.get_attitude(t_L, unit=False)
             left_index = get_left_index(self.att_knots, t=t_L, M=self.M)
             obs_time_index = list(self.all_obs_times).index(t_L)
             # Compute the regulation part

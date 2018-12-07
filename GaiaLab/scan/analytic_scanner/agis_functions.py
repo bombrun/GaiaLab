@@ -354,7 +354,7 @@ def compute_DL_da_i_from_attitude(attitude, bases, time_index, i):
     Ref. Paper eq. [83]
     Compute derivative of the attitude deviation wrt attitude params
     """
-    dDL_da = -2 * attitude.to_4D_vector() * bases[i, time_index]
+    dDL_da = -2 * quaternion.as_float_array(attitude) * bases[i, time_index]
     return dDL_da.reshape(4, 1)
 
 
@@ -366,10 +366,10 @@ def compute_dR_dq(calc_source, sat, attitude, t):
     Sm, Sn, Su = compute_mnu(phi, zeta)
     q = attitude
 
-    dR_dq_AL = 2 * helpers.sec(zeta) * (q * ft.vector_to_quaternion(Sn))
-    dR_dq_AC = -2 * (q * ft.vector_to_quaternion(Sm))
+    dR_dq_AL = 2 * helpers.sec(zeta) * (q * ft.vector_to_quat(Sn))
+    dR_dq_AC = -2 * (q * ft.vector_to_quat(Sm))
 
-    return (dR_dq_AL.to_4D_vector(),  dR_dq_AC.to_4D_vector())
+    return (quaternion.as_float_array(dR_dq_AL),  quaternion.as_float_array(dR_dq_AC))
 
 
 def dR_da_i(dR_dq, bases_i):
