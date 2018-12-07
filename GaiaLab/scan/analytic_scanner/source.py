@@ -13,8 +13,8 @@ import numpy as np
 # Local imports
 import constants as const
 import frame_transformations as ft
-from quaternion_implementation import Quaternion
 from satellite import Satellite
+import quaternion
 
 
 def compute_topocentric_direction(astro_parameters, sat, t):

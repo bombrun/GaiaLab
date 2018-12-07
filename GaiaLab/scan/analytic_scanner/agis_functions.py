@@ -38,11 +38,11 @@ import numpy as np
 from scipy.interpolate import BSpline
 from scipy.interpolate import splev
 import matplotlib.pyplot as plt
+import quaternion
 # Local imports
 import constants as const
 import helpers as helpers
 import frame_transformations as ft
-from quaternion_implementation import Quaternion
 from source import Source
 from satellite import Satellite
 from source import compute_topocentric_direction
@@ -87,15 +87,15 @@ def attitude_from_alpha_delta(source, sat, t, vertical_angle_dev=0):
     Su = np.array([1, 0, 0])
     if vertical_angle_dev == 0:
         vector, angle = helpers.get_rotation_vector_and_angle(Cu, Su)
-        q_out = Quaternion(vector=vector, angle=angle)
+        q_out = quaternion.from_rotation_vector(angle*vector)
     else:
         Cu_xy = helpers.normalize(np.array([Cu[0], Cu[1], 0]))  # Cu on S-[xy] plane
         v1, a1 = helpers.get_rotation_vector_and_angle(Cu_xy, Su)
-        q1 = Quaternion(vector=v1, angle=a1)
+        q1 = quaternion.from_rotation_vector(v1*a1)
 
         Su_xy = ft.rotate_by_quaternion(q1.inverse(), Su)  # Su rotated to be on same xy than Cu_xy
         v2, a2 = helpers.get_rotation_vector_and_angle(Cu, Su_xy)
-        q2_dev = Quaternion(vector=v2, angle=a2+vertical_angle_dev)
+        q2_dev = quaternion.from_rotation_vector(v2*(a2+vertical_angle_dev))
         # deviaetd_Su = ft.rotate_by_quaternion(q2_dev.inverse(), Su_xy)
         q_out = q1*q2_dev
         # angle -= 0.2
@@ -112,6 +112,7 @@ def spin_axis_from_alpha_delta(source, sat, t):
 
 
 def scanning_y_coordinate(source, sat, t):
+    raise ValueError('This function is obsolete')
     # raise ValueError('Check that ')
     att = get_fake_attitude(source, sat, t)
     y_vec = ft.rotate_by_quaternion(att, [0, 1, 0])
@@ -135,8 +136,8 @@ def get_angular_FFoV_PFoV(sat, t):
     z_axis = np.array([0, 0, 1])
     attitude = sat.func_attitude(t)
 
-    quat_PFoV = Quaternion(vector=z_axis, angle=const.Gamma_c / 2)
-    quat_FFoV = Quaternion(vector=z_axis, angle=-const.Gamma_c / 2)
+    quat_PFoV = quaternion.from_rotation_vector(z_axis*const.Gamma_c / 2)
+    quat_FFoV = quaternion.from_rotation_vector(z_axis*(-const.Gamma_c / 2))
 
     PFoV_SRS = ft.rotate_by_quaternion(quat_PFoV, np.array([1, 0, 0]))
     FFoV_SRS = ft.rotate_by_quaternion(quat_FFoV, np.array([1, 0, 0]))
