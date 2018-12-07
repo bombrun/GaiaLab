@@ -223,6 +223,31 @@ def multi_compare_attitudes(gaia, Solver, my_times):
     plt.suptitle('Attitudes in time intervals')
     plt.show()
     return fig
+
+
+def multi_compare_attitudes_errors(gaia, Solver, my_times):
+    fig, axs = plt.subplots(1, 4, figsize=(24, 6))
+    # axes = [axs[0, 0], axs[0, 1], axs[ 1,0], axs[1,1]]
+    colors = ['red', 'cyan', 'blue', 'green']
+    titles = ["w-error", "x-error", "y-error", "z-error"]
+    labels_gaia = ["w_gaia", "x_gaia", "y_gaia", "z_gaia"]
+    labels_solver = ["w_solv", "x_solv", "y_solv", "z_solv"]
+    gaia_attitudes = [gaia.s_w(my_times), gaia.s_x(my_times),
+                      gaia.s_y(my_times), gaia.s_z(my_times)]
+    solver_attitudes = []
+    error_component = []
+    for i, ax in enumerate(axs):
+        Solver_attitude = Solver.attitude_splines[i](my_times)
+        error_component = np.abs(gaia_attitudes[i] - Solver_attitude)
+        total_error = error_component.mean()
+        ax.plot(my_times, error_component, ':', color=colors[i],
+                label='diff |' + labels_gaia[i] + '-' + labels_solver[i] + '|')
+        ax.set_title(titles[i] + ': ' + str(total_error))
+        ax.grid(), ax.legend(), ax.set_xlabel("my_times [%s]" % len(my_times))
+
+    plt.suptitle('Attitudes in time intervals')
+    plt.show()
+    return fig
 # ## end just for plotting
 
 

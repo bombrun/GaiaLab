@@ -33,8 +33,9 @@ Gamma_c = np.radians(106.5)  # [rad] basic angle, Gamma_c = arccos(f_p' f_F)
 xi = 55  # [deg] angle between the z-axis and s (s being the nominal sun direction)
 S = 4.035  # [deg/day] for a xi of 55°. S=|dz/dlambda|
 w_z = 120  # [arcsec/s] z component of the inertial spin vector w (small omega)
+#: Epoch time
 #: The reference epoch is J2000 but it is taken into account in how we count time thus t_ep is 0
-t_ep = 0  # epoch time
+t_ep = 0
 
 # temporary
 sat_angle = np.radians(45)  # when simulating the attitude, the rotated angle
