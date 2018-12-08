@@ -354,7 +354,7 @@ class test_frame_transformations(unittest.TestCase):
         v1 = v1/np.linalg.norm(v1)
         v2 = v2/np.linalg.norm(v2)
         vector, angle = helpers.get_rotation_vector_and_angle(v1, v2)
-        quat = Quaternion(vector=vector, angle=angle)
+        quat = quaternion.from_rotation_vector(vector*angle)
         v2_bis = ft.rotate_by_quaternion(quat, v1)
         for i in range(vector.shape[0]):
             self.assertAlmostEqual(v2[i], v2_bis[i])

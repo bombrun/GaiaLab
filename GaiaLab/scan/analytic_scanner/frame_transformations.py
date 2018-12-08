@@ -37,9 +37,6 @@ def rotate_by_angle(vector, angle):
     return rotated_vector"""
 
 
-
-
-
 def vector_to_polar(vector):
     """
     Convert carthesian coordinates of a vector into its corresponding polar coordinates
