@@ -349,13 +349,14 @@ class Agis:
             du_dmualpha = p*tau
             du_dmudelta = q*tau
             CoMRS_derivatives = [du_dalpha, du_ddelta, du_dparallax, du_dmualpha, du_dmudelta]
-            SRS_derivatives = self.CoMRS_to_SRS_for_source_derivatives(CoMRS_derivatives, calc_source, t_l)
+            SRS_derivatives = self.CoMRS_to_SRS_for_source_derivatives(CoMRS_derivatives, calc_source,
+                                                                       t_l, source_index)
             du_ds[:, :, j] = SRS_derivatives
         if self.verbose:
             print('du_ds.shape: {}'.format(du_ds.shape))
         return du_ds
 
-    def CoMRS_to_SRS_for_source_derivatives(self, CoMRS_derivatives, calc_source, t_L):
+    def CoMRS_to_SRS_for_source_derivatives(self, CoMRS_derivatives, calc_source, t_L, source_index):
         """ Ref. Paper eq. [72]
         rotate the frame from CoRMS (lmn) to SRS (xyz) for the given derivatives
         """
@@ -398,9 +399,9 @@ class Agis:
         s_x = self.attitude_splines[1]
         s_y = self.attitude_splines[2]
         s_z = self.attitude_splines[3]
-        attitude = Quaternion(s_w(t), s_x(t), s_y(t), s_z(t))
+        attitude = np.quaternion(s_w(t), s_x(t), s_y(t), s_z(t))
         if unit:
-            attitude = attitude.unit()
+            attitude = attitude.normalized()
         return attitude
 
     def actualise_splines(self):
@@ -575,7 +576,6 @@ class Agis:
         time_support_spline_mn = np.sort(helpers.get_lists_intersection(time_support_spline_m, time_support_spline_n))
 
         for i, t_L in enumerate(time_support_spline_mn):
-            # attitude = self.get_attitude(t_L, unit=False)
             left_index = get_left_index(self.att_knots, t=t_L, M=self.M)
             obs_time_index = list(self.all_obs_times).index(t_L)
             # Compute the regulation part
