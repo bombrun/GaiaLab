@@ -131,6 +131,7 @@ def compute_ljk(epsilon):
 def compute_pqr(alpha, delta):
     """
     Ref. Paper eq. [5]
+
     .. note::
         Can be used also with numpy arrays
 
