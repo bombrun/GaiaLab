@@ -8,4 +8,3 @@ scipy>=1.0.1
 sphinx_rtd_theme
 sphinx
 numpy-quaternion
-numba
