@@ -349,13 +349,14 @@ class Agis:
             du_dmualpha = p*tau
             du_dmudelta = q*tau
             CoMRS_derivatives = [du_dalpha, du_ddelta, du_dparallax, du_dmualpha, du_dmudelta]
-            SRS_derivatives = self.CoMRS_to_SRS_for_source_derivatives(CoMRS_derivatives, calc_source, t_l)
+            SRS_derivatives = self.CoMRS_to_SRS_for_source_derivatives(CoMRS_derivatives, calc_source,
+                                                                       t_l, source_index)
             du_ds[:, :, j] = SRS_derivatives
         if self.verbose:
             print('du_ds.shape: {}'.format(du_ds.shape))
         return du_ds
 
-    def CoMRS_to_SRS_for_source_derivatives(self, CoMRS_derivatives, calc_source, t_L):
+    def CoMRS_to_SRS_for_source_derivatives(self, CoMRS_derivatives, calc_source, t_L, source_index):
         """ Ref. Paper eq. [72]
         rotate the frame from CoRMS (lmn) to SRS (xyz) for the given derivatives
         """
