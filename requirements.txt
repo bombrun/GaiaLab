@@ -7,3 +7,4 @@ scipy==1.0.1
 # conf==1.0.3
 sphinx_rtd_theme
 sphinx
+numpy-quaternion
