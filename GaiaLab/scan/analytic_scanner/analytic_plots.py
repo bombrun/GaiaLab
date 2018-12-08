@@ -1,13 +1,21 @@
 # -*- coding: utf-8 -*-
 
 """
+File analytic_plots.py
+purpose: store ploting functions
 Created on Mon Jun 18 14:59:19 2018
 
 @author: mdelvallevaro
 
 modified by: LucaZampieri
 
-Plot functions
+.. warning::
+    These functions are not all up to date
+
+.. todo::
+    rewrite functions, in particular:
+    * plot observations
+
 """
 
 # # Imports
