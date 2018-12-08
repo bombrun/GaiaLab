@@ -103,9 +103,10 @@ class Quaternion():
     def parameters_from_vector_and_angle(self, vector, angle):
         """
         Quaternion parameters equivalent to rotation about (vector) by an (angle).
-        :param vector:  [np.array]
-        :param angle: [deg]
-        :return equivalent quaternion:
+
+        :param vector:  [np.array] axis of rotation
+        :param angle: [deg] amplitude of rotation (and directions)
+        :returns: (t, x, y, z) corresponding quaternion parameters
         """
         vector = vector / np.linalg.norm(vector)
         t = np.cos(angle/2.)
@@ -124,7 +125,14 @@ class Quaternion():
         return (self.conjugate()/(self.magnitude**2))
 
     def inverse(self):              # Same as reciprocal
+        """
+        Computes:
+
+        .. math::
+            q^{-1} = \\frac{w - xi - yj - zk}{w^2 + x^2 + y^2 + z^2}
+        """
         return self.reciprocal()
+        # return self.conjugate()
 
     def __add__(self, other):        # Addition of quaternions
         if isinstance(other, Quaternion):

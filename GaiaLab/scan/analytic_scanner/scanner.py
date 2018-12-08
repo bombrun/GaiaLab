@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 """
 Scanner class implementation in Python
 
@@ -12,10 +11,10 @@ Scanner class implementation in Python
 import numpy as np
 import time
 from scipy import optimize
+import quaternion
 # Local imports
 import constants as const
 import frame_transformations as ft
-from quaternion import Quaternion
 from satellite import Satellite
 from source import Source
 import helpers

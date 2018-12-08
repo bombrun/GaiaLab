@@ -1,7 +1,10 @@
 """
 Satellite class implementation in Python
-TODO: repair attitude for t_init != 0
-@author: mdelvallevaro
+
+TODO:
+    - repair attitude for t_init != 0
+
+:Author: mdelvallevaro
 """
 
 # # Imports
@@ -12,7 +15,7 @@ from scipy.interpolate import splrep
 # Local imports
 import constants as const
 import frame_transformations as ft
-from quaternion import Quaternion
+import quaternion
 
 
 class Satellite:
@@ -119,11 +122,11 @@ class Satellite:
         (Lindegren, SAG-LL-35, Eq.6)
         :return: quaternion equivalent to initialization of satellite
         """
-        q1 = Quaternion(np.cos(self.epsilon/2), np.sin(self.epsilon/2), 0, 0)
-        q2 = Quaternion(np.cos(self._lambda/2), 0, 0, np.sin(self._lambda/2))
-        q3 = Quaternion(np.cos((self.nu - (np.pi/2.))/2), np.sin((self.nu - (np.pi/2.)) / 2), 0, 0)
-        q4 = Quaternion(np.cos((np.pi / 2. - self.xi)/2), 0, np.sin((np.pi/2. - self.xi)/2), 0)
-        q5 = Quaternion(np.cos(self.omega/2.), 0, 0, np.sin(self.omega/2.))
+        q1 = np.quaternion(np.cos(self.epsilon/2), np.sin(self.epsilon/2), 0, 0)
+        q2 = np.quaternion(np.cos(self._lambda/2), 0, 0, np.sin(self._lambda/2))
+        q3 = np.quaternion(np.cos((self.nu - (np.pi/2.))/2), np.sin((self.nu - (np.pi/2.)) / 2), 0, 0)
+        q4 = np.quaternion(np.cos((np.pi / 2. - self.xi)/2), 0, np.sin((np.pi/2. - self.xi)/2), 0)
+        q5 = np.quaternion(np.cos(self.omega/2.), 0, 0, np.sin(self.omega/2.))
 
         q_total = q1*q2*q3*q4*q5
         return q_total
@@ -166,13 +169,15 @@ class Satellite:
         # change attitude by delta_quat
         w_magnitude = np.linalg.norm(self.w)
         d_zheta = w_magnitude * dt
-        delta_quat = Quaternion(vector=self.w, angle=d_zheta/2.)  # w is not in bcrs frame.
+        tmp_vector = self.w / w_magnitude
+        tmp_angle = d_zheta/2.
+        delta_quat = quaternion.from_rotation_vector(tmp_vector * tmp_angle)  # w is not in bcrs frame.
         self.attitude = delta_quat * self.attitude
 
         # x axis rotates through quaternion multiplication
-        x_quat = Quaternion(0, self.x[0], self.x[1], self.x[2])
+        x_quat = np.quaternion(0, self.x[0], self.x[1], self.x[2])
         x_quat = delta_quat * x_quat * delta_quat.conjugate()
-        self.x = x_quat.to_vector()
+        self.x = ft.quat_to_vector(x_quat)
 
     def __attitude_spline(self):
         """
@@ -220,10 +225,10 @@ class Satellite:
         # self.s_z_tck = splrep(t_list, z_list, s=0, k=self.spline_order)
 
         # Attitude
-        self.func_attitude = lambda t: Quaternion(self.s_w(t), self.s_x(t), self.s_y(t),
-                                                  self.s_z(t)).unit()
+        self.func_attitude = lambda t: np.quaternion(self.s_w(t), self.s_x(t), self.s_y(t),
+                                                     self.s_z(t)).normalized()
         # Attitude in the lmn frame
-        self.func_x_axis_lmn = lambda t: ft.xyz_to_lmn(self.func_attitude(t), np.array([1, 0, 0]))  # where we want to be
+        self.func_x_axis_lmn = lambda t: ft.xyz_to_lmn(self.func_attitude(t), np.array([1, 0, 0]))  # wherewe want to be
         self.func_y_axis_lmn = lambda t: ft.xyz_to_lmn(self.func_attitude(t), np.array([0, 1, 0]))
         self.func_z_axis_lmn = lambda t: ft.xyz_to_lmn(self.func_attitude(t), np.array([0, 0, 1]))
 

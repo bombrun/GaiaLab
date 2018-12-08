@@ -1,12 +1,11 @@
 # -*- coding: utf-8 -*-
-
 """
 File frame_transformations.py
 Contains functions that for frame transformations and rotations
-:Authors: mdelvallevaro
-          LucaZampieri (2018)
 
-:Notes:
+:Authors: mdelvallevaro, LucaZampieri (2018) modified
+
+:notes:
     In this file, when there is a reference, unless explicitly stated otherwise,
     it refers to Lindegren main article:
     "The astronometric core solution for the Gaia mission - overview of models,
@@ -17,7 +16,7 @@ Contains functions that for frame transformations and rotations
 """
 
 import numpy as np
-from quaternion import Quaternion
+import quaternion
 
 
 def zero_to_two_pi_to_minus_pi_pi(angle):
@@ -27,23 +26,15 @@ def zero_to_two_pi_to_minus_pi_pi(angle):
     :returns: angles in the [-pi, pi] format
     """
     indices_to_modify = np.where(angle > np.pi)
-    angle[indices_to_modify] = angle[indices_to_modify] - 2*pi
+    angle[indices_to_modify] = angle[indices_to_modify] - 2*np.pi
     return angle
 
 
 def rotate_by_angle(vector, angle):
-    quaternion = Quaternion(vector=vector, angle=angle)
+    pass
+    """quaternion = Quaternion(vector=vector, angle=angle)
     rotated_vector = rotate_by_quaternion(quaternion, vector)
-    return rotated_vector
-
-
-def vector_to_quaternion(vector):
-    """
-    converts vector to quaternion with first component set to zero.
-    :param vector: 3D np.array
-    :return: Quaternion (0, vector*)
-    """
-    return Quaternion(0, vector[0], vector[1], vector[2])
+    return rotated_vector"""
 
 
 def vector_to_polar(vector):
@@ -140,6 +131,9 @@ def compute_ljk(epsilon):
 def compute_pqr(alpha, delta):
     """
     Ref. Paper eq. [5]
+    .. note::
+        Can be used also with numpy arrays
+
     :param alpha: [rad] astronomic parameter alpha
     :param delta: [rad] astronomic parameter alpha
     :returns: p, q, r
@@ -158,44 +152,60 @@ def rotate_by_quaternion(quaternion, vector):
     Ref. Paper eq. [9]
     rotate vector by quaternion
     """
-    q_vector = vector_to_quaternion(vector)
-    q_rotated_vector = quaternion * q_vector * quaternion.conjugate()
-    return q_rotated_vector.to_vector()
+    q_vector = vector_to_quat(vector)
+    q_rotated_vector = quaternion * q_vector * quaternion.inverse()
+    return quat_to_vector(q_rotated_vector)
 
 
-def xyz_to_lmn(attitude, vector):
+def xyz_to_lmn_old(attitude, vector):
     """
     Ref. Paper eq. [9]
     Go from the rotating (xyz) frame to the non-rotating (lmn) frame
 
-    Info: The attitude Qauaternion q(t) gives the rotation from (lmn) to (xyz)
+    Info:
+        The attitude Qauaternion q(t) gives the rotation from (lmn) to (xyz)
         (lmn) being the CoMRS (C), and (xyz) the SRS (S). The relation between
-        the two frames is given by:
-            {C'v,0} = q {S'v,0} q^-1      for an any vector v
+        the two frames is given by: {C'v,0} = q {S'v,0} q^-1 for an any vector v
 
     :param attitude: Quaternion object
     :param vector: array of 3D
     :return: the coordinates in LMN-frame of the input vector.
     """
-    q_vector_xyz = vector_to_quaternion(vector)
-    q_vector_lmn = attitude * q_vector_xyz * attitude.inverse()
-    return q_vector_lmn.to_vector()
+    pass
 
 
-def lmn_to_xyz(attitude, vector):
+def lmn_to_xyz_old(attitude, vector):
     """
     Ref. Paper eq. [9]
     Goes from the non-rotating (lmn) frame to the rotating (xyz) frame
 
     Info: The attitude Qauaternion q(t) gives the rotation from (lmn) to (xyz)
         (lmn) being the CoMRS (C), and (xyz) the SRS (S). The relation between
-        the two frames is given by:
-            {S'v,0} = q^-1 {C'v,0} q      for an any vector v
+        the two frames is given by: {S'v,0} = q^-1 {C'v,0} q for an any vector v
 
     :param attitude: Quaternion object
     :param vector: array of 3D
     :return: the coordinates in XYZ-frame of the input vector.
     """
-    q_vector_lmn = vector_to_quaternion(vector)
+    pass
+
+
+# ### For mobble quaternion
+def quat_to_vector(quat):
+    return quaternion.as_float_array(quat)[1:]
+
+
+def vector_to_quat(vector):
+    return np.quaternion(0, vector[0], vector[1], vector[2])
+
+
+def xyz_to_lmn(attitude, vector):
+    q_vector_xyz = vector_to_quat(vector)
+    q_vector_lmn = attitude * q_vector_xyz * attitude.inverse()
+    return quat_to_vector(q_vector_lmn)
+
+
+def lmn_to_xyz(attitude, vector):
+    q_vector_lmn = vector_to_quat(vector)
     q_vector_xyz = attitude.inverse() * q_vector_lmn * attitude
-    return q_vector_xyz.to_vector()
+    return quat_to_vector(q_vector_xyz)

@@ -3,12 +3,14 @@ Welcome to GaiaLab's documentation!
 ===================================
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
    :caption: Contents:
 
    README
    installation
-   Code_documentation/code
+   Code_documentation/core_code
+   Code_documentation/auxiliary_code
+   Code_documentation/known_issues
 
 
 

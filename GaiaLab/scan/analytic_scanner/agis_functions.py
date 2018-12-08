@@ -24,7 +24,8 @@ TODO:
     - [DONE] two telescope
     - Attitute with scanner
     - scaling
-    -
+
+Other:
     * if we add acceleration what happens
     * add noise to observation
     * QSO
@@ -37,14 +38,14 @@ import numpy as np
 from scipy.interpolate import BSpline
 from scipy.interpolate import splev
 import matplotlib.pyplot as plt
+import quaternion
 # Local imports
 import constants as const
 import helpers as helpers
 import frame_transformations as ft
-from quaternion import Quaternion
 from source import Source
 from satellite import Satellite
-from source import get_Cu
+from source import compute_topocentric_direction
 
 
 def generate_observation_wrt_attitude(attitude):
@@ -86,15 +87,15 @@ def attitude_from_alpha_delta(source, sat, t, vertical_angle_dev=0):
     Su = np.array([1, 0, 0])
     if vertical_angle_dev == 0:
         vector, angle = helpers.get_rotation_vector_and_angle(Cu, Su)
-        q_out = Quaternion(vector=vector, angle=angle)
+        q_out = quaternion.from_rotation_vector(angle*vector)
     else:
         Cu_xy = helpers.normalize(np.array([Cu[0], Cu[1], 0]))  # Cu on S-[xy] plane
         v1, a1 = helpers.get_rotation_vector_and_angle(Cu_xy, Su)
-        q1 = Quaternion(vector=v1, angle=a1)
+        q1 = quaternion.from_rotation_vector(v1*a1)
 
         Su_xy = ft.rotate_by_quaternion(q1.inverse(), Su)  # Su rotated to be on same xy than Cu_xy
         v2, a2 = helpers.get_rotation_vector_and_angle(Cu, Su_xy)
-        q2_dev = Quaternion(vector=v2, angle=a2+vertical_angle_dev)
+        q2_dev = quaternion.from_rotation_vector(v2*(a2+vertical_angle_dev))
         # deviaetd_Su = ft.rotate_by_quaternion(q2_dev.inverse(), Su_xy)
         q_out = q1*q2_dev
         # angle -= 0.2
@@ -111,6 +112,7 @@ def spin_axis_from_alpha_delta(source, sat, t):
 
 
 def scanning_y_coordinate(source, sat, t):
+    raise ValueError('This function is obsolete')
     # raise ValueError('Check that ')
     att = get_fake_attitude(source, sat, t)
     y_vec = ft.rotate_by_quaternion(att, [0, 1, 0])
@@ -134,8 +136,8 @@ def get_angular_FFoV_PFoV(sat, t):
     z_axis = np.array([0, 0, 1])
     attitude = sat.func_attitude(t)
 
-    quat_PFoV = Quaternion(vector=z_axis, angle=const.Gamma_c / 2)
-    quat_FFoV = Quaternion(vector=z_axis, angle=-const.Gamma_c / 2)
+    quat_PFoV = quaternion.from_rotation_vector(z_axis*const.Gamma_c / 2)
+    quat_FFoV = quaternion.from_rotation_vector(z_axis*(-const.Gamma_c / 2))
 
     PFoV_SRS = ft.rotate_by_quaternion(quat_PFoV, np.array([1, 0, 0]))
     FFoV_SRS = ft.rotate_by_quaternion(quat_FFoV, np.array([1, 0, 0]))
@@ -222,6 +224,31 @@ def multi_compare_attitudes(gaia, Solver, my_times):
     plt.suptitle('Attitudes in time intervals')
     plt.show()
     return fig
+
+
+def multi_compare_attitudes_errors(gaia, Solver, my_times):
+    fig, axs = plt.subplots(1, 4, figsize=(24, 6))
+    # axes = [axs[0, 0], axs[0, 1], axs[ 1,0], axs[1,1]]
+    colors = ['red', 'cyan', 'blue', 'green']
+    titles = ["w-error", "x-error", "y-error", "z-error"]
+    labels_gaia = ["w_gaia", "x_gaia", "y_gaia", "z_gaia"]
+    labels_solver = ["w_solv", "x_solv", "y_solv", "z_solv"]
+    gaia_attitudes = [gaia.s_w(my_times), gaia.s_x(my_times),
+                      gaia.s_y(my_times), gaia.s_z(my_times)]
+    solver_attitudes = []
+    error_component = []
+    for i, ax in enumerate(axs):
+        Solver_attitude = Solver.attitude_splines[i](my_times)
+        error_component = np.abs(gaia_attitudes[i] - Solver_attitude)
+        total_error = error_component.mean()
+        ax.plot(my_times, error_component, ':', color=colors[i],
+                label='diff |' + labels_gaia[i] + '-' + labels_solver[i] + '|')
+        ax.set_title(titles[i] + ': ' + str(total_error))
+        ax.grid(), ax.legend(), ax.set_xlabel("my_times [%s]" % len(my_times))
+
+    plt.suptitle('Attitudes in time intervals')
+    plt.show()
+    return fig
 # ## end just for plotting
 
 
@@ -259,7 +286,7 @@ def extract_coeffs_knots_from_splines(attitude_splines, k):
 def get_times_in_knot_interval(time_array, knots, index, M):
     """
     :param time_array: [numpy array]
-    return times in knot interval defined by [index, index+M]
+    :return: times in knot interval defined by [index, index+M]
     """
     return time_array[(knots[index] < time_array) & (time_array < knots[index+M])]
 
@@ -267,7 +294,8 @@ def get_times_in_knot_interval(time_array, knots, index, M):
 def get_left_index(knots, t, M):
     """
     :param M: spline order (k+1)
-    return the left_index corresponding to t i.e. *i* s.t. t_i < t < t_{i+1}
+    :returns left_index: the left_index corresponding to t i.e. *i* s.t.
+        $t_i < t < t_{i+1}$
     """
     left_index_array = np.where(knots <= t)
     if not list(left_index_array[0]):
@@ -288,8 +316,17 @@ def extend_knots(internal_knots, k):
 
 def compute_coeff_basis_sum(coeffs, bases, L, M, time_index):
     """
-    Computes the sum(a_n*b_n) with n=L-M+1 : L
-    :param L: left_index
+    Computes the sum:
+
+    .. math::
+        \sum_{n=L-M+1}^{L}(a_n \cdot b_n)
+
+    :param coeffs: [numpy array] splines coefficients
+    :param bases: [numpy array] B-spline bases
+    :param L: [int] left_index
+    :param M: [int] spline order (= spline degree + 1)
+    :param time_index: [float] time index where we want to evaluate the spline
+    :returns: [numpy array] vector of the
     """
     # Note the +1 to include last term
     return np.sum(bases[L-M+1:L+1, time_index] * coeffs[:, L-M+1:L+1], axis=1)
@@ -297,6 +334,7 @@ def compute_coeff_basis_sum(coeffs, bases, L, M, time_index):
 
 def compute_attitude_deviation(coeff_basis_sum):
     """
+    :Action: Compute the attitude deviation from unity
     :param coeff_basis_sum: the sum(a_n*b_n) with n=L-M+1 : L
     :returns: attitude deviation from unity D_l"""
     return 1 - np.linalg.norm(coeff_basis_sum)**2
@@ -316,21 +354,22 @@ def compute_DL_da_i_from_attitude(attitude, bases, time_index, i):
     Ref. Paper eq. [83]
     Compute derivative of the attitude deviation wrt attitude params
     """
-    dDL_da = -2 * attitude.to_4D_vector() * bases[i, time_index]
+    dDL_da = -2 * quaternion.as_float_array(attitude) * bases[i, time_index]
     return dDL_da.reshape(4, 1)
 
 
 def compute_dR_dq(calc_source, sat, attitude, t):
     """ Ref. Paper eq. [79]
     return [array] with dR/dq"""
-    # Here we have "phi" since we set double_telescope to False
+    # Here below we have "phi" since we set double_telescope to False
     phi, zeta = calculated_field_angles(calc_source, attitude, sat, t, double_telescope=False)
     Sm, Sn, Su = compute_mnu(phi, zeta)
     q = attitude
 
-    dR_dq_AL = 2 * helpers.sec(zeta) * (q * ft.vector_to_quaternion(Sn))
-    dR_dq_AC = -2 * (q * ft.vector_to_quaternion(Sm))
-    return dR_dq_AL.to_4D_vector() + dR_dq_AC.to_4D_vector()
+    dR_dq_AL = 2 * helpers.sec(zeta) * (q * ft.vector_to_quat(Sn))
+    dR_dq_AC = -2 * (q * ft.vector_to_quat(Sm))
+
+    return (quaternion.as_float_array(dR_dq_AL),  quaternion.as_float_array(dR_dq_AC))
 
 
 def dR_da_i(dR_dq, bases_i):
@@ -364,7 +403,7 @@ def calculated_field_angles(calc_source, attitude, sat, t, double_telescope=Fals
     alpha, delta, parallax, mu_alpha, mu_delta = calc_source.s_params[:]
     params = np.array([alpha, delta, parallax, mu_alpha, mu_delta, calc_source.mu_radial])
 
-    Cu = get_Cu(params, sat, t)  # u in CoMRS frame
+    Cu = compute_topocentric_direction(params, sat, t)  # u in CoMRS frame
     Su = ft.lmn_to_xyz(attitude, Cu)  # u in SRS frame
 
     eta, zeta = compute_field_angles(Su, double_telescope)

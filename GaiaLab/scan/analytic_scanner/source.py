@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 """
 Source class implementation in Python
 
@@ -14,11 +13,11 @@ import numpy as np
 # Local imports
 import constants as const
 import frame_transformations as ft
-from quaternion import Quaternion
 from satellite import Satellite
+import quaternion
 
 
-def get_Cu(astro_parameters, sat, t):
+def compute_topocentric_direction(astro_parameters, sat, t):
     """
     Compute the topocentric_function direction i.e. ũ
     The horizontal coordinate system, also known as topocentric coordinate
@@ -57,13 +56,15 @@ class Source:
         :param radial_velocity: km/s
         :param func_color: function representing the color of the source in nanometers
         :param mean_color: mean color observed by satellite
+
         Transforms in rads/day or rads
-        [alpha] = rads
-        [delta] = rads
-        [parallax] = rads
-        [mu_alpha_dx] = rads/days
-        [mu_delta] = rads/days
-        [mu_radial] = rads/days?
+        Attributes:
+            [alpha] = rads
+            [delta] = rads
+            [parallax] = rads
+            [mu_alpha_dx] = rads/days
+            [mu_delta] = rads/days
+            [mu_radial] = rads/days?
         """
         self.name = name
         self.__alpha0 = np.radians(alpha0)
@@ -141,7 +142,7 @@ class Source:
         """
         # self.set_time(0)  # (float(t))
         param = np.array([self.__alpha0, self.__delta0, self.parallax, self.mu_alpha_dx, self.mu_delta, self.mu_radial])
-        return get_Cu(param, satellite, t)
+        return compute_topocentric_direction(param, satellite, t)
 
     def topocentric_angles(self, satellite, t):
         """
