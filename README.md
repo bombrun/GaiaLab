@@ -50,3 +50,9 @@ and software implementation, L.Lindegren et al.
 * The documentation has been created with **sphinx**. It can be build using ```make ???``` with ??? replaced with the kind of documentation you like (e.g. ```html```, ```pdf```...) in the **doc** folder. It can also be modified there. See http://www.sphinx-doc.org/en/master/index.html for help with sphinx.
 
 * The online documentation is hosted and linked to the github code through the use of readTheDocs. See https://readthedocs.org/ for more infos.
+
+
+### Link to the presentation of December 14th 2018
+
+link (as of 14/12/2018):  
+ https://docs.google.com/presentation/d/1A5xr-5s7EoWWrpLYWAo9IuvGSOAfowNfYv5n9Z9I2ZE/edit?usp=sharing
