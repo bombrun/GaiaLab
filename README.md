@@ -70,7 +70,7 @@ and software implementation, L.Lindegren et al.
 
 * The codestyle tries to follow PEP8 guidelines, for example using linter 2.2 codestyle package. (see https://atom.io/packages/linter as of 20.09.2018)
 
-* The documentation has been created with **sphinx**. It can be build using ```make ???``` with ??? replaced with the kind of documentation you like (e.g. ```html```, ```pdf```...) in the **doc** folder. It can also be modified there. See http://www.sphinx-doc.org/en/master/index.html for help with sphinx.
+* The documentation has been created with **sphinx**. It can be build using ```make ***``` with *** replaced with the kind of documentation you like (e.g. ```html```, ```pdf```...) in the **doc** folder. It can also be modified there. See http://www.sphinx-doc.org/en/master/index.html for help with sphinx.
 
 * The online documentation is hosted and linked to the github code through the use of readTheDocs. See https://readthedocs.org/ for more infos.
 
