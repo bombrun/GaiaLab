@@ -5,13 +5,17 @@ Documentation: https://gaialab.readthedocs.io/en/latest/
 
 ### Quickstart
 
-For core code:
+For last stable release:
+```
+pip install GaiaLab
+```
+
+For the latest code:
 ```
 git clone https://github.com/bombrun/GaiaLab
 cd GaiaLab
 pip install -r requirements.txt
 ```
-
 
 and enjoy!
 
