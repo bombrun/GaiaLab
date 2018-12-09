@@ -3,6 +3,25 @@
 Documentation: https://gaialab.readthedocs.io/en/latest/
 
 
+### Quickstart
+
+For core code:
+``` bash
+git clone https://github.com/bombrun/GaiaLab
+cd GaiaLab
+pip install -r requirements.txt
+```
+
+
+and enjoy!
+
+> Not yet implemented:
+> For also the notebooks add:  
+> cd notebooks  
+> pip install -r notebook_requirements.txt  
+>   
+> and enjoy the notebooks as well!
+
 ### About
 
 ESAC is responsible for developing and running AGIS, the software that computes the global astrometric parameters for the Gaia mission.
