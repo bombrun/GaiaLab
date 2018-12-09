@@ -1,3 +1,12 @@
+# -*- coding: utf-8 -*-
+"""
+File test_gaia_lab.py
+
+File contains some test for GaiaLab main functions
+
+:Author: Luca Zampieri 2018
+"""
+
 from source import Source
 from satellite import Satellite
 from scanner import Scanner
