@@ -13,7 +13,9 @@ constants if we later need them more or less precises
 import numpy as np
 
 #: General
+#: How many days per year
 days_per_year = 365  # [days/years]
+#: How many radians per micro arcsec
 rad_per_mas = 2*np.pi/(1000*360*3600)  # [radiants/mas] radiants per milli-arcsec
 rad_per_arcsec = 2*np.pi/(360*3600)  # [radiants/arcsec] radiants per arcsec
 rad_per_deg = (2*np.pi)/360  # [radiants/degrees]

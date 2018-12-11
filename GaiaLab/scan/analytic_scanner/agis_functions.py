@@ -60,6 +60,15 @@ def generate_observation_wrt_attitude(attitude):
     return alpha, delta
 
 
+def field_angles_to_alpha_delta(phi, zeta, attitude):
+    x = np.cos(zeta)*np.cos(phi)
+    y = np.cos(zeta)*np.sin(phi)
+    z = np.sin(zeta)
+    CoMRS_vector = ft.xyz_to_lmn(attitude, [x, y, z])
+    alpha, delta = ft.vector_to_alpha_delta(CoMRS_vector)
+    return alpha, delta
+
+
 def error_between_func_attitudes(my_times, func_att1, func_att2):
     error_in_attitude = 0
     for t in my_times:
@@ -111,6 +120,16 @@ def spin_axis_from_alpha_delta(source, sat, t):
     return vector
 
 
+def scanning_direction(source, sat, t):
+    """
+    Computes the y-coordinates of the SRS frame, which is an approximation of
+    the scanning direction. Use for plotting alone
+    """
+    att = sat.func_attitude(t)
+    scanning_y_coordinate = ft.rotate_by_quaternion(att, [0, 1, 0])
+    return scanning_y_coordinate
+
+
 def scanning_y_coordinate(source, sat, t):
     raise ValueError('This function is obsolete')
     # raise ValueError('Check that ')
@@ -149,6 +168,26 @@ def get_angular_FFoV_PFoV(sat, t):
     alpha_FFoV, delta_FFoV = ft.vector_to_alpha_delta(FFoV_CoMRS)
 
     return alpha_PFoV, delta_PFoV, alpha_FFoV, delta_FFoV
+
+
+def get_obs_in_CoMRS(source, sat, t):
+
+    attitude = sat.func_attitude(t)
+    phi, zeta = observed_field_angles(source, attitude, sat, t, double_telescope=False)  # even if we have 2 telescope
+    z_axis = np.array([0, 0, 1])
+    field_index = np.sign(phi)
+
+    eta = field_index * const.Gamma_c / 2
+
+    quat1 = quaternion.from_rotation_vector(z_axis*eta)
+    Sx_rot_eta = ft.rotate_by_quaternion(quat1, np.array([1, 0, 0]))
+
+    vect = np.cross(Sx_rot_eta / np.linalg.norm(Sx_rot_eta), z_axis)
+    quat2 = quaternion.from_rotation_vector(vect*zeta)
+    Sx_rot_eta_zeta = ft.rotate_by_quaternion(quat2, Sx_rot_eta)
+
+    obs_in_CoMRS = ft.xyz_to_lmn(attitude, Sx_rot_eta_zeta)
+    return obs_in_CoMRS
 
 
 # ### For scanner --------------------------------------------------------------

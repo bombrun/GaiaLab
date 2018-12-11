@@ -1,0 +1,1 @@
+This folder contains notebooks used for testing. Once they are clean they are published into the upper folder
