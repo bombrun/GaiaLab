@@ -66,8 +66,7 @@ class Agis:
 
     def __init__(self, sat, calc_sources=[], real_sources=[], attitude_splines=None,
                  verbose=False, spline_degree=3, attitude_regularisation_factor=0,
-                 updating='attitude', degree_error=0, double_telescope=False,
-                 use_only_AL=False):
+                 updating='attitude', degree_error=0, double_telescope=False):
         """
         Also contains:
         **Temporary variables**
@@ -80,8 +79,10 @@ class Agis:
         Attributes:
             :calc_sources: list of estimated sources
         """
+        # Raise an error if invalid initialization
+        if len(real_sources) != len(calc_sources):
+                raise ValueError('there must be the same number of real and calc sources')
         # Objects
-
         #: List of the sources objects
         self.real_sources = real_sources
         #: List of calculated sources with 1-1 correspondance to the real sources
@@ -97,7 +98,6 @@ class Agis:
         self.attitude_regularisation_factor = attitude_regularisation_factor
         self.verbose = verbose
         self.updating = updating
-        self.use_only_AL = use_only_AL  # # TODO: remove because obsolete?
         self.consider_stellar_aberation = False  # TODO: remove because obsolete?
         self.degree_error = degree_error  # [only for source] deviation in vertical direction of the attitude
         self.double_telescope = double_telescope  # bool indicating if we use the double_telescope config
@@ -125,6 +125,9 @@ class Agis:
             self.att_coeffs, self.att_knots, self.attitude_splines = (c, t, s)
             self.att_bases = get_basis_Bsplines(self.att_knots, self.att_coeffs[0], self.k, self.all_obs_times)
             self.N = self.att_coeffs.shape[1]  # number of coeffs per parameter
+
+        if (self.att_knots.shape[0] - self.att_coeffs.shape[1]) != self.M:
+                raise ValueError('there should be M coeffs less than the number of knots')
 
     # ### Generic functions for all kind of updating -----------------------------------
     def reset_iterations(self):
