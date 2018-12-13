@@ -197,10 +197,3 @@ def lmn_to_xyz(attitude, vector):
     return quat_to_vector(q_vector_xyz)
 
 # ################ obsolete Functions
-"""
-def vector_to_polar(vector):
-    alpha = np.arctan2(vector[1], vector[0]) % (2*np.pi)
-    dist_xy = np.sqrt(vector[0]**2+vector[1]**2)
-    delta = np.arctan2(vector[2],  dist_xy) % (2*np.pi)
-    return alpha, delta, radius
-"""
