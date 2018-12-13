@@ -111,7 +111,7 @@ def attitude_from_alpha_delta(source, sat, t, vertical_angle_dev=0):
     return q_out
 
 
-def add_noise_to_calc_source(s, noise):
+def add_noise_to_calc_source(s, noise=1e-12):
     """
     Adds noise to given source
     :param noise: [numpy array] of five elements, one for each parameter of the source
@@ -137,6 +137,7 @@ def scanning_direction(source, sat, t):
     Computes the y-coordinates of the SRS frame, which is an approximation of
     the scanning direction. Use for plotting alone
     """
+    raise ValueError('This functinon is obsolete')
     att = sat.func_attitude(t)
     scanning_y_coordinate = ft.rotate_by_quaternion(att, [0, 1, 0])
     return scanning_y_coordinate
@@ -153,6 +154,7 @@ def scanning_y_coordinate(source, sat, t):
 
 
 def get_fake_attitude(source, sat, t):
+    raise ValueError('This function is obsolete')
     quat1 = attitude_from_alpha_delta(source, sat, t)
     # quat2 = Quaternion(vector=np.array([1, 0, 0]), angle=const.sat_angle)
     attitude = quat1  # * quat2
@@ -203,6 +205,31 @@ def get_obs_in_CoMRS(source, sat, t):
     return obs_in_CoMRS
 
 
+def generate_angles_of_sources(times_for_source, sat, noise_factor=1e-12):
+    """
+    Create source along the path of the telescopes. For each time in times_for_source
+    create one source on PFoV, one between the two telescope and one on the FFoV
+    returns a number *num_sources* x3 of ICRS coordinates (right ascension,
+    declination)
+
+    :param num_source: times where we want to create the sources
+    :param noise_factor: [float]
+    :returns: list of alphas and deltas
+    """
+    # Warning be carefull to what you use to get alpha/delta from vector
+    alphas, deltas = ([], [])
+    for t in times_for_source:
+        noise = np.random.rand(6) * noise_factor
+        attitude = sat.func_attitude(t)
+        alpha, delta = generate_observation_wrt_attitude(attitude)
+        a_P, d_P, a_F, d_F = get_angular_FFoV_PFoV(sat, t)
+        alphas += [alpha + noise[0]]
+        deltas += [delta + noise[3]]
+        alphas += [a_P + noise[1], a_F + noise[2]]
+        deltas += [d_P + noise[4], d_F + noise[5]]
+    return alphas, deltas
+
+
 # ### For scanner --------------------------------------------------------------
 def get_interesting_days(ti, tf, sat, source, zeta_limit):
     # print(zeta_limit)
@@ -244,12 +271,13 @@ def compare_attitudes(gaia, Solver, my_times):
                       gaia.s_y(my_times), gaia.s_z(my_times)]
     solver_attitudes = []
     for i in range(4):
-        plt.plot(my_times, gaia_attitudes[i], ':', color=colors[i], label=labels_gaia[i])
-        plt.plot(my_times, Solver.attitude_splines[i](my_times), '--', color=colors[i], label=labels_solver[i])
-    plt.xlabel("my_times [%s]" % len(my_times))
+        plt.plot(my_times, gaia_attitudes[i], '--', color=colors[i], label=labels_gaia[i])
+        plt.plot(my_times, Solver.attitude_splines[i](my_times), ':', color=colors[i], label=labels_solver[i])
+    plt.xlabel('time [days]')  # ("my_times [%s]" % len(my_times))
     plt.legend(loc=9, bbox_to_anchor=(1.1, 1))
     plt.title('Attitudes in time intervals')
     plt.show()
+    return fig
 
 
 def multi_compare_attitudes(gaia, Solver, my_times):

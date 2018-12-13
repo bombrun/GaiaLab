@@ -1,7 +1,17 @@
 # GaiaLab
 
-Documentation: https://gaialab.readthedocs.io/en/latest/
+### About
 
+ESAC is responsible for developing and running AGIS, the software that computes the global astrometric parameters for the Gaia mission.
+The design and validation of Gaia global astrometric mission requires to be able to run simulations that include complex calibration issues.
+The current state of the art is AgisLab. This code is proprietary of DPAC, the scientific consortium processing the Gaia data
+and responsible for the publication of the final star catalogue.
+
+GaiaLab project is open source, developed by students and going some steps further in order to expose some of the global astrometric issues to a larger community.
+
+---
+
+Documentation: https://gaialab.readthedocs.io/en/latest/
 
 ### Quickstart
 
@@ -25,16 +35,6 @@ and enjoy!
 > pip install -r notebook_requirements.txt  
 >   
 > and enjoy the notebooks as well!
-
-### About
-
-ESAC is responsible for developing and running AGIS, the software that computes the global astrometric parameters for the Gaia mission.
-The design and validation of Gaia global astrometric mission requires to be able to run simulations that include complex calibration issues.
-The current state of the art is AgisLab. This code is proprietary of DPAC, the scientific consortium processing the Gaia data
-and responsible for the publication of the final star catalogue.
-
-GaiaLab project is open source, developed by students and going some steps further in the simplification of the problem in order to expose some of the global astrometric issues to a larger community.
-
 
 ### What is implemented
 
