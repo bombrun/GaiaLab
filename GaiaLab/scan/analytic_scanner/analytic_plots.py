@@ -316,42 +316,77 @@ def plot_phi(source, sat, ti=0, tf=90, n=1000):
 
 
 # new
-def plot_star_trajectory_with_observations(sat, source, obs_times):
+def plot_star_trajectory_with_scans(sat, source, obs_times, num_ms_for_snapshot=2):
+    """
+    Plots the star trajectory
+
+    :param sat: [Satellite object]
+    :param source: [source object]
+    :param obs_times: [list of floats] list with the observations times from
+     scanner
+    :param num_ms_for_snapshot: [float][milliseconds] time intervall in which we
+     desire the scanner positions
+    :returns: figure object with the plot
+    """
+    observed_times = np.sort(obs_times)
     fig = plt.figure()
+    plt.title(source.name + ' path with scan directions')
+
     star_alphas, star_deltas = ([], [])
     green_alphas, green_deltas = ([], [])
 
-    observed_times = np.sort(obs_times)
-
     for i, t in enumerate(observed_times):
 
+        # Real star parameters
         alpha_star, delta_star, _, _ = source.topocentric_angles(sat, t)
-        star_alphas.append(alpha_star/const.rad_per_mas)
+        star_alphas.append(alpha_star/const.rad_per_mas)  # converts in [mas]
         star_deltas.append(delta_star/const.rad_per_mas)
 
-        # For the observations! ##################################
-        xaxis = sat.func_x_axis_lmn(t)
-        zaxis = sat.func_z_axis_lmn(t)
-
-        vectorz1 = get_obs_in_CoMRS(source, sat, t)
-
-        green_alpha, green_delta = ft.vector_to_alpha_delta(vectorz1)
+        # Observed star parameters
+        vector_to_star_in_comrs_frame = get_obs_in_CoMRS(source, sat, t)
+        green_alpha, green_delta = ft.vector_to_alpha_delta(vector_to_star_in_comrs_frame)
         green_alphas.append(green_alpha/const.rad_per_mas)
         green_deltas.append(green_delta/const.rad_per_mas)
 
-    plt.plot(green_alphas, green_deltas, 'g+:', label='observed stars')
-    plt.plot(star_alphas, star_deltas, 'b*:', label='star')  # plot stars as blu stars
+        # Scanner position parameters
+        my_as, my_ds = ([], [])
+        half_interval = num_ms_for_snapshot * 1/24/60/60/1000  # 2ms
+        for ti in np.linspace(t-half_interval, t+half_interval, num=100):
+            my_vector = get_obs_in_CoMRS(source, sat, ti)
+            my_a, my_d = ft.vector_to_alpha_delta(my_vector)
+            my_as.append(my_a/const.rad_per_mas)
+            my_ds.append(my_d/const.rad_per_mas)
+        p1, = plt.plot(my_as, my_ds, 'r-', alpha=0.5)
+        p2, = plt.plot(my_as[0], my_ds[0], 'r+')  # start of scan direction
+        p3, = plt.plot(my_as[-1], my_ds[-1], 'r>')  # end of star direction
 
-    plt.legend(loc='upper left'), plt.title('%s' % source.name)
+    p_green, = plt.plot(green_alphas, green_deltas, 'g+:')
+    p_star, = plt.plot(star_alphas, star_deltas, 'b*:')  # plot stars as blu stars
+
+    plt.legend(handles=[p1, p2, p3, p_green, p_star],
+               labels=['discretized scanner position', '2ms before scan',
+                       '2ms after scan', 'observed stars', 'star'],
+               loc='upper left',
+               bbox_to_anchor=(1.1, 1))
+    # plt.title('%s' % source.name)
     plt.xlabel('alpha [mas]'), plt.ylabel('delta [mas]')
-    plt.axis('equal'), plt.tight_layout()
+    # plt.axis('equal'), plt.tight_layout()
     plt.margins(0.1), plt.grid()
     plt.show()
     return fig
 
 
 # new
-def plot_errors_VS_iterations_per_source(Solver, save_path='./figures/tmp/'):
+def plot_errors_VS_iterations_per_source(Solver, save_path=None):
+    """
+    Plots the error on each astronomic parameter and objective function for each
+    source.
+
+    :param Solver: [Solver object]
+    :param save_path:
+    :return: list of figures wih the plots for each source
+    """
+    figs_list = []
     for source_index, s in enumerate(Solver.calc_sources):
         calc_source = Solver.calc_sources[source_index]
         real_source = Solver.real_sources[source_index]
@@ -385,22 +420,36 @@ def plot_errors_VS_iterations_per_source(Solver, save_path='./figures/tmp/'):
                 ax = axs[0, i]
             else:
                 ax = axs[1, i-3]
-            ax.plot(x, 'b--.', label=labels[i])
-            ax.hlines(observed[i], xmin=0, xmax=num_iters, color='g')
+            if (i < 2):
+                ax.semilogy(np.abs(observed[i] - x), 'b--.', label=labels[i])
+                ax.set_ylabel('[rads]')
+            elif (i == 2):
+                ax.semilogy(np.abs(observed[i] - x)/const.rad_per_mas,
+                            'b--.', label=labels[i])
+                ax.set_ylabel('[mas]')
+            elif (i == 3 or i == 4):
+                ax.semilogy(np.abs(observed[i] - x)/const.rad_per_mas*const.days_per_year,
+                            'b--.', label=labels[i])
+                ax.set_ylabel('[mas/year]')
+            else:
+                raise ValueError('not a valid plot index')
+
+            # ax.hlines(observed[i], xmin=0, xmax=num_iters, color='g')
             ax.grid()
             ax.set_label('labels[i]')
             ax.set_xlabel('Iterations')
             ax.legend()
 
-        axs[0, 0].hlines(observed[0]+std_alpha, xmin=0, xmax=num_iters, color='g')
-        axs[0, 0].hlines(observed[0]-std_alpha, xmin=0, xmax=num_iters, color='g')
-        axs[0, 0].hlines(min_alpha, xmin=0, xmax=num_iters, color='r')
-        axs[0, 0].hlines(max_alpha, xmin=0, xmax=num_iters, color='r')
+        # ### Commented the horizontal lines of standard deviation &Co
+        # axs[0, 0].hlines(observed[0]+std_alpha, xmin=0, xmax=num_iters, color='g')
+        # axs[0, 0].hlines(observed[0]-std_alpha, xmin=0, xmax=num_iters, color='g')
+        # axs[0, 0].hlines(min_alpha, xmin=0, xmax=num_iters, color='r')
+        # axs[0, 0].hlines(max_alpha, xmin=0, xmax=num_iters, color='r')
 
-        axs[0, 1].hlines(observed[1]+std_delta, xmin=0, xmax=num_iters, color='g')
-        axs[0, 1].hlines(observed[1]-std_delta, xmin=0, xmax=num_iters, color='g')
-        axs[0, 1].hlines(min_delta, xmin=0, xmax=num_iters, color='r')
-        axs[0, 1].hlines(max_delta, xmin=0, xmax=num_iters, color='r')
+        # axs[0, 1].hlines(observed[1]+std_delta, xmin=0, xmax=num_iters, color='g')
+        # axs[0, 1].hlines(observed[1]-std_delta, xmin=0, xmax=num_iters, color='g')
+        # axs[0, 1].hlines(min_delta, xmin=0, xmax=num_iters, color='r')
+        # axs[0, 1].hlines(max_delta, xmin=0, xmax=num_iters, color='r')
 
         # plot evolution of the error
         ax = axs[-1, -1]
@@ -409,9 +458,22 @@ def plot_errors_VS_iterations_per_source(Solver, save_path='./figures/tmp/'):
         ax.set_xlabel('Iterations')
         ax.grid(alpha=0.8)
         ax.legend()
+        if save_path is not None:
+            fig.savefig(save_path + '_errors_'+s.name+'.png')
+        figs_list.append(fig)
+    return figs_list
 
-        fig.savefig(save_path + 'errors_' + s.name + '.png')
-    # end functions
+
+# new
+def plot_sources_in_sky(sources, projection='hammer'):
+    plt.figure()
+    plt.subplot(111, projection=projection)
+    for i, s in enumerate(sources):
+        plt.plot(ft.zero_to_two_pi_to_minus_pi_pi(np.array([s.alpha])), s.delta, '+', label=s.name)
+    plt.title("Hammer Projection of the Sky")
+    plt.legend(loc=9, bbox_to_anchor=(1.1, 1))
+    plt.grid(True)
+    plt.show()
 
 
 # new
@@ -566,9 +628,11 @@ def plot_scanner_position_over_source(source, sat, t_init=0, t_end=365, num_poin
     for t in np.linspace(t_init, t_end, num=num_points_of_discretization):
         ra_PFoV, dec_PFoV, ra_FFoV, dec_FFoV = np.array(get_angular_FFoV_PFoV(sat, t))
         ra_PFoV, ra_FFoV = ft.zero_to_two_pi_to_minus_pi_pi(np.array([ra_PFoV, ra_FFoV]))
-        dec_PFoV, dec_FFoV = ft.transform_twoPi_into_halfPi(np.array([dec_PFoV, dec_FFoV]))
-        list_ra_PFoV.append(ra_PFoV), list_dec_PFoV.append(dec_PFoV)
-        list_ra_FFoV.append(ra_PFoV), list_dec_FFoV.append(dec_FFoV)
+        # dec_PFoV, dec_FFoV = ft.transform_twoPi_into_halfPi(np.array([dec_PFoV, dec_FFoV]))
+        list_ra_PFoV.append(ra_PFoV)
+        list_dec_PFoV.append(dec_PFoV)
+        list_ra_FFoV.append(ra_PFoV)
+        list_dec_FFoV.append(dec_FFoV)
 
     ax.plot(list_ra_PFoV, list_dec_PFoV, 'b,', alpha=0.5)
     ax.plot(list_ra_FFoV, list_dec_FFoV, 'r,', alpha=0.5)
@@ -581,6 +645,7 @@ def plot_scanner_position_over_source(source, sat, t_init=0, t_end=365, num_poin
     return fig, ax
 
 
+# new
 def plot_star_trajectory(source, sat, ti=0, tf=None, obs_times=[], equatorial=False,
                          dt=1, show_scanning_directions=False):
     """
@@ -683,6 +748,24 @@ def plot_star_trajectory(source, sat, ti=0, tf=None, obs_times=[], equatorial=Fa
         ax.axvline(x=0, c='gray', lw=1)
         ax.set_xlabel(r'$\Delta\alpha*$ [mas]')
         ax.set_ylabel(r'$\Delta\delta$ [mas]')
+
+    # if show_scanning_directions is False:
+    """print('lala')
+    for t in obs_times:
+        as_F, ds_F, as_P, ds_P = ([], [], [], [])
+        for ti in np.linspace(t-1/24/60/60/10, t+1/24/60/60/10, num=10):
+            attitude = sat.func_attitude(t)
+            alpha_P, delta_P = generate_observation_wrt_attitude(attitude)
+            alpha_P, delta_P, alpha_F, delta_F = get_angular_FFoV_PFoV(sat, ti)
+            as_F.append(alpha_F / const.rad_per_mas)
+            as_P.append(alpha_P)
+            ds_P.append(delta_P)
+            ds_F.append(delta_F / const.rad_per_mas)
+        as_P = ft.zero_to_two_pi_to_minus_pi_pi(np.array(as_P)) / const.rad_per_mas
+        ds_P = ft.transform_twoPi_into_halfPi(np.array(as_P)) / const.rad_per_mas
+        ax.plot(as_P, ds_P, 'b+:')
+        # ax.plot(as_F, ds_F, 'r,:')"""
+
     ax.legend()
     return fig
 

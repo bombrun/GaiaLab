@@ -1,0 +1,2 @@
+This Folder contains notebooks to illustrate some functionality of GaiaLab.  
+Note tha tthese notebooks may require additional modules to be run. We try to put all the requirements into the file requirements.txt

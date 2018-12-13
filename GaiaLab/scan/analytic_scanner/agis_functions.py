@@ -111,6 +111,18 @@ def attitude_from_alpha_delta(source, sat, t, vertical_angle_dev=0):
     return q_out
 
 
+def add_noise_to_calc_source(s, noise):
+    """
+    Adds noise to given source
+    :param noise: [numpy array] of five elements, one for each parameter of the source
+    """
+    s.s_params[0] += noise[0]
+    s.s_params[1] += noise[1]
+    s.s_params[2] += noise[2]
+    s.s_params[3] += noise[3]
+    s.s_params[4] += noise[4]
+
+
 def spin_axis_from_alpha_delta(source, sat, t):
     Cu = source.unit_topocentric_function(sat, t)
     Su = np.array([1, 0, 0])
@@ -155,8 +167,9 @@ def get_angular_FFoV_PFoV(sat, t):
     z_axis = np.array([0, 0, 1])
     attitude = sat.func_attitude(t)
 
-    quat_PFoV = quaternion.from_rotation_vector(z_axis*const.Gamma_c / 2)
-    quat_FFoV = quaternion.from_rotation_vector(z_axis*(-const.Gamma_c / 2))
+    angle = const.Gamma_c / 2
+    quat_PFoV = quaternion.from_rotation_vector(z_axis*angle)
+    quat_FFoV = quaternion.from_rotation_vector(z_axis*(-angle))
 
     PFoV_SRS = ft.rotate_by_quaternion(quat_PFoV, np.array([1, 0, 0]))
     FFoV_SRS = ft.rotate_by_quaternion(quat_FFoV, np.array([1, 0, 0]))
@@ -398,13 +411,29 @@ def compute_DL_da_i_from_attitude(attitude, bases, time_index, i):
 
 
 def compute_dR_dq(calc_source, sat, attitude, t):
-    """ Ref. Paper eq. [79]
-    return [array] with dR/dq"""
+    """
+    Ref. Paper eq. [79].
+    Computes the derivative of the cost-function w.r.t. quaternion q i.e. the
+    the tuple of equations:
+
+    - :math:`\\frac{dR_l^{AL}}{dq_l}=2 \cdot sec(\zeta_l) q_l * \{S'n_l, 0\}` which
+      is Along_scan w.r.t. observation number l
+    - :math:`\\frac{dR_l^{AC}}{dq_l}=-2 q_l * \{S'm_l, 0\}`
+
+    where * is a quaternion multiplication
+
+    :param calc_source: [calc_source object]
+    :param sat: [sat object]
+    :param attitude: [numpy quaternion]
+    :param t: [float][days] time
+    :returns: [tuple of numpy arrays] (dR^AL/dq, dR^AC/dq)
+
+    """
     # Here below we have "phi" since we set double_telescope to False
     phi, zeta = calculated_field_angles(calc_source, attitude, sat, t, double_telescope=False)
     Sm, Sn, Su = compute_mnu(phi, zeta)
-    q = attitude
 
+    q = attitude
     dR_dq_AL = 2 * helpers.sec(zeta) * (q * ft.vector_to_quat(Sn))
     dR_dq_AC = -2 * (q * ft.vector_to_quat(Sm))
 
@@ -412,7 +441,10 @@ def compute_dR_dq(calc_source, sat, attitude, t):
 
 
 def dR_da_i(dR_dq, bases_i):
-    """ :param basis_i: B-spline basis of index i"""
+    """
+    :param dR_dq: Derivative of the cost funtions w.r.t. the quaternion q
+    :param basis_i: B-spline basis of index i
+    """
     dR_da_i = dR_dq * bases_i
     return dR_da_i.reshape(4, 1)
 # ### End attitude updating ####################################################

@@ -44,7 +44,7 @@ def transform_twoPi_into_halfPi(deltas):
     return deltas
 
 
-def vector_to_alpha_delta(vector):
+def vector_to_alpha_delta(vector, two_pi=False):
     """
     Ref. Paper eq. [96]
     Convert carthesian coordinates of a vector into its corresponding polar
@@ -53,10 +53,11 @@ def vector_to_alpha_delta(vector):
     :return: [rad][rad] alpha, delta --> between 0 and 2*pi (in ICRS coordinates)
     """
     radius = np.sqrt(vector[0] ** 2 + vector[1] ** 2 + vector[2] ** 2)
-    delta = np.arcsin(vector[2]/radius)
+    delta = np.arcsin(vector[2]/radius)  # gives delta in [-pi/2, pi/2]
     alpha = np.arctan2(vector[1], vector[0]) % (2*np.pi)
-    dist_xy = np.sqrt(vector[0]**2+vector[1]**2)
-    delta = np.arctan2(vector[2],  dist_xy) % (2*np.pi)
+    if two_pi is True:
+        dist_xy = np.sqrt(vector[0]**2+vector[1]**2)
+        delta = np.arctan2(vector[2],  dist_xy) % (2*np.pi)  # gives delta in [0, 2pi]
     return alpha, delta
 
 
