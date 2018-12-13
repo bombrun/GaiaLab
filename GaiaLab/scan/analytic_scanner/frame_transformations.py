@@ -19,39 +19,32 @@ import numpy as np
 import quaternion
 
 
-def zero_to_two_pi_to_minus_pi_pi(angle):
+def zero_to_two_pi_to_minus_pi_pi(angle, unit='radians'):
     """
     Tranforms an angle in range [0-2*pi] to range [-pi, pi]
     :param angle: [rad] angle or array of angles in [0-2*pi] format
+    :param unit: [str] specify if the input data is in radians or degrees
     :returns: angles in the [-pi, pi] format
     """
-    indices_to_modify = np.where(angle > np.pi)
-    angle[indices_to_modify] = angle[indices_to_modify] - 2*np.pi
+    if unit == 'radians':
+        indices_to_modify = np.where(angle > np.pi)
+        angle[indices_to_modify] = angle[indices_to_modify] - 2*np.pi
+    elif unit == 'degrees':
+        indices_to_modify = np.where(angle > 180)
+        angle[indices_to_modify] = angle[indices_to_modify] - 360
+    else:
+        raise ValueError('Not a valid *unit* value. Can be degrees or radians')
     return angle
 
 
-def rotate_by_angle(vector, angle):
-    pass
-    """quaternion = Quaternion(vector=vector, angle=angle)
-    rotated_vector = rotate_by_quaternion(quaternion, vector)
-    return rotated_vector"""
+def transform_twoPi_into_halfPi(deltas):
+    deltas = np.array(deltas)
+    to_modify_indices = np.where(deltas > np.pi)[0]
+    deltas[to_modify_indices] -= 2*np.pi
+    return deltas
 
 
-def vector_to_polar(vector):
-    """
-    Convert carthesian coordinates of a vector into its corresponding polar coordinates
-    :param vector: [pc]
-    :return: [rad][rad][pc] alpha, delta, radius
-    """
-    radius = np.sqrt(vector[0] ** 2 + vector[1] ** 2 + vector[2] ** 2)
-    alpha = np.arctan2(vector[1], vector[0]) % (2*np.pi)
-    delta = np.arcsin(vector[2]/radius)
-    dist_xy = np.sqrt(vector[0]**2+vector[1]**2)
-    delta = np.arctan2(vector[2],  dist_xy) % (2*np.pi)
-    return alpha, delta, radius
-
-
-def vector_to_alpha_delta(vector):
+def vector_to_alpha_delta(vector, two_pi=False):
     """
     Ref. Paper eq. [96]
     Convert carthesian coordinates of a vector into its corresponding polar
@@ -59,9 +52,12 @@ def vector_to_alpha_delta(vector):
     :param vector: [whatever] X,Y,Z coordinates in CoMRS frame (non-rotating)
     :return: [rad][rad] alpha, delta --> between 0 and 2*pi (in ICRS coordinates)
     """
+    radius = np.sqrt(vector[0] ** 2 + vector[1] ** 2 + vector[2] ** 2)
+    delta = np.arcsin(vector[2]/radius)  # gives delta in [-pi/2, pi/2]
     alpha = np.arctan2(vector[1], vector[0]) % (2*np.pi)
-    dist_xy = np.sqrt(vector[0]**2+vector[1]**2)
-    delta = np.arctan2(vector[2],  dist_xy) % (2*np.pi)
+    if two_pi is True:
+        dist_xy = np.sqrt(vector[0]**2+vector[1]**2)
+        delta = np.arctan2(vector[2],  dist_xy) % (2*np.pi)  # gives delta in [0, 2pi]
     return alpha, delta
 
 
@@ -117,10 +113,8 @@ def compute_ljk(epsilon):
     """
     Calculates ecliptic triad vectors with respect to BCRS-frame.
     (Lindegren, SAG-LL-35, Eq.1)
-
     :param epsilon: obliquity of the equator.
     :return: np.array, np.array, np.array
-
     """
     L = np.array([1, 0, 0])
     j = np.array([0, np.cos(epsilon), np.sin(epsilon)])
@@ -131,6 +125,7 @@ def compute_ljk(epsilon):
 def compute_pqr(alpha, delta):
     """
     Ref. Paper eq. [5]
+
     .. note::
         Can be used also with numpy arrays
 
@@ -143,7 +138,6 @@ def compute_pqr(alpha, delta):
                   np.cos(delta)])
     r = np.array([np.cos(delta)*np.cos(alpha), np.cos(delta)*np.sin(alpha),
                   np.sin(delta)])
-
     return p, q, r
 
 
@@ -157,39 +151,6 @@ def rotate_by_quaternion(quaternion, vector):
     return quat_to_vector(q_rotated_vector)
 
 
-def xyz_to_lmn_old(attitude, vector):
-    """
-    Ref. Paper eq. [9]
-    Go from the rotating (xyz) frame to the non-rotating (lmn) frame
-
-    Info:
-        The attitude Qauaternion q(t) gives the rotation from (lmn) to (xyz)
-        (lmn) being the CoMRS (C), and (xyz) the SRS (S). The relation between
-        the two frames is given by: {C'v,0} = q {S'v,0} q^-1 for an any vector v
-
-    :param attitude: Quaternion object
-    :param vector: array of 3D
-    :return: the coordinates in LMN-frame of the input vector.
-    """
-    pass
-
-
-def lmn_to_xyz_old(attitude, vector):
-    """
-    Ref. Paper eq. [9]
-    Goes from the non-rotating (lmn) frame to the rotating (xyz) frame
-
-    Info: The attitude Qauaternion q(t) gives the rotation from (lmn) to (xyz)
-        (lmn) being the CoMRS (C), and (xyz) the SRS (S). The relation between
-        the two frames is given by: {S'v,0} = q^-1 {C'v,0} q for an any vector v
-
-    :param attitude: Quaternion object
-    :param vector: array of 3D
-    :return: the coordinates in XYZ-frame of the input vector.
-    """
-    pass
-
-
 # ### For mobble quaternion
 def quat_to_vector(quat):
     return quaternion.as_float_array(quat)[1:]
@@ -200,12 +161,46 @@ def vector_to_quat(vector):
 
 
 def xyz_to_lmn(attitude, vector):
+    """
+    Ref. Paper eq. [9]
+    Go from the rotating (xyz) frame to the non-rotating (lmn) frame
+
+    Info:
+        The attitude Quaternion q(t) gives the rotation from (lmn) to (xyz)
+        (lmn) being the CoMRS (C), and (xyz) the SRS (S). The relation between
+        the two frames is given by: {C'v,0} = q {S'v,0} q^-1 for an any vector v
+
+    :param attitude: Quaternion object
+    :param vector: array of 3D
+    :return: the coordinates in LMN-frame of the input vector.
+    """
     q_vector_xyz = vector_to_quat(vector)
     q_vector_lmn = attitude * q_vector_xyz * attitude.inverse()
     return quat_to_vector(q_vector_lmn)
 
 
 def lmn_to_xyz(attitude, vector):
+    """
+    Ref. Paper eq. [9]
+    Goes from the non-rotating (lmn) frame to the rotating (xyz) frame
+
+    Info: The attitude Quaternion q(t) gives the rotation from (lmn) to (xyz)
+        (lmn) being the CoMRS (C), and (xyz) the SRS (S). The relation between
+        the two frames is given by: {S'v,0} = q^-1 {C'v,0} q for an any vector v
+
+    :param attitude: Quaternion object
+    :param vector: array of 3D
+    :return: the coordinates in XYZ-frame of the input vector.
+    """
     q_vector_lmn = vector_to_quat(vector)
     q_vector_xyz = attitude.inverse() * q_vector_lmn * attitude
     return quat_to_vector(q_vector_xyz)
+
+# ################ obsolete Functions
+"""
+def vector_to_polar(vector):
+    alpha = np.arctan2(vector[1], vector[0]) % (2*np.pi)
+    dist_xy = np.sqrt(vector[0]**2+vector[1]**2)
+    delta = np.arctan2(vector[2],  dist_xy) % (2*np.pi)
+    return alpha, delta, radius
+"""

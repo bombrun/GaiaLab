@@ -25,7 +25,7 @@ from agis_functions import *
 def eta_angle(t, sat, source, FoV='centered'):
     """
     Function to minimize in the scanner.
-    See `observed_field_angles()`
+    See :func:agis_functions.observed_field_angles()
     """
     Gamma_c = const.Gamma_c
 
@@ -158,8 +158,8 @@ class Scanner:
                 else:
                     pass"""
             t_old = t+time_step
+        # self.obs_times = list(np.sort(self.obs_times))
         return time.time()-t0  # Total measured time
-        # End of function
 
     def compute_angles_eta_zeta(self, sat, source):
         """ Compute angles and remove 'illegal' observations (|zeta| > zeta_lim)"""

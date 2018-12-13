@@ -94,13 +94,11 @@ class Source:
     def set_time(self, t):
         """
         Sets star at position wrt bcrs at time t.
-        :param t: [float][days]
+        :param t: [float][days] time
         """
         if t < 0:
-            raise Warning('t is negative')
+            raise ValueError("t [time] sholdn't be negative")
 
-        # mu_alpha_dx = self.mu_alpha_dx * 4.8473097e-9 / 365     # from mas/yr to rad/day
-        # mu_delta = self.mu_delta * 4.848136811095e-9 / 365      # from mas/yr to rad/day
         mu_alpha_dx = self.mu_alpha_dx
         mu_delta = self.mu_delta
 

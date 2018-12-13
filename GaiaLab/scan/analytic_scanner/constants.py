@@ -13,7 +13,9 @@ constants if we later need them more or less precises
 import numpy as np
 
 #: General
+#: How many days per year
 days_per_year = 365  # [days/years]
+#: How many radians per micro arcsec
 rad_per_mas = 2*np.pi/(1000*360*3600)  # [radiants/mas] radiants per milli-arcsec
 rad_per_arcsec = 2*np.pi/(360*3600)  # [radiants/arcsec] radiants per arcsec
 rad_per_deg = (2*np.pi)/360  # [radiants/degrees]
@@ -32,7 +34,7 @@ epsilon = 23 + 26/60 + 21.448/3600  # [deg] obiquity of equator chosen to be 23Â
 Gamma_c = np.radians(106.5)  # [rad] basic angle, Gamma_c = arccos(f_p' f_F)
 xi = 55  # [deg] angle between the z-axis and s (s being the nominal sun direction)
 S = 4.035  # [deg/day] for a xi of 55Â°. S=|dz/dlambda|
-w_z = 120  # [arcsec/s] z component of the inertial spin vector w (small omega)
+w_z = 60  # [arcsec/s] z component of the inertial spin vector w (small omega)
 #: Epoch time
 #: The reference epoch is J2000 but it is taken into account in how we count time thus t_ep is 0
 t_ep = 0

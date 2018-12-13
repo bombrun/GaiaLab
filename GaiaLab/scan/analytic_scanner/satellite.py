@@ -22,7 +22,9 @@ class Satellite:
     """
     Class Object, that represents a satellite, e.g. Gaia.
     Creates spline from attitude data for 5 years by default.
-    info: (see e.g. Lindegren, SAG-LL-35)
+
+    .. note:: (see e.g. Lindegren, SAG-LL-35)
+
     The Nominal Scanning Law (NSL) for gaia is descibed by two constant
     angles:
     - Epsilon: obliquity of equator
@@ -45,7 +47,7 @@ class Satellite:
     :param wz: z component of inertial spin vector [arcsec/s]
     :action: Sets satellite to initialization status.
     """
-    def __init__(self, ti=0, tf=5*const.days_per_year, dt=1/24, k=4, *args):
+    def __init__(self, ti=0, tf=5*const.days_per_year, dt=1/24, k=3, *args):
         """
         :orbital_period: [days]
         :orbital_radius: [AU]
@@ -54,7 +56,8 @@ class Satellite:
         self.orbital_period = const.days_per_year
         self.orbital_radius = 1.0
         # Splines for each coordinates i, i_list at each time in t_list of degree k (order = k+1)
-        self.spline_order = k
+        self.spline_degree = k
+        # self.spline_order = self.spline_degree + 1
 
         self.storage = []
         self.__init_state()
@@ -135,12 +138,14 @@ class Satellite:
         """
         Update value of functions for next moment in time by calculating their infinitesimal change in dt
         :param dt: time step to calculate derivatives of functions
+
+        .. note:: This function is the slowest for the creation of the satellite
         """
 
         self.t = self.t + dt
 
         # update lambda
-        self._lambda = self._lambda + self.lambda_dot * dt  # Updates lambda
+        self._lambda = self._lambda + self.lambda_dot * dt
 
         # Update nu
         nu_dot = (self.lambda_dot/np.sin(self.xi))*(np.sqrt(self.S**2 - np.cos(self.nu)**2)
@@ -203,9 +208,7 @@ class Satellite:
             z_list.append(obj[4].z)
             w_list.append(obj[4].w)
 
-        # print('t_list:', t_list)  # # TODO: remove this line
-
-        # This should be faster ??
+        # This should be faster ?? yes but it is not a bottleneck. update() is
         # t_list = np.array(self.storage)[:, 0]
         # x_list = np.array(self.storage)[:, 4].x
         # y_list = np.array(self.storage)[:, 4].y
@@ -213,16 +216,10 @@ class Satellite:
         # w_list = np.array(self.storage)[:, 4].w
 
         # Splines for each coordinates i, i_list at each time in t_list of degree k (order = k+1)
-        self.s_w = interpolate.InterpolatedUnivariateSpline(t_list, w_list, k=self.spline_order)
-        self.s_x = interpolate.InterpolatedUnivariateSpline(t_list, x_list, k=self.spline_order)
-        self.s_y = interpolate.InterpolatedUnivariateSpline(t_list, y_list, k=self.spline_order)
-        self.s_z = interpolate.InterpolatedUnivariateSpline(t_list, z_list, k=self.spline_order)
-
-        # Alternativ efor the splines
-        # self.s_w_tck = splrep(t_list, w_list, s=0, k=self.spline_order)
-        # self.s_x_tck = splrep(t_list, x_list, s=0, k=self.spline_order)
-        # self.s_y_tck = splrep(t_list, y_list, s=0, k=self.spline_order)
-        # self.s_z_tck = splrep(t_list, z_list, s=0, k=self.spline_order)
+        self.s_w = interpolate.InterpolatedUnivariateSpline(t_list, w_list, k=self.spline_degree)
+        self.s_x = interpolate.InterpolatedUnivariateSpline(t_list, x_list, k=self.spline_degree)
+        self.s_y = interpolate.InterpolatedUnivariateSpline(t_list, y_list, k=self.spline_degree)
+        self.s_z = interpolate.InterpolatedUnivariateSpline(t_list, z_list, k=self.spline_degree)
 
         # Attitude
         self.func_attitude = lambda t: np.quaternion(self.s_w(t), self.s_x(t), self.s_y(t),

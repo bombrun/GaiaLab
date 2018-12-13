@@ -17,6 +17,9 @@ modified by: LucaZampieri
     * plot observations
 
 """
+# ### Uncomment next two line if the file is put in notebooks/ folder
+# import sys
+# sys.path.append('../GaiaLab/scan/analytic_scanner')
 
 # # Imports
 # Global imports
@@ -37,7 +40,7 @@ from scanner import Scanner
 from agis_functions import *
 
 
-def plot_attitude(sat, ti, tf, n_points=1000, figsize=(9, 5)):
+def plot_attitude(sat, ti, tf, n_points=1000, figsize=(9, 5), style='.--'):
     """
     L.Lindegren, SAG_LL_35, Figure 1.
     %run: plot_Satellite(sat, 0, 80, 0.01)
@@ -70,19 +73,19 @@ def plot_attitude(sat, ti, tf, n_points=1000, figsize=(9, 5)):
     fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=figsize)
     fig.subplots_adjust(left=0.2, wspace=0.6, hspace=1.5)
 
-    ax1.plot(times, qw_list, 'r-')
+    ax1.plot(times, qw_list, 'r'+style)
     ax1.set(title='W', xlabel='days', xlim=(ti, tf),
             xticks=(np.arange(ti, tf+1, (tf+1-ti)//4)))
 
-    ax2.plot(times, qx_list, 'b-')
+    ax2.plot(times, qx_list, 'b'+style)
     ax2.set(title='X', xlabel='days', xlim=(ti, tf),
             xticks=(np.arange(ti, tf+1, (tf+1-ti)//4)))
 
-    ax3.plot(times, qy_list, 'g-')
+    ax3.plot(times, qy_list, 'g'+style)
     ax3.set(title='Y', xlabel='days', xlim=(ti, tf),
             xticks=(np.arange(ti, tf+1, (tf+1-ti)//4)))
 
-    ax4.plot(times, qz_list, 'k-')
+    ax4.plot(times, qz_list, 'k'+style)
     ax4.set(title='Z', xlabel='days', xlim=(ti, tf),
             xticks=(np.arange(ti, tf+1, (tf+1-ti)//4)))
 
@@ -90,7 +93,7 @@ def plot_attitude(sat, ti, tf, n_points=1000, figsize=(9, 5)):
     plt.show()
 
 
-def plot_star(source, satellite, scan):
+def plot_star(source, satellite, scanner):
     """
     :param source: source scanned (object)
     :param satellite: Satellite object
@@ -111,7 +114,7 @@ def plot_star(source, satellite, scan):
 
     fig = plt.figure()
 
-    for i, t in enumerate(scan.obs_times):
+    for i, t in enumerate(scanner.obs_times):
         source.set_time(t)
         star_alphas.append(source.alpha)
         star_deltas.append(source.delta)
@@ -150,6 +153,7 @@ def plot_observations(source, satellite, scan):
         alpha, delta = ft.vector_to_alpha_delta(satellite.func_x_axis_lmn(t))
         alphas_obs.append(alpha % (2 * np.pi))
         deltas_obs.append(delta)
+
         # radius_obs.append(radius)
         source.set_time(t)
         star_alphas.append(source.alpha)
@@ -311,8 +315,170 @@ def plot_phi(source, sat, ti=0, tf=90, n=1000):
     return fig1, fig2
 
 
-def plot_field_angles(source, sat, obs_times=[], ti=0, tf=90, n=1000, limit=False):
-    styles = ['b.', 'rs']
+# new
+def plot_star_trajectory_with_scans(sat, source, obs_times, num_ms_for_snapshot=2):
+    """
+    Plots the star trajectory
+
+    :param sat: [Satellite object]
+    :param source: [source object]
+    :param obs_times: [list of floats] list with the observations times from
+     scanner
+    :param num_ms_for_snapshot: [float][milliseconds] time intervall in which we
+     desire the scanner positions
+    :returns: figure object with the plot
+    """
+    observed_times = np.sort(obs_times)
+    fig = plt.figure()
+    plt.title(source.name + ' path with scan directions')
+
+    star_alphas, star_deltas = ([], [])
+    green_alphas, green_deltas = ([], [])
+
+    for i, t in enumerate(observed_times):
+
+        # Real star parameters
+        alpha_star, delta_star, _, _ = source.topocentric_angles(sat, t)
+        star_alphas.append(alpha_star/const.rad_per_mas)  # converts in [mas]
+        star_deltas.append(delta_star/const.rad_per_mas)
+
+        # Observed star parameters
+        vector_to_star_in_comrs_frame = get_obs_in_CoMRS(source, sat, t)
+        green_alpha, green_delta = ft.vector_to_alpha_delta(vector_to_star_in_comrs_frame)
+        green_alphas.append(green_alpha/const.rad_per_mas)
+        green_deltas.append(green_delta/const.rad_per_mas)
+
+        # Scanner position parameters
+        my_as, my_ds = ([], [])
+        half_interval = num_ms_for_snapshot * 1/24/60/60/1000  # 2ms
+        for ti in np.linspace(t-half_interval, t+half_interval, num=100):
+            my_vector = get_obs_in_CoMRS(source, sat, ti)
+            my_a, my_d = ft.vector_to_alpha_delta(my_vector)
+            my_as.append(my_a/const.rad_per_mas)
+            my_ds.append(my_d/const.rad_per_mas)
+        p1, = plt.plot(my_as, my_ds, 'r-', alpha=0.5)
+        p2, = plt.plot(my_as[0], my_ds[0], 'r+')  # start of scan direction
+        p3, = plt.plot(my_as[-1], my_ds[-1], 'r>')  # end of star direction
+
+    p_green, = plt.plot(green_alphas, green_deltas, 'g+:')
+    p_star, = plt.plot(star_alphas, star_deltas, 'b*:')  # plot stars as blu stars
+
+    plt.legend(handles=[p1, p2, p3, p_green, p_star],
+               labels=['discretized scanner position', '2ms before scan',
+                       '2ms after scan', 'observed stars', 'star'],
+               loc='upper left',
+               bbox_to_anchor=(1.1, 1))
+    # plt.title('%s' % source.name)
+    plt.xlabel('alpha [mas]'), plt.ylabel('delta [mas]')
+    # plt.axis('equal'), plt.tight_layout()
+    plt.margins(0.1), plt.grid()
+    plt.show()
+    return fig
+
+
+# new
+def plot_errors_VS_iterations_per_source(Solver, save_path=None):
+    """
+    Plots the error on each astronomic parameter and objective function for each
+    source.
+
+    :param Solver: [Solver object]
+    :param save_path:
+    :return: list of figures wih the plots for each source
+    """
+    figs_list = []
+    for source_index, s in enumerate(Solver.calc_sources):
+        calc_source = Solver.calc_sources[source_index]
+        real_source = Solver.real_sources[source_index]
+
+        my_title = s.name
+        my_observations = calc_source.obs_times
+        source_params = np.array(calc_source.s_old)
+        fig, axs = plt.subplots(2, 3, figsize=(16, 8), sharex='all')
+
+        fig.suptitle(my_title, fontsize=40)
+
+        num_iters = len(calc_source.errors)
+        labels = ['alpha', 'delta', 'parallax', 'mu_alpha', 'mu_delta']
+        real_source.set_time(0)
+        observed = [real_source.alpha, real_source.delta, real_source.parallax,
+                    real_source.mu_alpha_dx, real_source.mu_delta]
+
+        alpha_list = []
+        delta_list = []
+        for t_L in my_observations:
+            real_source.set_time(float(t_L))
+            alpha_list.append(real_source.alpha)
+            delta_list.append(real_source.delta)
+        std_alpha = np.std(alpha_list)
+        std_delta = np.std(delta_list)
+        min_alpha, max_alpha = (np.min(alpha_list), np.max(alpha_list))
+        min_delta, max_delta = (np.min(delta_list), np.max(delta_list))
+
+        for i, x in enumerate(source_params.T):
+            if i < 3:
+                ax = axs[0, i]
+            else:
+                ax = axs[1, i-3]
+            if (i < 2):
+                ax.semilogy(np.abs(observed[i] - x), 'b--.', label=labels[i])
+                ax.set_ylabel('[rads]')
+            elif (i == 2):
+                ax.semilogy(np.abs(observed[i] - x)/const.rad_per_mas,
+                            'b--.', label=labels[i])
+                ax.set_ylabel('[mas]')
+            elif (i == 3 or i == 4):
+                ax.semilogy(np.abs(observed[i] - x)/const.rad_per_mas*const.days_per_year,
+                            'b--.', label=labels[i])
+                ax.set_ylabel('[mas/year]')
+            else:
+                raise ValueError('not a valid plot index')
+
+            # ax.hlines(observed[i], xmin=0, xmax=num_iters, color='g')
+            ax.grid()
+            ax.set_label('labels[i]')
+            ax.set_xlabel('Iterations')
+            ax.legend()
+
+        # ### Commented the horizontal lines of standard deviation &Co
+        # axs[0, 0].hlines(observed[0]+std_alpha, xmin=0, xmax=num_iters, color='g')
+        # axs[0, 0].hlines(observed[0]-std_alpha, xmin=0, xmax=num_iters, color='g')
+        # axs[0, 0].hlines(min_alpha, xmin=0, xmax=num_iters, color='r')
+        # axs[0, 0].hlines(max_alpha, xmin=0, xmax=num_iters, color='r')
+
+        # axs[0, 1].hlines(observed[1]+std_delta, xmin=0, xmax=num_iters, color='g')
+        # axs[0, 1].hlines(observed[1]-std_delta, xmin=0, xmax=num_iters, color='g')
+        # axs[0, 1].hlines(min_delta, xmin=0, xmax=num_iters, color='r')
+        # axs[0, 1].hlines(max_delta, xmin=0, xmax=num_iters, color='r')
+
+        # plot evolution of the error
+        ax = axs[-1, -1]
+        ax.plot(calc_source.errors, 'b--.', label='objective function')
+        # ax.set_xlim((0, num_iters))
+        ax.set_xlabel('Iterations')
+        ax.grid(alpha=0.8)
+        ax.legend()
+        if save_path is not None:
+            fig.savefig(save_path + '_errors_'+s.name+'.png')
+        figs_list.append(fig)
+    return figs_list
+
+
+# new
+def plot_sources_in_sky(sources, projection='hammer'):
+    plt.figure()
+    plt.subplot(111, projection=projection)
+    for i, s in enumerate(sources):
+        plt.plot(ft.zero_to_two_pi_to_minus_pi_pi(np.array([s.alpha])), s.delta, '+', label=s.name)
+    plt.title("Hammer Projection of the Sky")
+    plt.legend(loc=9, bbox_to_anchor=(1.1, 1))
+    plt.grid(True)
+    plt.show()
+
+
+# new
+def plot_field_angles(source, sat, obs_times=[], ti=0, tf=90, n=1000, limit=False, double_telescope=True):
+    styles = ['b,', 'rs']
     zeta_limit = np.radians(0.5)
     eta_limit = np.radians(0.5)
     y_limit = (-zeta_limit*10, zeta_limit*10)
@@ -323,14 +489,12 @@ def plot_field_angles(source, sat, obs_times=[], ti=0, tf=90, n=1000, limit=Fals
     eta_sol_list = []
     for t in times_total:
         attitude = sat.func_attitude(t)
-        attitude = attitude_from_alpha_delta(source, sat, t)
-        eta_value, zeta_value = observed_field_angles(source, attitude, sat, t)
+        eta_value, zeta_value = observed_field_angles(source, attitude, sat, t, double_telescope)
         eta_list.append(eta_value)
         zeta_list.append(zeta_value)
     for t in obs_times:
         attitude = sat.func_attitude(t)
-        attitude = attitude_from_alpha_delta(source, sat, t)
-        eta_value, zeta_value = observed_field_angles(source, attitude, sat, t)
+        eta_value, zeta_value = observed_field_angles(source, attitude, sat, t, double_telescope)
         eta_sol_list.append(eta_value)
         zeta_sol_list.append(zeta_value)
 
@@ -367,6 +531,7 @@ def plot_field_angles(source, sat, obs_times=[], ti=0, tf=90, n=1000, limit=Fals
     return zeta_fig, eta_fig
 
 
+# old
 def plot_phi_solutions(source, sat, obs_times, ti=0, tf=90, n=1000):
     styles = ['b.', 'rs']
     phi_limit = np.radians(0.5)
@@ -417,6 +582,7 @@ def plot_phi_solutions(source, sat, obs_times, ti=0, tf=90, n=1000):
     return fig1, fig2
 
 
+# old
 def plot_eta_over_phi(source, sat, ti=0, tf=90, n=1000):
     times_total = np.linspace(ti, tf, n)
     phi_list = []
@@ -434,6 +600,7 @@ def plot_eta_over_phi(source, sat, ti=0, tf=90, n=1000):
     plt.show()
 
 
+# old
 def plot_eta_over_phi_day(source, sat, ti=0, tf=90, n=1000, day=45):
     times_total = np.linspace(ti, tf, n)
     phi_list = []
@@ -453,170 +620,154 @@ def plot_eta_over_phi_day(source, sat, ti=0, tf=90, n=1000, day=45):
     return p
 
 
-def plot_stars_trajectory(source, sat, obs_times=[], equatorial=False):
+# new
+def plot_scanner_position_over_source(source, sat, t_init=0, t_end=365, num_points_of_discretization=10000):
+    fig, ax = plt.subplots(1)
+    ax.set_title('Discretized passages of gaia telescopes')
+    list_ra_PFoV, list_ra_FFoV, list_dec_PFoV, list_dec_FFoV = ([], [], [], [])
+    for t in np.linspace(t_init, t_end, num=num_points_of_discretization):
+        ra_PFoV, dec_PFoV, ra_FFoV, dec_FFoV = np.array(get_angular_FFoV_PFoV(sat, t))
+        ra_PFoV, ra_FFoV = ft.zero_to_two_pi_to_minus_pi_pi(np.array([ra_PFoV, ra_FFoV]))
+        # dec_PFoV, dec_FFoV = ft.transform_twoPi_into_halfPi(np.array([dec_PFoV, dec_FFoV]))
+        list_ra_PFoV.append(ra_PFoV)
+        list_dec_PFoV.append(dec_PFoV)
+        list_ra_FFoV.append(ra_PFoV)
+        list_dec_FFoV.append(dec_FFoV)
+
+    ax.plot(list_ra_PFoV, list_dec_PFoV, 'b,', alpha=0.5)
+    ax.plot(list_ra_FFoV, list_dec_FFoV, 'r,', alpha=0.5)
+    ax.plot(source.alpha, source.delta, 'k+')
+    ax.set_xlabel('right ascension [rads]')
+    ax.set_ylabel('declination [rads]')
+    ax.set_xlim(min(list_ra_PFoV), max(list_ra_PFoV))
+    ax.set_ylim(min(list_dec_PFoV), max(list_dec_PFoV))
+    ax.grid()
+    return fig, ax
+
+
+# new
+def plot_star_trajectory(source, sat, ti=0, tf=None, obs_times=[], equatorial=False,
+                         dt=1, show_scanning_directions=False):
     """
+    Plots star trajectory. One dot is plotted every day by default.
     :param source: source object
     :param sat: Satellite object
-    :param t_total: total time for which the trajectory is desired [days] from
-     J2000.
-    :return: plot of the star trajectory in the lmn-frame.
+    :param tf: final time for which the trajectory is desired [days] from
+    J2000.
+    :param equatorial: [bool] if True use equatorial coordinates, if False use
+    realtive coordinates
+    :param dt: [float][days] ploints plotted very dt (default is one day)
+    :returns: [figure] plot of the trajectory if the star
     """
-    time_total = sat.storage[-1][0]
+    if show_scanning_directions is True:
+        raise Warning('Check if the directions are implemented correctly')
+        if (obs_times and (equatorial is True)) is False:
+            raise ValueError('Cannot show vectors if equatorial is False or obs_times empty')
+    # if tf is not defined, this sets tf as the final time for satellite
+    if tf is None:
+        tf = sat.storage[-1][0]
 
-    alphas = []
-    deltas = []
-    alphas_sol = []
-    deltas_sol = []
+    alphas, deltas = ([], [])
+    alphas_sol, deltas_sol = ([], [])  # coordinates of the founds sources
     times_sol = []
 
-    for i in np.arange(0, time_total, 1):
+    for i in np.arange(ti, tf, 1):
         alpha, delta, delta_alpha_dx_mas, delta_delta_mas = source.topocentric_angles(sat, i)
-        if equatorial is False:
-            alphas.append(delta_alpha_dx_mas)
-            deltas.append(delta_delta_mas)
-        else:
+        if equatorial is True:
             alphas.append(alpha)
             deltas.append(delta)
-    for t in obs_times:
-        times_sol.append(t/const.days_per_year + 2000)  # +2000 do the fact that the reference epoch is J2000
-        alpha_obs, delta_obs, delta_alpha_dx_mas, delta_delta_mas = source.topocentric_angles(sat, t)
-        if equatorial is False:
-            alphas_sol.append(delta_alpha_dx_mas)
-            deltas_sol.append(delta_delta_mas)
         else:
-            alphas_sol.append(alpha_obs)
-            deltas_sol.append(delta_obs)
-    n = len(alphas)
-    times = np.linspace(2000, 2000 + time_total/const.days_per_year, n)
+            alphas.append(delta_alpha_dx_mas)
+            deltas.append(delta_delta_mas)
+
+    if obs_times:  # if list is not empty
+        for t in obs_times:
+            alpha_obs, delta_obs, delta_alpha_dx_mas, delta_delta_mas = source.topocentric_angles(sat, t)
+            times_sol.append(t/const.days_per_year + 2000)  # +2000 do the fact that the reference epoch is J2000
+            if equatorial is True:
+                alphas_sol.append(alpha_obs)
+                deltas_sol.append(delta_obs)
+            else:
+                alphas_sol.append(delta_alpha_dx_mas)
+                deltas_sol.append(delta_delta_mas)
+
+    # Convert all in mas:
+    if equatorial is True:
+        alphas = np.array(alphas) / const.rad_per_mas
+        deltas = np.array(deltas) / const.rad_per_mas
+        if obs_times:
+            alphas_sol = np.array(alphas_sol) / const.rad_per_mas
+            deltas_sol = np.array(deltas_sol) / const.rad_per_mas
 
     # Styles for the plots
-    path_style = 'b,'
-    origin_style = 'ks'
-    sol_style = 'rs'
+    path_style, origin_style, sol_style = ('b,', 'ks', 'rs')
 
     fig = plt.figure(figsize=(16, 9))
-    ax = fig.add_subplot(121)
+    ax = fig.add_subplot(111)
 
-    print(source.parallax, source.mu_alpha_dx)
-    fig.suptitle(r'$\varpi={%f}$, $\mu_{{\alpha*}}={%f}$, $\mu_\delta={%f}$ x1e-6'
-                 % (source.parallax*1e6, source.mu_alpha_dx*1e6, source.mu_delta*1e6),
+    fig.suptitle(r'$\varpi={%f}$ [mas], $\mu_{{\alpha*}}={%f}$ [mas/year], $\mu_\delta={%f}$ [mas/year]'
+                 % (source.parallax/const.rad_per_mas,
+                    source.mu_alpha_dx / const.rad_per_mas / const.days_per_year,
+                    source.mu_delta / const.rad_per_mas / const.days_per_year),
                  fontsize=20)
-    # cmaps: 'jet', 'winter', 'viridis'
-    ax.scatter(alphas, deltas, c=times, marker='.', s=(72./fig.dpi)**2, cmap='jet', alpha=0.5,
-               label=r'%s path' % (source.name), lw=2)
 
-    # ax.plot(alphas, deltas, path_style, label=r'%s path' % (source.name), lw=2)
+    times = np.linspace(2000, 2000 + tf/const.days_per_year, len(alphas))
+    # cmaps: 'jet', 'winter', 'viridis', 'plasma'
+    ax.scatter(alphas, deltas, c=times, marker='.', s=(72./fig.dpi)**2, cmap='jet',
+               alpha=0.5, label=r'%s path' % (source.name), lw=2)
 
-    ax.plot(alphas[0], deltas[0], origin_style, label='origin')
+    ax.plot(alphas[0], deltas[0], origin_style, label='origin')  # plot origin
     ax.plot(alphas_sol, deltas_sol, sol_style, label='solutions')
 
-    scaling_factor = 1 / 4
-    scale_alpha = (np.max(alphas) - np.min(alphas)) * scaling_factor
-    scale_delta = (np.max(deltas) - np.min(deltas)) * scaling_factor
-    length = np.array([scale_alpha, scale_delta])
-    if equatorial is True:
+    # Plot arrows
+    if show_scanning_directions is True:
+        scaling_factor = 1 / 4
+        scale_alpha = (np.max(alphas) - np.min(alphas)) * scaling_factor
+        scale_delta = (np.max(deltas) - np.min(deltas)) * scaling_factor
+        length = np.array([scale_alpha, scale_delta])
         for i, (t, a, d) in enumerate(zip(obs_times, alphas_sol, deltas_sol)):
             point = np.array([a, d])
-            vector = scanning_y_coordinate(source, sat, t)
+
+            vector = scanning_direction(source, sat, t)
             adp = ft.vector_to_adp(vector)
             dir_alpha, dir_delta = ft.vector_to_alpha_delta(vector)
-            directions = [dir_alpha, dir_delta]
+            directions = np.array([dir_alpha, dir_delta])*length.max()
             # directions = helpers.rescaled_direction((dir_alpha, dir_delta), length)
-            to_plot_x = [point[0], point[0]+dir_alpha]
-            to_plot_y = [point[1], point[1]+dir_delta]
-            ax.plot(to_plot_x, to_plot_y, 'k-', alpha=0.1)
+            to_plot_x = np.array([point[0], point[0]+dir_alpha])
+            to_plot_y = np.array([point[1], point[1]+dir_delta])
+            ax.plot(to_plot_x, to_plot_y, 'k-', alpha=0.5)
             ax.quiver(point[0], point[1], directions[0], directions[1], color=['r'])
 
-    if equatorial is False:
+    ax.set_xlim(np.min(alphas), np.max(alphas))
+    ax.set_ylim(np.min(deltas), np.max(deltas))
+    if equatorial is True:
+        ax.set_xlabel(r'$\alpha*$ [mas]')
+        ax.set_ylabel(r'$\delta$ [mas]')
+    else:
         ax.axhline(y=0, c='gray', lw=1)
         ax.axvline(x=0, c='gray', lw=1)
         ax.set_xlabel(r'$\Delta\alpha*$ [mas]')
         ax.set_ylabel(r'$\Delta\delta$ [mas]')
-    else:
-        ax.set_xlim(np.min(alphas), np.max(alphas))
-        ax.set_ylim(np.min(deltas), np.max(deltas))
-        ax.set_xlabel(r'$\alpha*$ [rad]')
-        ax.set_ylabel(r'$\delta$ [rad]')
-    ax.legend(fontsize=12, facecolor='#000000', framealpha=0.1)
-    # Top right subplot
-    ax1dra = fig.add_subplot(222)
-    ax1dra.plot(times, alphas, path_style)
-    ax1dra.plot(times[0], alphas[0], origin_style, label='origin')
-    ax1dra.plot(times_sol, alphas_sol, sol_style, label='solutions')
-    if equatorial is False:
-        ax1dra.axhline(y=0, c='gray', lw=1)
-    # ax1dra.set_xlabel(r'Time [yr]')
-    ax1dra.set_ylabel(r'$\Delta\alpha*$ [mas]')
 
-    # Top left subplot
-    ax1ddec = fig.add_subplot(224, sharex=ax1dra)
-    if equatorial is False:
-        ax1ddec.axhline(y=0, c='gray', lw=1)
-    ax1ddec.plot(times, deltas, path_style)
-    ax1ddec.plot(times[0], deltas[0], origin_style, label='origin')
-    ax1ddec.plot(times_sol, deltas_sol, sol_style, label='solutions')
-    ax1ddec.set_xlabel(r'Time [yr]')
-    ax1ddec.set_ylabel(r'$\Delta\delta$ [mas]')
-
-    # plt.tight_layout()
-    plt.show()
-
-
-def plot_stars_trajectory_3D(source, satellite, obs_times=[]):
-    """
-    :param source: source object
-    :param satellite: Satellite object
-    :param t_total: total time for which the trajectory is desired [days] from
-     J2000.
-    :return: plot of the star trajectory in the lmn-frame.
-    """
-
-    time_total = satellite.storage[-1][0]
-
-    alphas = []
-    deltas = []
-    alphas_sol = []
-    deltas_sol = []
-    times_sol = []
-
-    for i in np.arange(0, time_total, 1):
-        alpha_obs, delta_obs, delta_alpha_dx_mas, delta_delta_mas = source.topocentric_angles(satellite, i)
-        alphas.append(delta_alpha_dx_mas)
-        deltas.append(delta_delta_mas)
+    # if show_scanning_directions is False:
+    """print('lala')
     for t in obs_times:
-        alpha_obs, delta_obs, delta_alpha_dx_mas, delta_delta_mas = source.topocentric_angles(satellite, t)
-        alphas_sol.append(delta_alpha_dx_mas)
-        deltas_sol.append(delta_delta_mas)
-        times_sol.append(t/const.days_per_year + 2000)  # +2000 do the fact that the reference epoch is J2000
+        as_F, ds_F, as_P, ds_P = ([], [], [], [])
+        for ti in np.linspace(t-1/24/60/60/10, t+1/24/60/60/10, num=10):
+            attitude = sat.func_attitude(t)
+            alpha_P, delta_P = generate_observation_wrt_attitude(attitude)
+            alpha_P, delta_P, alpha_F, delta_F = get_angular_FFoV_PFoV(sat, ti)
+            as_F.append(alpha_F / const.rad_per_mas)
+            as_P.append(alpha_P)
+            ds_P.append(delta_P)
+            ds_F.append(delta_F / const.rad_per_mas)
+        as_P = ft.zero_to_two_pi_to_minus_pi_pi(np.array(as_P)) / const.rad_per_mas
+        ds_P = ft.transform_twoPi_into_halfPi(np.array(as_P)) / const.rad_per_mas
+        ax.plot(as_P, ds_P, 'b+:')
+        # ax.plot(as_F, ds_F, 'r,:')"""
 
-    n = len(alphas)
-    times = np.linspace(2000, 2000 + time_total/const.days_per_year, n)
-
-    # Styles for the plots
-    path_style = 'b,'
-    origin_style = 'kx'
-    sol_style = 'rs'
-
-    fig = plt.figure(figsize=(16, 9))
-    ax = fig.gca(projection='3d')
-
-    fig.suptitle(r'$\varpi={%.2f}$, $\mu_{{\alpha*}}={%.2f}$, $\mu_\delta={%.2f}$'
-                 % (source.parallax, source.mu_alpha_dx, source.mu_delta),
-                 fontsize=20)
-
-    ax.plot(alphas, deltas, times, path_style,
-            label=r'%s path' % (source.name), lw=2)
-    ax.plot(alphas_sol, deltas_sol, times_sol, sol_style,
-            label=r'%s path' % (source.name), lw=2)
-    # ax.plot(alphas[0], deltas[0], times[0], origin_style, label='origin')
-    ax.set_xlabel(r'$\Delta\alpha*$ [mas]')
-    ax.set_ylabel(r'$\Delta\delta$ [mas]')
-    ax.axhline(y=0, c='gray', lw=1)
-    ax.axvline(x=0, c='gray', lw=1)
-    ax.legend(fontsize=12, facecolor='#000000',
-              framealpha=0.1)
-    # plt.tight_layout()
-    plt.show()
+    ax.legend()
+    return fig
 
 
 def plot_3D_scanner_pos(sat, axis, ti, tf, n_points=1000, elevation=10, azimuth=10, figsize=(12, 12)):
@@ -690,6 +841,7 @@ def plot_longitud_latitude(sat, ti, tf, dt):
     :return: plots the longitud and latitude angles in degrees of the z-axis of the scanner
              with respect to the LMN frame.
     """
+    raise ValueError('This function is obsolete')
 
     sat.reset(ti, tf, dt)
     # sat.__create_storage(ti, tf, dt)
@@ -740,31 +892,166 @@ def run():
 ################################################################################
 # # isInstance functions
 # this function should not be used
-def test_is_satellite(other):
-    """ Tests if (other) is of type satellite. Raise exception otherwise.
+def plot_stars_trajectory(source, sat, obs_times=[], equatorial=False):
     """
-    if not isinstance(other, Satellite):
-        raise TypeError('{} is not an Satellite object'.format(type(other)))
+    :param source: source object
+    :param sat: Satellite object
+    :param t_total: total time for which the trajectory is desired [days] from
+     J2000.
+    :return: plot of the star trajectory in the lmn-frame.
+    """
+    time_total = sat.storage[-1][0]
+
+    alphas, deltas = ([], [])
+    alphas_sol, deltas_sol = ([], [])
+    times_sol = []
+
+    for i in np.arange(0, time_total, 1):
+        alpha, delta, delta_alpha_dx_mas, delta_delta_mas = source.topocentric_angles(sat, i)
+        if equatorial is False:
+            alphas.append(delta_alpha_dx_mas)
+            deltas.append(delta_delta_mas)
+        else:
+            alphas.append(alpha)
+            deltas.append(delta)
+
+    for t in obs_times:
+        times_sol.append(t/const.days_per_year + 2000)  # +2000 do the fact that the reference epoch is J2000
+        alpha_obs, delta_obs, delta_alpha_dx_mas, delta_delta_mas = source.topocentric_angles(sat, t)
+        if equatorial is False:
+            alphas_sol.append(delta_alpha_dx_mas)
+            deltas_sol.append(delta_delta_mas)
+        else:
+            alphas_sol.append(alpha_obs)
+            deltas_sol.append(delta_obs)
+    n = len(alphas)
+    times = np.linspace(2000, 2000 + time_total/const.days_per_year, n)
+
+    # Styles for the plots
+    path_style = 'b,'
+    origin_style = 'ks'
+    sol_style = 'rs'
+
+    fig = plt.figure(figsize=(16, 9))
+    ax = fig.add_subplot(121)
+
+    print(source.parallax, source.mu_alpha_dx)
+    fig.suptitle(r'$\varpi={%f}$, $\mu_{{\alpha*}}={%f}$, $\mu_\delta={%f}$ x1e-6'
+                 % (source.parallax*1e6, source.mu_alpha_dx*1e6, source.mu_delta*1e6),
+                 fontsize=20)
+    # cmaps: 'jet', 'winter', 'viridis'
+    ax.scatter(alphas, deltas, c=times, marker='.', s=(72./fig.dpi)**2, cmap='jet',
+               alpha=0.5, label=r'%s path' % (source.name), lw=2)
+
+    # ax.plot(alphas, deltas, path_style, label=r'%s path' % (source.name), lw=2)
+
+    ax.plot(alphas[0], deltas[0], origin_style, label='origin')
+    ax.plot(alphas_sol, deltas_sol, sol_style, label='solutions')
+
+    scaling_factor = 1 / 4
+    scale_alpha = (np.max(alphas) - np.min(alphas)) * scaling_factor
+    scale_delta = (np.max(deltas) - np.min(deltas)) * scaling_factor
+    length = np.array([scale_alpha, scale_delta])
+    if equatorial is True:
+        for i, (t, a, d) in enumerate(zip(obs_times, alphas_sol, deltas_sol)):
+            point = np.array([a, d])
+            vector = scanning_y_coordinate(source, sat, t)
+            adp = ft.vector_to_adp(vector)
+            dir_alpha, dir_delta = ft.vector_to_alpha_delta(vector)
+            directions = [dir_alpha, dir_delta]
+            # directions = helpers.rescaled_direction((dir_alpha, dir_delta), length)
+            to_plot_x = [point[0], point[0]+dir_alpha]
+            to_plot_y = [point[1], point[1]+dir_delta]
+            ax.plot(to_plot_x, to_plot_y, 'k-', alpha=0.1)
+            ax.quiver(point[0], point[1], directions[0], directions[1], color=['r'])
+
+    if equatorial is True:
+        # ax.axhline(y=0, c='gray', lw=1)
+        # ax.axvline(x=0, c='gray', lw=1)
+        ax.set_xlabel(r'$\Delta\alpha*$ [mas]')
+        ax.set_ylabel(r'$\Delta\delta$ [mas]')
     else:
-        pass
+        ax.set_xlim(np.min(alphas), np.max(alphas))
+        ax.set_ylim(np.min(deltas), np.max(deltas))
+        ax.set_xlabel(r'$\alpha*$ [rad]')
+        ax.set_ylabel(r'$\delta$ [rad]')
+    ax.legend(fontsize=12, facecolor='#000000', framealpha=0.1)
+    # Top right subplot
+    ax1dra = fig.add_subplot(222)
+    ax1dra.plot(times, alphas, path_style)
+    ax1dra.plot(times[0], alphas[0], origin_style, label='origin')
+    ax1dra.plot(times_sol, alphas_sol, sol_style, label='solutions')
+    if equatorial is False:
+        ax1dra.axhline(y=0, c='gray', lw=1)
+    # ax1dra.set_xlabel(r'Time [yr]')
+    ax1dra.set_ylabel(r'$\Delta\alpha*$ [mas]')
+
+    # Top left subplot
+    ax1ddec = fig.add_subplot(224, sharex=ax1dra)
+    if equatorial is True:
+        ax1ddec.axhline(y=0, c='gray', lw=1)
+    ax1ddec.plot(times, deltas, path_style)
+    ax1ddec.plot(times[0], deltas[0], origin_style, label='origin')
+    ax1ddec.plot(times_sol, deltas_sol, sol_style, label='solutions')
+    ax1ddec.set_xlabel(r'Time [yr]')
+    ax1ddec.set_ylabel(r'$\Delta\delta$ [mas]')
+
+    # plt.tight_layout()
+    plt.show()
 
 
-# not used yet
-def test_object_type(other, type_str):
+def plot_stars_trajectory_3D(source, satellite, obs_times=[]):
     """
-    Tests if (other) is of type (type_str). Raise exception otherwise.
-    :param other: Variable which type should be tested
-    :param type_str: [str] string containing the object type we want to test.
+    :param source: source object
+    :param satellite: Satellite object
+    :param t_total: total time for which the trajectory is desired [days] from
+     J2000.
+    :return: plot of the star trajectory in the lmn-frame.
     """
 
-    possible_types = {"Source": Source,
-                      "Satellite": Satellite,
-                      "Satellite": Satellite,
-                      "Scanner": Scanner}
-    if type_str not in possible_types:
-        raise TypeError('Expected type "{}" is not part of the possible_types'.format(type_str))
+    time_total = satellite.storage[-1][0]
 
-    expected_type = possible_types[type_str]
+    alphas = []
+    deltas = []
+    alphas_sol = []
+    deltas_sol = []
+    times_sol = []
 
-    if not isinstance(other, expected_type):
-        raise TypeError('Type "{}" is not "{}"'.format(type(other), type_str))
+    for i in np.arange(0, time_total, 1):
+        alpha_obs, delta_obs, delta_alpha_dx_mas, delta_delta_mas = source.topocentric_angles(satellite, i)
+        alphas.append(delta_alpha_dx_mas)
+        deltas.append(delta_delta_mas)
+    for t in obs_times:
+        alpha_obs, delta_obs, delta_alpha_dx_mas, delta_delta_mas = source.topocentric_angles(satellite, t)
+        alphas_sol.append(delta_alpha_dx_mas)
+        deltas_sol.append(delta_delta_mas)
+        times_sol.append(t/const.days_per_year + 2000)  # +2000 do the fact that the reference epoch is J2000
+
+    n = len(alphas)
+    times = np.linspace(2000, 2000 + time_total/const.days_per_year, n)
+
+    # Styles for the plots
+    path_style = 'b,'
+    origin_style = 'kx'
+    sol_style = 'rs'
+
+    fig = plt.figure(figsize=(16, 9))
+    ax = fig.gca(projection='3d')
+
+    fig.suptitle(r'$\varpi={%.2f}$, $\mu_{{\alpha*}}={%.2f}$, $\mu_\delta={%.2f}$'
+                 % (source.parallax, source.mu_alpha_dx, source.mu_delta),
+                 fontsize=20)
+
+    ax.plot(alphas, deltas, times, path_style,
+            label=r'%s path' % (source.name), lw=2)
+    ax.plot(alphas_sol, deltas_sol, times_sol, sol_style,
+            label=r'%s path' % (source.name), lw=2)
+    # ax.plot(alphas[0], deltas[0], times[0], origin_style, label='origin')
+    ax.set_xlabel(r'$\Delta\alpha*$ [mas]')
+    ax.set_ylabel(r'$\Delta\delta$ [mas]')
+    ax.axhline(y=0, c='gray', lw=1)
+    ax.axvline(x=0, c='gray', lw=1)
+    ax.legend(fontsize=12, facecolor='#000000',
+              framealpha=0.1)
+    # plt.tight_layout()
+    plt.show()
