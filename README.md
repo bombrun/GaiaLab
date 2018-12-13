@@ -36,7 +36,6 @@ and enjoy!
 >   
 > and enjoy the notebooks as well!
 
-
 ### What is implemented
 
 ##### First version
