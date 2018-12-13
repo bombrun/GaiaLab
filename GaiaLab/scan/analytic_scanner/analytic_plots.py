@@ -360,14 +360,14 @@ def plot_star_trajectory_with_scans(sat, source, obs_times, num_ms_for_snapshot=
         p2, = plt.plot(my_as[0], my_ds[0], 'r+')  # start of scan direction
         p3, = plt.plot(my_as[-1], my_ds[-1], 'r>')  # end of star direction
 
-    p_green, = plt.plot(green_alphas, green_deltas, 'g+:')
-    p_star, = plt.plot(star_alphas, star_deltas, 'b*:')  # plot stars as blu stars
+    p_green, = plt.plot(green_alphas, green_deltas, 'gx:')
+    p_star, = plt.plot(star_alphas, star_deltas, 'b.:', alpha=0.5)  # plot stars as blu stars
 
     plt.legend(handles=[p1, p2, p3, p_green, p_star],
-               labels=['discretized scanner position', '2ms before scan',
-                       '2ms after scan', 'observed stars', 'star'],
-               loc='upper left',
-               bbox_to_anchor=(1.1, 1))
+               labels=['discretized scanner position', str(num_ms_for_snapshot)+'ms before scan',
+                       str(num_ms_for_snapshot)+'ms after scan', 'observations of star', 'star'],
+               loc='best',
+               bbox_to_anchor=(1, 1))
     # plt.title('%s' % source.name)
     plt.xlabel('alpha [mas]'), plt.ylabel('delta [mas]')
     # plt.axis('equal'), plt.tight_layout()
@@ -420,10 +420,7 @@ def plot_errors_VS_iterations_per_source(Solver, save_path=None):
                 ax = axs[0, i]
             else:
                 ax = axs[1, i-3]
-            if (i < 2):
-                ax.semilogy(np.abs(observed[i] - x), 'b--.', label=labels[i])
-                ax.set_ylabel('[rads]')
-            elif (i == 2):
+            if (i < 3):
                 ax.semilogy(np.abs(observed[i] - x)/const.rad_per_mas,
                             'b--.', label=labels[i])
                 ax.set_ylabel('[mas]')
@@ -453,7 +450,7 @@ def plot_errors_VS_iterations_per_source(Solver, save_path=None):
 
         # plot evolution of the error
         ax = axs[-1, -1]
-        ax.plot(calc_source.errors, 'b--.', label='objective function')
+        ax.semilogy(calc_source.errors, 'b--.', label='objective function')
         # ax.set_xlim((0, num_iters))
         ax.set_xlabel('Iterations')
         ax.grid(alpha=0.8)
@@ -719,25 +716,6 @@ def plot_star_trajectory(source, sat, ti=0, tf=None, obs_times=[], equatorial=Fa
     ax.plot(alphas[0], deltas[0], origin_style, label='origin')  # plot origin
     ax.plot(alphas_sol, deltas_sol, sol_style, label='solutions')
 
-    # Plot arrows
-    if show_scanning_directions is True:
-        scaling_factor = 1 / 4
-        scale_alpha = (np.max(alphas) - np.min(alphas)) * scaling_factor
-        scale_delta = (np.max(deltas) - np.min(deltas)) * scaling_factor
-        length = np.array([scale_alpha, scale_delta])
-        for i, (t, a, d) in enumerate(zip(obs_times, alphas_sol, deltas_sol)):
-            point = np.array([a, d])
-
-            vector = scanning_direction(source, sat, t)
-            adp = ft.vector_to_adp(vector)
-            dir_alpha, dir_delta = ft.vector_to_alpha_delta(vector)
-            directions = np.array([dir_alpha, dir_delta])*length.max()
-            # directions = helpers.rescaled_direction((dir_alpha, dir_delta), length)
-            to_plot_x = np.array([point[0], point[0]+dir_alpha])
-            to_plot_y = np.array([point[1], point[1]+dir_delta])
-            ax.plot(to_plot_x, to_plot_y, 'k-', alpha=0.5)
-            ax.quiver(point[0], point[1], directions[0], directions[1], color=['r'])
-
     ax.set_xlim(np.min(alphas), np.max(alphas))
     ax.set_ylim(np.min(deltas), np.max(deltas))
     if equatorial is True:
@@ -748,23 +726,6 @@ def plot_star_trajectory(source, sat, ti=0, tf=None, obs_times=[], equatorial=Fa
         ax.axvline(x=0, c='gray', lw=1)
         ax.set_xlabel(r'$\Delta\alpha*$ [mas]')
         ax.set_ylabel(r'$\Delta\delta$ [mas]')
-
-    # if show_scanning_directions is False:
-    """print('lala')
-    for t in obs_times:
-        as_F, ds_F, as_P, ds_P = ([], [], [], [])
-        for ti in np.linspace(t-1/24/60/60/10, t+1/24/60/60/10, num=10):
-            attitude = sat.func_attitude(t)
-            alpha_P, delta_P = generate_observation_wrt_attitude(attitude)
-            alpha_P, delta_P, alpha_F, delta_F = get_angular_FFoV_PFoV(sat, ti)
-            as_F.append(alpha_F / const.rad_per_mas)
-            as_P.append(alpha_P)
-            ds_P.append(delta_P)
-            ds_F.append(delta_F / const.rad_per_mas)
-        as_P = ft.zero_to_two_pi_to_minus_pi_pi(np.array(as_P)) / const.rad_per_mas
-        ds_P = ft.transform_twoPi_into_halfPi(np.array(as_P)) / const.rad_per_mas
-        ax.plot(as_P, ds_P, 'b+:')
-        # ax.plot(as_F, ds_F, 'r,:')"""
 
     ax.legend()
     return fig

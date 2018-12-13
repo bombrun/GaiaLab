@@ -126,8 +126,8 @@ class Agis:
             self.att_bases = get_basis_Bsplines(self.att_knots, self.att_coeffs[0], self.k, self.all_obs_times)
             self.N = self.att_coeffs.shape[1]  # number of coeffs per parameter
 
-        if (self.att_knots.shape[0] - self.att_coeffs.shape[1]) != self.M:
-                raise ValueError('there should be M coeffs less than the number of knots')
+            if (self.att_knots.shape[0] - self.att_coeffs.shape[1]) != self.M:
+                    raise ValueError('there should be M coeffs less than the number of knots')
 
     # ### Generic functions for all kind of updating -----------------------------------
     def reset_iterations(self):
