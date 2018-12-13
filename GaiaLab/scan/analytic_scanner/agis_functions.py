@@ -208,10 +208,12 @@ def get_obs_in_CoMRS(source, sat, t):
 def generate_angles_of_sources(times_for_source, sat, noise_factor=1e-12):
     """
     Create source along the path of the telescopes. For each time in times_for_source
-    create one on PFoV, one source between the two telescope and one on the FFoV
-    returns a number *num_sources*x3 of ICRS coordinates (right ascension, declination)
+    create one source on PFoV, one between the two telescope and one on the FFoV
+    returns a number *num_sources* x3 of ICRS coordinates (right ascension,
+    declination)
+
     :param num_source: times where we want to create the sources
-    :noise_factor: [float]
+    :param noise_factor: [float]
     :returns: list of alphas and deltas
     """
     # Warning be carefull to what you use to get alpha/delta from vector
