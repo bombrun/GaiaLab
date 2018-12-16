@@ -48,7 +48,7 @@ The first version will be based on a very simple model :
 ##### Second version
 The second version contain:
 * As many source as we like (max ~1000 for rapid use)
-* Two CCD (gaia-like)
+* Two telescopes (gaia-like)
 * Circular satellite orbit
 * Newtonian physics
 * Solver with source update (attitude update ongoing)
