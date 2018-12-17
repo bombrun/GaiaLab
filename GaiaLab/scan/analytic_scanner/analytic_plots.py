@@ -1,20 +1,19 @@
 # -*- coding: utf-8 -*-
-
 """
 File analytic_plots.py
-purpose: store ploting functions
+
+:purpose: store ploting functions
+
 Created on Mon Jun 18 14:59:19 2018
 
-@author: mdelvallevaro
-
-modified by: LucaZampieri
+:authors: mdelvallevaro, LucaZampieri
 
 .. warning::
-    These functions are not all up to date
+    In case of doubts on the functionality of these functions, please check by
+    plotting manually what is desired.
 
 .. todo::
-    rewrite functions, in particular:
-    * plot observations
+    If changed, update this functions
 
 """
 # ### Uncomment next two line if the file is put in notebooks/ folder
@@ -48,19 +47,13 @@ def plot_attitude(sat, ti, tf, n_points=1000, figsize=(9, 5), style='.--'):
     %run: plot_Satellite(sat, 0, 1, 0.01)
 
     :param sat: gaia satellite, Satellite object
-    :param ti: initial time [days]
-    :param tf: final time [days]
+    :param ti: [float][days] initial time
+    :param tf: [float][days] final time
     :param n_points: number of points to be plotted of the function
     :action: Plot of the 4 components of the attitude of the satellite.
              attitude = (t, x, y, z)
 
     Each graph plots time in days versus each component evolution wrt time.
-
-    note: the difference between this function and the function under the same
-     name in the file geometric_plots lies on the calculation of the attitude.
-     Here the points plotted are calculated from the spline, in contrast with
-     the numerical methods calculation for geometric_plots.plot_attitude
-     function.
     """
     times = np.linspace(ti, tf, n_points)
     attitudes = [sat.func_attitude(t) for t in times]
@@ -95,6 +88,7 @@ def plot_attitude(sat, ti, tf, n_points=1000, figsize=(9, 5), style='.--'):
 
 def plot_star(source, satellite, scanner):
     """
+    Plot wrt the ICRS point of view
     :param source: source scanned (object)
     :param satellite: Satellite object
     :param scan: scan object
@@ -116,206 +110,22 @@ def plot_star(source, satellite, scanner):
 
     for i, t in enumerate(scanner.obs_times):
         source.set_time(t)
-        star_alphas.append(source.alpha)
-        star_deltas.append(source.delta)
+        star_alphas.append(source.alpha / const.rad_per_mas)
+        star_deltas.append(source.delta / const.rad_per_mas)
 
     plt.plot(star_alphas, star_deltas, 'b*', label='star')
     plt.plot([star_alphas[0], star_alphas[-1]], [star_deltas[0], star_deltas[-1]], 'r-', alpha=0.2)
 
     plt.legend(loc='upper left')
     plt.title('%s' % source.name)
-    plt.xlabel('alpha [rad]')
-    plt.ylabel('delta [rad]')
+    plt.xlabel('alpha [mas]')
+    plt.ylabel('delta [mas]')
     plt.axis('equal')
     plt.tight_layout()
     plt.margins(0.1)
     return fig
 
 
-def plot_observations(source, satellite, scan):
-    """
-    :param source: source scanned (object)
-    :param satellite: Satellite object
-    :param scan: scan object
-    :return: plot of position of observations and their error bars.
-    """
-    alphas_obs, deltas_obs, radius_obs = ([], [], [])
-    star_alphas, star_deltas, star_radius = ([], [], [])
-    z_alphas, z_deltas = ([], [])
-
-    green_alphas, green_deltas = ([], [])
-
-    plt.figure()
-    # for each of the observed times we plot the position of the x-axis in lmn
-    # of the scanner
-    for i, t in enumerate(scan.obs_times):
-
-        alpha, delta = ft.vector_to_alpha_delta(satellite.func_x_axis_lmn(t))
-        alphas_obs.append(alpha % (2 * np.pi))
-        deltas_obs.append(delta)
-
-        # radius_obs.append(radius)
-        source.set_time(t)
-        star_alphas.append(source.alpha)
-        star_deltas.append(source.delta)
-        # star_deltas.append(source.radius)
-
-        xaxis = satellite.func_x_axis_lmn(t)
-        zaxis = satellite.func_z_axis_lmn(t)
-
-        vectorz1 = xaxis + scan.z_threshold * zaxis
-        vectorz2 = xaxis - scan.z_threshold * zaxis
-
-        z_alpha_1, z_delta_1 = ft.vector_to_alpha_delta(vectorz1)
-        z_alpha_2, z_delta_2 = ft.vector_to_alpha_delta(vectorz2)
-
-        z_alphas.append([z_alpha_1, z_alpha_2])
-        z_deltas.append([z_delta_1, z_delta_2])
-
-    # For each couple of ([alpha1,alpha2],[delta1,delta2])
-    for alpha_delta in zip(z_alphas, z_deltas):
-        plt.plot(alpha_delta[0], alpha_delta[1], 'yo-')
-
-    plt.plot(alphas_obs, deltas_obs, 'ro', label='observations')  # plot observation as re dots
-    plt.plot(star_alphas, star_deltas, 'b*', label='star')  # plot stars as blu stars
-
-    # plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=2, mode="expand", borderaxespad=0.)
-    plt.legend(loc='upper left')
-    plt.title('%s' % source.name)
-    plt.xlabel('alpha [rad]')
-    plt.ylabel('delta [rad]')
-    plt.axis('equal')
-    plt.tight_layout()
-    plt.margins(0.1)
-    plt.show()
-
-
-def plot_prediction_VS_reality(source, satellite, scan, num_observations=0, angle_tolerance=0.1):
-    """
-    :param source: source scanned (object)
-    :param satellite: Satellite object
-    :param scan: scan object
-    :param num_observations: number of observation we want to plot
-    :return: plot of position of observations and their error bars.
-    """
-
-    alphas_obs, deltas_obs, radius_obs = ([], [], [])
-
-    star_alphas, star_deltas, star_radius = ([], [], [])
-
-    z_alphas, z_deltas = ([], [])
-    predictions_alphas, predictions_deltas = ([], [])
-
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 8))
-
-    # Set the number of observations we want to plot
-    if num_observations != 0:
-        obs_times = scan.obs_times[0:num_observations]
-    else:
-        obs_times = scan.obs_times
-    # for each of the observed times we plot the position of the x-axis in lmn
-    # of the scanner
-    for i, t in enumerate(obs_times):
-
-        alpha, delta = ft.vector_to_alpha_delta(satellite.func_x_axis_lmn(t))
-        alphas_obs.append(alpha % (2 * np.pi))
-        deltas_obs.append(delta)
-        # radius_obs.append(radius)
-        source.set_time(t)
-        star_alphas.append(source.alpha)
-        star_deltas.append(source.delta)
-        # star_deltas.append(source.radius)
-
-        # Axis of the satellite in the lmn frame
-        xaxis = satellite.func_x_axis_lmn(t)
-        zaxis = satellite.func_z_axis_lmn(t)
-
-        # Vectors describing the endpoints of the interval in which the source must be
-        # first in the lmn frame then in the polar one
-        vectorz1 = xaxis + scan.z_threshold * zaxis
-        z_alpha_1, z_delta_1 = ft.vector_to_alpha_delta(vectorz1)
-        vectorz2 = xaxis - scan.z_threshold * zaxis
-        z_alpha_2, z_delta_2 = ft.vector_to_alpha_delta(vectorz2)
-
-        z_alphas.append([z_alpha_1, z_alpha_2])
-        z_deltas.append([z_delta_1, z_delta_2])
-
-    # For each couple of ([alpha1,alpha2],[delta1,delta2])
-    alphas_deltas = list(zip(z_alphas, z_deltas))
-    for i in range(len(alphas_deltas)-1):
-        x1_x2, y1_y2 = alphas_deltas[i]
-        x3_x4, y3_y4 = alphas_deltas[i+1]
-
-        # compute dot product between the two segments
-        dot_product = np.dot([x1_x2[0]-x1_x2[1], y1_y2[0]-y1_y2[1]],
-                             [x3_x4[0]-x3_x4[1], y3_y4[0]-y3_y4[1]])
-        angle = helpers.compute_angle([x1_x2[0]-x1_x2[1], y1_y2[0]-y1_y2[1]],
-                                      [x3_x4[0]-x3_x4[1], y3_y4[0]-y3_y4[1]])
-        # print('angle: ', angle)
-        if angle < angle_tolerance:
-            continue
-        # compute the intersection between observations
-        intersection, error_msg = helpers.compute_intersection(x1_x2[0], y1_y2[0],
-                                                               x1_x2[1], y1_y2[1],
-                                                               x3_x4[0], y3_y4[0],
-                                                               x3_x4[1], y3_y4[1])
-        # print(error_msg)
-
-        if not error_msg:
-            predictions_alphas.append(intersection[0])
-            predictions_deltas.append(intersection[1])
-
-    # Plot the prediction of the positions of the stars as being the intersection of
-    # the error bands of the observations
-    # print(predictions_alphas, '\n  -----  \n', predictions_deltas)
-    for ax in (ax1, ax2):
-        ax.plot(predictions_alphas, predictions_deltas, 'rx:', label='predictions')
-        # plot stars as blu stars
-        ax.plot(star_alphas, star_deltas, 'b*:', label='star')
-        # ax.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=2, mode="expand", borderaxespad=0.)
-        # ax.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
-        ax.set_title('%s' % source.name)
-        ax.set_xlabel('alpha [rad]')
-        ax.set_ylabel('delta [rad]')
-        ax.axis('equal')
-        ax.grid()
-        # ax.set_tight_layout()
-        ax.margins(0.1)
-
-    for i, alpha_delta in enumerate(zip(z_alphas, z_deltas)):
-        ax1.plot(alpha_delta[0], alpha_delta[1], 'o-', label='obs_'+str(i))  # ,'yo-'
-
-    ax1.legend()
-    ax2.legend()
-    return fig
-
-
-def plot_phi(source, sat, ti=0, tf=90, n=1000):
-    styles = ['b.--', 'r.']
-    times_total = np.linspace(ti, tf, n)
-    phi_list = []
-    eta_list = []
-    for t in times_total:
-        phi_value, eta_value = phi(source, sat, t)
-        eta_list.append(eta_value)
-        phi_list.append(phi_value)
-
-    fig1 = plt.figure(1)
-    plt.plot(times_total, phi_list, styles[0])
-    plt.hlines(0, xmin=times_total[0], xmax=times_total[-1], color='g')
-    plt.xlabel('time [days]')
-    plt.ylabel('Phi [rad]')
-
-    fig2 = plt.figure(2)
-    plt.plot(times_total, eta_list, styles[1])
-    plt.hlines(0, xmin=times_total[0], xmax=times_total[-1], color='g')
-    plt.xlabel('time [days]')
-    plt.ylabel('Eta[rad]')
-
-    return fig1, fig2
-
-
-# new
 def plot_star_trajectory_with_scans(sat, source, obs_times, num_ms_for_snapshot=2):
     """
     Plots the star trajectory
@@ -376,7 +186,6 @@ def plot_star_trajectory_with_scans(sat, source, obs_times, num_ms_for_snapshot=
     return fig
 
 
-# new
 def plot_errors_VS_iterations_per_source(Solver, save_path=None):
     """
     Plots the error on each astronomic parameter and objective function for each
@@ -404,16 +213,11 @@ def plot_errors_VS_iterations_per_source(Solver, save_path=None):
         observed = [real_source.alpha, real_source.delta, real_source.parallax,
                     real_source.mu_alpha_dx, real_source.mu_delta]
 
-        alpha_list = []
-        delta_list = []
+        alpha_list, delta_list = ([], [])
         for t_L in my_observations:
             real_source.set_time(float(t_L))
             alpha_list.append(real_source.alpha)
             delta_list.append(real_source.delta)
-        std_alpha = np.std(alpha_list)
-        std_delta = np.std(delta_list)
-        min_alpha, max_alpha = (np.min(alpha_list), np.max(alpha_list))
-        min_delta, max_delta = (np.min(delta_list), np.max(delta_list))
 
         for i, x in enumerate(source_params.T):
             if i < 3:
@@ -430,28 +234,14 @@ def plot_errors_VS_iterations_per_source(Solver, save_path=None):
                 ax.set_ylabel('[mas/year]')
             else:
                 raise ValueError('not a valid plot index')
-
-            # ax.hlines(observed[i], xmin=0, xmax=num_iters, color='g')
             ax.grid()
             ax.set_label('labels[i]')
             ax.set_xlabel('Iterations')
             ax.legend()
 
-        # ### Commented the horizontal lines of standard deviation &Co
-        # axs[0, 0].hlines(observed[0]+std_alpha, xmin=0, xmax=num_iters, color='g')
-        # axs[0, 0].hlines(observed[0]-std_alpha, xmin=0, xmax=num_iters, color='g')
-        # axs[0, 0].hlines(min_alpha, xmin=0, xmax=num_iters, color='r')
-        # axs[0, 0].hlines(max_alpha, xmin=0, xmax=num_iters, color='r')
-
-        # axs[0, 1].hlines(observed[1]+std_delta, xmin=0, xmax=num_iters, color='g')
-        # axs[0, 1].hlines(observed[1]-std_delta, xmin=0, xmax=num_iters, color='g')
-        # axs[0, 1].hlines(min_delta, xmin=0, xmax=num_iters, color='r')
-        # axs[0, 1].hlines(max_delta, xmin=0, xmax=num_iters, color='r')
-
         # plot evolution of the error
         ax = axs[-1, -1]
         ax.semilogy(calc_source.errors, 'b--.', label='objective function')
-        # ax.set_xlim((0, num_iters))
         ax.set_xlabel('Iterations')
         ax.grid(alpha=0.8)
         ax.legend()
@@ -461,7 +251,6 @@ def plot_errors_VS_iterations_per_source(Solver, save_path=None):
     return figs_list
 
 
-# new
 def plot_sources_in_sky(sources, projection='hammer'):
     plt.figure()
     plt.subplot(111, projection=projection)
@@ -473,7 +262,6 @@ def plot_sources_in_sky(sources, projection='hammer'):
     plt.show()
 
 
-# new
 def plot_field_angles(source, sat, obs_times=[], ti=0, tf=90, n=1000, limit=False, double_telescope=True):
     styles = ['b,', 'rs']
     zeta_limit = np.radians(0.5)
@@ -643,7 +431,7 @@ def plot_scanner_position_over_source(source, sat, t_init=0, t_end=365, num_poin
 
 
 # new
-def plot_star_trajectory(source, sat, ti=0, tf=None, obs_times=[], equatorial=False,
+def plot_star_trajectory(source, sat, ti=0, tf=None, obs_times=[], equatorial=True,
                          dt=1, show_scanning_directions=False):
     """
     Plots star trajectory. One dot is plotted every day by default.
@@ -656,10 +444,6 @@ def plot_star_trajectory(source, sat, ti=0, tf=None, obs_times=[], equatorial=Fa
     :param dt: [float][days] ploints plotted very dt (default is one day)
     :returns: [figure] plot of the trajectory if the star
     """
-    if show_scanning_directions is True:
-        raise Warning('Check if the directions are implemented correctly')
-        if (obs_times and (equatorial is True)) is False:
-            raise ValueError('Cannot show vectors if equatorial is False or obs_times empty')
     # if tf is not defined, this sets tf as the final time for satellite
     if tf is None:
         tf = sat.storage[-1][0]
@@ -689,7 +473,7 @@ def plot_star_trajectory(source, sat, ti=0, tf=None, obs_times=[], equatorial=Fa
                 deltas_sol.append(delta_delta_mas)
 
     # Convert all in mas:
-    if equatorial is True:
+    if equatorial is True:  # the other are already in mas!
         alphas = np.array(alphas) / const.rad_per_mas
         deltas = np.array(deltas) / const.rad_per_mas
         if obs_times:
@@ -744,20 +528,8 @@ def plot_3D_scanner_pos(sat, axis, ti, tf, n_points=1000, elevation=10, azimuth=
     :return: plot of the position of the given axis (unitary) of the scanner wrt
      LMN frame.
     """
-    if type(ti) not in [int, float]:
-        raise TypeError('ti must be non-negative real numbers.')
-    if type(tf) not in [int, float]:
-        raise TypeError('tf must be non-negative real numbers.')
-    if type(n_points) not in [int, float]:
-        raise TypeError('dt must be non-negative real numbers.')
     if axis not in ['X', 'Z']:
         raise ValueError("Axis can be either 'X' or 'Z'.")
-    if ti < 0:
-        raise ValueError('ti cannot be negative.')
-    if tf < 0:
-        raise ValueError('tf cannot be negative.')
-    if n_points < 0:
-        raise ValueError('dt cannot be negative.')
 
     times = np.linspace(ti, tf, n_points)
     if axis == 'X':
@@ -786,74 +558,11 @@ def plot_3D_scanner_pos(sat, axis, ti, tf, n_points=1000, elevation=10, azimuth=
     ax.set_zlabel('N')
     ax.azim = azimuth
     ax.elev = elevation
-
     return fig  # plt.show()
 
 
-def plot_longitud_latitude(sat, ti, tf, dt):
-    """
-    L. Lindegren, SAG_LL_014, Figure 6.
-    %run: plot_longitud_latitude(att, 0, 365*5, 3/24)
-
-    :param att: attitude object
-    :param ti: initial time [days]
-    :param tf: final time [days]
-    :param dt: step time for calculating the data point [days]
-    :return: plots the longitud and latitude angles in degrees of the z-axis of the scanner
-             with respect to the LMN frame.
-    """
-    raise ValueError('This function is obsolete')
-
-    sat.reset(ti, tf, dt)
-    # sat.__create_storage(ti, tf, dt)
-    long_list = [i[5] % (2 * np.pi) for i in sat.storage]
-    alt_list = [i[6] for i in sat.storage]
-
-    plt.figure()
-    plt.plot(np.degrees(long_list), np.degrees(alt_list), 'b.')
-    plt.xlabel('Longitud [deg]')
-    plt.ylabel('Lattitude [deg] ')
-
-    plt.rcParams.update({'font.size': 22})
-    plt.title('Revolving scanning')
-    plt.show()
-
-################################################################################
-# Undefined functions
-
-
-def run():
-    """
-    Create the objects source for Sirio, Vega and Proxima as well
-    as the corresponding scanners and the satellite object of Gaia.
-    Then scan the sources from Gaia and print the time.
-    :return: gaia, sirio, scanSirio, vega, scanVega, proxima, scanProxima
-    """
-    start_time = time.time()
-    sirio = Source("sirio", 101.28, -16.7161, 379.21, -546.05, -1223.14, -7.6)
-    vega = Source("vega", 279.2333, 38.78, 128.91, 201.03, 286.23, -13.9)
-    proxima = Source("proxima", 217.42, -62, 768.7, 3775.40, 769.33, 21.7)
-
-    scanSirio = Scanner(np.radians(20), np.radians(2))
-    scanVega = Scanner(np.radians(20), np.radians(2))
-    scanProxima = Scanner(np.radians(20), np.radians(2))
-    gaia = Satellite()
-    print(time.time() - start_time)
-
-    scanSirio.start(gaia, sirio)
-    scanVega.start(gaia, vega)
-    scanProxima.start(gaia, proxima)
-    print(time.time() - start_time)
-
-    seconds = time.time() - start_time
-    print('Total seconds:', seconds)
-    return gaia, sirio, scanSirio, vega, scanVega, proxima, scanProxima
-
-
-################################################################################
-# # isInstance functions
 # this function should not be used
-def plot_stars_trajectory(source, sat, obs_times=[], equatorial=False):
+def plot_ICRS_coordinates_versus_time(source, sat, obs_times=[]):
     """
     :param source: source object
     :param sat: Satellite object
@@ -869,22 +578,15 @@ def plot_stars_trajectory(source, sat, obs_times=[], equatorial=False):
 
     for i in np.arange(0, time_total, 1):
         alpha, delta, delta_alpha_dx_mas, delta_delta_mas = source.topocentric_angles(sat, i)
-        if equatorial is False:
-            alphas.append(delta_alpha_dx_mas)
-            deltas.append(delta_delta_mas)
-        else:
-            alphas.append(alpha)
-            deltas.append(delta)
+        alphas.append(delta_alpha_dx_mas)
+        deltas.append(delta_delta_mas)
 
     for t in obs_times:
         times_sol.append(t/const.days_per_year + 2000)  # +2000 do the fact that the reference epoch is J2000
         alpha_obs, delta_obs, delta_alpha_dx_mas, delta_delta_mas = source.topocentric_angles(sat, t)
-        if equatorial is False:
-            alphas_sol.append(delta_alpha_dx_mas)
-            deltas_sol.append(delta_delta_mas)
-        else:
-            alphas_sol.append(alpha_obs)
-            deltas_sol.append(delta_obs)
+        alphas_sol.append(delta_alpha_dx_mas)
+        deltas_sol.append(delta_delta_mas)
+
     n = len(alphas)
     times = np.linspace(2000, 2000 + time_total/const.days_per_year, n)
 
@@ -957,62 +659,5 @@ def plot_stars_trajectory(source, sat, obs_times=[], equatorial=False):
     ax1ddec.set_xlabel(r'Time [yr]')
     ax1ddec.set_ylabel(r'$\Delta\delta$ [mas]')
 
-    # plt.tight_layout()
-    plt.show()
-
-
-def plot_stars_trajectory_3D(source, satellite, obs_times=[]):
-    """
-    :param source: source object
-    :param satellite: Satellite object
-    :param t_total: total time for which the trajectory is desired [days] from
-     J2000.
-    :return: plot of the star trajectory in the lmn-frame.
-    """
-
-    time_total = satellite.storage[-1][0]
-
-    alphas = []
-    deltas = []
-    alphas_sol = []
-    deltas_sol = []
-    times_sol = []
-
-    for i in np.arange(0, time_total, 1):
-        alpha_obs, delta_obs, delta_alpha_dx_mas, delta_delta_mas = source.topocentric_angles(satellite, i)
-        alphas.append(delta_alpha_dx_mas)
-        deltas.append(delta_delta_mas)
-    for t in obs_times:
-        alpha_obs, delta_obs, delta_alpha_dx_mas, delta_delta_mas = source.topocentric_angles(satellite, t)
-        alphas_sol.append(delta_alpha_dx_mas)
-        deltas_sol.append(delta_delta_mas)
-        times_sol.append(t/const.days_per_year + 2000)  # +2000 do the fact that the reference epoch is J2000
-
-    n = len(alphas)
-    times = np.linspace(2000, 2000 + time_total/const.days_per_year, n)
-
-    # Styles for the plots
-    path_style = 'b,'
-    origin_style = 'kx'
-    sol_style = 'rs'
-
-    fig = plt.figure(figsize=(16, 9))
-    ax = fig.gca(projection='3d')
-
-    fig.suptitle(r'$\varpi={%.2f}$, $\mu_{{\alpha*}}={%.2f}$, $\mu_\delta={%.2f}$'
-                 % (source.parallax, source.mu_alpha_dx, source.mu_delta),
-                 fontsize=20)
-
-    ax.plot(alphas, deltas, times, path_style,
-            label=r'%s path' % (source.name), lw=2)
-    ax.plot(alphas_sol, deltas_sol, times_sol, sol_style,
-            label=r'%s path' % (source.name), lw=2)
-    # ax.plot(alphas[0], deltas[0], times[0], origin_style, label='origin')
-    ax.set_xlabel(r'$\Delta\alpha*$ [mas]')
-    ax.set_ylabel(r'$\Delta\delta$ [mas]')
-    ax.axhline(y=0, c='gray', lw=1)
-    ax.axvline(x=0, c='gray', lw=1)
-    ax.legend(fontsize=12, facecolor='#000000',
-              framealpha=0.1)
     # plt.tight_layout()
     plt.show()
