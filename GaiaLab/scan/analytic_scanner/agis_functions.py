@@ -492,8 +492,8 @@ def extend_knots(internal_knots, k):
 
 def compute_coeff_basis_sum(coeffs, bases, L, M, time_index):
     """
-    Ref. Paper eq. [80]
-    Computes the sum:
+    | Ref. Paper eq. [80]
+    | Computes the sum:
 
     .. math::
         \sum_{n=L-M+1}^{L}(a_n \cdot B_n(t_L))
@@ -511,8 +511,8 @@ def compute_coeff_basis_sum(coeffs, bases, L, M, time_index):
 
 def compute_attitude_deviation(coeff_basis_sum):
     """
-    Ref. Paper eq. [80]
-    Compute the attitude deviation from unity:
+    | Ref. Paper eq. [80]
+    | Compute the attitude deviation from unity:
 
     .. math::
         D_l = 1 - ||\\sum_{n=L-M+1}^{L} a_n B_n(t_L)||^2
@@ -526,9 +526,9 @@ def compute_attitude_deviation(coeff_basis_sum):
 
 def compute_DL_da_i(coeff_basis_sum, bases, time_index, i):
     """
-    Ref. Paper eq. [80]
-    Compute derivative of the attitude deviation wrt attitude params.
-    See :meth:`compute_coeff_basis_sum`
+    | Ref. Paper eq. [80]
+    | Compute derivative of the attitude deviation wrt attitude params.
+      See :meth:`compute_coeff_basis_sum`
 
     :param coeff_basis_sum: the sum :math:`\\sum_{n=L-M+1}^{L} a_n B_n(t_L)`
     :param bases: Bspline basis, B_n(t_L) in the equation above.
@@ -543,9 +543,9 @@ def compute_DL_da_i(coeff_basis_sum, bases, time_index, i):
 
 def compute_DL_da_i_from_attitude(attitude, bases, time_index, i):
     """
-    Ref. Paper eq. [83]
-    Compute derivative of the attitude deviation wrt attitude params.
-    See :meth:`compute_coeff_basis_sum`
+    | Ref. Paper eq. [83]
+    | Compute derivative of the attitude deviation wrt attitude params.
+      See :meth:`compute_coeff_basis_sum`
 
     :param attitude: [quaternion]
     :param bases: Bspline basis, B_n(t_L) in the equation above.
@@ -560,9 +560,9 @@ def compute_DL_da_i_from_attitude(attitude, bases, time_index, i):
 
 def compute_dR_dq(calc_source, sat, attitude, t):
     """
-    Ref. Paper eq. [79].
-    Computes the derivative of the cost-function w.r.t. quaternion q i.e. the
-    the tuple of equations:
+    | Ref. Paper eq. [79].
+    | Computes the derivative of the cost-function w.r.t. quaternion q i.e. the
+      tuple of equations:
 
     - :math:`\\frac{dR_l^{AL}}{dq_l}=2 \cdot sec(\zeta_l) q_l * \{S'n_l, 0\}` which
       is Along_scan w.r.t. observation number l
@@ -603,10 +603,14 @@ def dR_da_i(dR_dq, bases_i):
 # ### Beginning field angles and associated functions --------------------------
 def observed_field_angles(source, attitude, sat, t, double_telescope=False):
     """
-    Ref. Paper eq. [12]-[13]
-    Return field angles according to Lindegren eq. 12
-    See :meth:`compute_field_angles`
+    | Ref. Paper eq. [12]-[13]
+    | Return field angles according to Lindegren eq. 12. See :meth:`compute_field_angles`
 
+    :param source: [Source]
+    :param attitude: [quaternion] attitude at time t
+    :param sat: [Satellite]
+    :param t: [float] time at which we want the angles
+    :param double_telescope: [bool] If true, uses the model with two telescopes
     :returns:
         * eta: along-scan field angle (== phi if double_telescope = False)
         * zeta: across-scan field angle
@@ -620,10 +624,17 @@ def observed_field_angles(source, attitude, sat, t, double_telescope=False):
 
 def calculated_field_angles(calc_source, attitude, sat, t, double_telescope=False):
     """
-    Ref. Paper eq. [12]-[13]
-    Return field angles according to Lindegren eq. 12.
-    See :meth:`compute_field_angles`
-    eta: along-scan field angle
+    | Ref. Paper eq. [12]-[13]
+    | Return field angles according to Lindegren eq. 12. See :meth:`compute_field_angles`
+
+    :param source: [Calc_source]
+    :param attitude: [quaternion] attitude at time t
+    :param sat: [Satellite]
+    :param t: [float] time at which we want the angles
+    :param double_telescope: [bool] If true, uses the model with two telescopes
+    :returns:
+        * eta: along-scan field angle (== phi if double_telescope = False)
+        * zeta: across-scan field angle
     """
     alpha, delta, parallax, mu_alpha, mu_delta = calc_source.s_params[:]
     params = np.array([alpha, delta, parallax, mu_alpha, mu_delta, calc_source.mu_radial])
@@ -637,11 +648,14 @@ def calculated_field_angles(calc_source, attitude, sat, t, double_telescope=Fals
 
 def compute_field_angles(Su, double_telescope=False):
     """
-    Ref. Paper eq. [12]-[13]
-    Return field angles according to ref. Paper eq. [12]
+    | Ref. Paper eq. [12]-[13]
+    | Return field angles according to eq. [12]
+
     :param Su: array with the proper direction in the SRS reference system
-    eta: along-scan field angle
-    zeta: across-scan field angle
+    :param double_telescope: [bool] If true, uses the model with two telescopes
+    :returns:
+        * eta: along-scan field angle (== phi if double_telescope = False)
+        * zeta: across-scan field angle
     """
     if not isinstance(Su, np.ndarray):
         raise TypeError('Su has to be a numpy array, instead is {}'.format(type(Su)))
@@ -665,10 +679,14 @@ def compute_field_angles(Su, double_telescope=False):
 
 def compute_mnu(phi, zeta):
     """
-    Ref. Paper eq. [69]
-    return column vectors of the S'[m_l, n_l, u_l] matrix
-    :param phi: float
-    :param zeta: float
+    | Ref. Paper eq. [69]
+    | :math:`S'm_l=[-sin(\phi_l), cos(\phi_l), 0]^T`
+    | :math:`S'n_l=[-sin(\zeta_l)cos(\phi_l), -sin(\zeta_l)\cos(\phi_l), cos(\zeta_l)]^T`
+    | :math:`S'u_l=[cos(\zeta_l)cos(\phi_l), cos(\zeta_l)sin(\phi_l), sin(\zeta_l)]^T`
+
+    :param phi: [float]
+    :param zeta: [float]
+    :returns: [array] column vectors of the S'[m_l, n_l, u_l] matrix
     """
     m_l = np.array([-np.sin(phi), np.cos(phi), 0])
     n_l = np.array([-np.sin(zeta)*np.cos(phi), np.sin(zeta)*np.sin(phi), np.cos(zeta)])
@@ -679,8 +697,16 @@ def compute_mnu(phi, zeta):
 
 # ### For source updating: -----------------------------------------------------
 def compute_du_dparallax(r, b_G):
-    """Ref. Paper eq. [73]
-    computes du/dw"""
+    """
+    | Ref. Paper eq. [73]
+    | Computes :math:`\\frac{du}{d\omega}`
+
+    :param r: barycentric coordinate direction of the source at time t.
+     Equivalently it is the third column vector of the "normal triad" of the
+     source with respect to the ICRS.
+    :param b_G: Spatial coordinates in the BCRS.
+    :returns: [array] the derivative du_dw
+    """
     if not isinstance(b_G, np.ndarray):
         raise TypeError('b_G has to be a numpy array, instead is {}'.format(type(b_G)))
     if r.shape != (3, 1):
@@ -691,14 +717,18 @@ def compute_du_dparallax(r, b_G):
         raise Error("rr' should have 9 elements! instead has {} elements".format(len((r @ r.T).flatten())))
     b_G.shape = (3, 1)
     # r.shape = (1, 3)
-    update = -(np.eye(3) - r @ r.T) @ b_G / const.Au_per_Au
-    update.shape = (3)  # This way it returns an error if it has to copy data
-    return update  # np.ones(3)  #
+    du_dw = -(np.eye(3) - r @ r.T) @ b_G / const.Au_per_Au
+    du_dw.shape = (3)  # This way it returns an error if it has to copy data
+    return du_dw  # np.ones(3)  #
 # ###End source updating #######################################################
 
 
 # ### Beginning Color aberration -----------------------------------------------
 def compute_deviated_angles_color_aberration(eta, zeta, color, error):
+    """
+    Implementation of chromatic aberration
+    :returns: eta, zeta deviated by the aberration
+    """
     parameter = 1/10
     if error != 0:
         eta = eta + parameter * color
