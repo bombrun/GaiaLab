@@ -1,3 +1,6 @@
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+https://readthedocs.org/GaiaLab/pip/badge/?version=latest&style=flat
+
 # GaiaLab
 
 ### About
