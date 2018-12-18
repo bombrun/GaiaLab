@@ -1,5 +1,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-https://readthedocs.org/GaiaLab/pip/badge/?version=latest&style=flat
+
+<a href="https://opensource.org/licenses/MIT"><img align="right" scale="100%" alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg"></a>
+
+<a href="https://readthedocs.org/GaiaLab/pip/badge/?version=latest"><img align="right" style="margin: 0px 2px" alt="Documentation Status" src="https://readthedocs.org/projects/docs/badge/?version=latest&style=flat"></a>
 
 # GaiaLab
 
