@@ -1,15 +1,17 @@
 # -*- coding: utf-8 -*-
 
 """
-File agis_helpers.py
-functions that uses the classes source, satellite but don't belong to a
-given file yet
+:File: agis_helpers.py
+
+:purpose: Functions that uses the classes source, satellite but don't belong
+ to a given file yet
+
 :used by: (at least) agis.py & scanner.py
 :author: LucaZampieri
 
 When cleaning this file search for ???, LUCa, warning , error, debug, print?
 
-*Notes:*
+.. note::
     In this file, when there is a reference, unless explicitly stated otherwise,
     it refers to Lindegren main article:
     "The astronometric core solution for the Gaia mission - overview of models,
@@ -25,11 +27,15 @@ TODO:
     - Attitute with scanner
     - scaling
 
-Other:
-    * if we add acceleration what happens
+TODO:
+    (bis)
+
+    * implement chromatic aberration
+    * add acceleration to proper motion
     * add noise to observation
     * QSO
     * signal
+    * binary source
 """
 
 # # Imports
@@ -50,9 +56,13 @@ from source import compute_topocentric_direction
 
 def generate_observation_wrt_attitude(attitude):
     """
-    returns right ascention and declination corresponding to the direction in
-    which the x-vector rotated to *attitude* is pointing
-    returns alpha, delta in radians
+    Create coordinates of a star in the position of the x-axis of the attitude
+    of the satellite
+
+    :param attitude: The attitude of the satellite
+    :returns: [tuple of floats] [rads]right ascention and declination
+     corresponding to the direction in which the x-vector rotated to *attitude*
+     is pointing
     """
     artificial_Su = [1, 0, 0]
     artificial_Cu = ft.xyz_to_lmn(attitude, artificial_Su)
@@ -60,16 +70,17 @@ def generate_observation_wrt_attitude(attitude):
     return alpha, delta
 
 
-def field_angles_to_alpha_delta(phi, zeta, attitude):
-    x = np.cos(zeta)*np.cos(phi)
-    y = np.cos(zeta)*np.sin(phi)
-    z = np.sin(zeta)
-    CoMRS_vector = ft.xyz_to_lmn(attitude, [x, y, z])
-    alpha, delta = ft.vector_to_alpha_delta(CoMRS_vector)
-    return alpha, delta
-
-
 def error_between_func_attitudes(my_times, func_att1, func_att2):
+    """
+    Computes the sum of the relative difference of the quaternion components
+    between two attitudes
+
+    :param my_times: times at which the difference will be computed
+    :param func_att1: [function] that returns an attitude quaternion to compare
+    :param func_att2: [function] that returns an attitude quaternion to compare
+
+    :returns: [float] The error in attitude (only qualitative) just for visualization
+    """
     error_in_attitude = 0
     for t in my_times:
         diff_att = 0
@@ -80,18 +91,17 @@ def error_between_func_attitudes(my_times, func_att1, func_att2):
         diff_att += np.abs(att2.y - att1.y)
         diff_att += np.abs(att2.z - att1.z)
         error_in_attitude += np.abs(diff_att)
+    error_in_attitude /= len(my_times)
     return error_in_attitude
 
 
-def rotation_matrix_from_alpha_delta(source, sat, t):
-    Cu = source.unit_topocentric_function(sat, t)
-    Su = np.array([1, 0, 0])
-    r = helpers.get_rotation_matrix(Cu, Su)
-    return r
-
-
 def attitude_from_alpha_delta(source, sat, t, vertical_angle_dev=0):
-    """:param vertical_angle_dev: how much we deviate from zeta"""
+    """
+    :param source: [Source object]
+    :param sat: [satellite object]
+    :param t: [float] time
+    :param vertical_angle_dev: how much we deviate from zeta
+    """
     Cu = source.unit_topocentric_function(sat, t)
     Su = np.array([1, 0, 0])
     if vertical_angle_dev == 0:
@@ -113,8 +123,10 @@ def attitude_from_alpha_delta(source, sat, t, vertical_angle_dev=0):
 
 def add_noise_to_calc_source(s, noise=1e-12):
     """
-    Adds noise to given source
-    :param noise: [numpy array] of five elements, one for each parameter of the source
+    :action: Adds noise to given calc_source (inline)
+    :param s: [calc_source object] that we wish to make noisy
+    :param noise: [numpy array] of five elements, one for each parameter of the
+     source
     """
     s.s_params[0] += noise[0]
     s.s_params[1] += noise[1]
@@ -124,11 +136,10 @@ def add_noise_to_calc_source(s, noise=1e-12):
 
 
 def spin_axis_from_alpha_delta(source, sat, t):
+    raise ValueError('This function is obsolete')
     Cu = source.unit_topocentric_function(sat, t)
     Su = np.array([1, 0, 0])
     vector, angle = helpers.get_rotation_vector_and_angle(Cu, Su)
-    # vector = vector/np.linalg.norm(vector)
-    # satellite_position = sat.ephemeris_bcrs(t)
     return vector
 
 
@@ -163,8 +174,14 @@ def get_fake_attitude(source, sat, t):
 
 def get_angular_FFoV_PFoV(sat, t):
     """
-    return angular positions (alpha, delta) of the fields of view as a
-    function of time.
+    Computes angular positions (righ ascension :math:`\\alpha`, declination
+    :math:`\\delta`) of the fields of view as a function of time. The angles are
+    as seen from the satellite (Co-Moving Reference System).
+
+    :param sat: [Satellite object]
+    :param t: time at which we want the FoVs pointing directions
+    :returns: :math:`\\alpha_{PFoV}, \\delta_{PFoV},
+     \\alpha_{FFoV},\\delta_{FFoV}`
     """
     z_axis = np.array([0, 0, 1])
     attitude = sat.func_attitude(t)
@@ -186,14 +203,21 @@ def get_angular_FFoV_PFoV(sat, t):
 
 
 def get_obs_in_CoMRS(source, sat, t):
+    """
+    Get observation in the Co-Moving Reference System.
+
+    :param source: [source object]
+    :param sat: [Satellite object]
+    :param t:
+    :returns: (:math:`\\alpha, \\delta`) of the observation in CoMRS
+    """
 
     attitude = sat.func_attitude(t)
     phi, zeta = observed_field_angles(source, attitude, sat, t, double_telescope=False)  # even if we have 2 telescope
-    z_axis = np.array([0, 0, 1])
     field_index = np.sign(phi)
-
     eta = field_index * const.Gamma_c / 2
 
+    z_axis = np.array([0, 0, 1])
     quat1 = quaternion.from_rotation_vector(z_axis*eta)
     Sx_rot_eta = ft.rotate_by_quaternion(quat1, np.array([1, 0, 0]))
 
@@ -212,7 +236,7 @@ def generate_angles_of_sources(times_for_source, sat, noise_factor=1e-12):
     returns a number *num_sources* x3 of ICRS coordinates (right ascension,
     declination)
 
-    :param num_source: times where we want to create the sources
+    :param num_source: [list of floats] times where we want to create the sources
     :param noise_factor: [float]
     :returns: list of alphas and deltas
     """
@@ -232,7 +256,18 @@ def generate_angles_of_sources(times_for_source, sat, noise_factor=1e-12):
 
 # ### For scanner --------------------------------------------------------------
 def get_interesting_days(ti, tf, sat, source, zeta_limit):
-    # print(zeta_limit)
+    """
+    Computes the days in which the Fields of View may see some sources.
+
+    :param ti: [float] initial time at which we want to evaluate the interesting
+     days
+    :param tf: [float] final time
+    :param sat: [Satellite object]
+    :param source: [Source object]
+    :param zeta_limit: [float][rads] zeta_limit for the field of view
+    :returns: [list of floats] containing the days in which the source may be in
+     the field of view of the telescopes
+    """
     day_list = []
     zeta_limit = min(zeta_limit*6, 3)  # why *6 ?? [rad]
     time_step = 1
@@ -247,14 +282,22 @@ def get_interesting_days(ti, tf, sat, source, zeta_limit):
 
 
 def generate_scanned_times_intervals(day_list, time_step):
+    """
+    Given a list of days, it will return the list of time  that will define the
+    intervals to be scanned
+
+    :param day_list: [list of floats][days]
+    :param time_step: [float][days] length of the time interval
+    :returns: [list][days] list of times to create scanned intervals
+    """
     extend_by = 1
     previous_days = list(np.array(day_list)-extend_by)
     extended_days = set(day_list + previous_days)
-    scanned_intervals = []
+    times_for_scanned_intervals = []
     for day in day_list:
-        scanned_intervals += list(np.arange(day, day+extend_by, time_step))
-    scanned_intervals = list(set(scanned_intervals))
-    return scanned_intervals
+        times_for_scanned_intervals += list(np.arange(day, day+extend_by, time_step))
+    times_for_scanned_intervals = list(set(times_for_scanned_intervals))
+    return times_for_scanned_intervals
 
 
 # ### End for scanner ##########################################################
@@ -262,7 +305,14 @@ def generate_scanned_times_intervals(day_list, time_step):
 
 # ### For attitude updating: ---------------------------------------------------
 # ## Just for plotting
-def compare_attitudes(gaia, Solver, my_times):
+def compare_attitudes(gaia, solver, my_times):
+    """
+    :param gaia: [satellite object]
+    :param solver: [Solver object]
+    :param my_times: [list][days] list of times at which we want to compare the
+     attitudes
+    :return: figure object
+    """
     fig = plt.figure()
     colors = ['red', 'orange', 'blue', 'green']
     labels_gaia = ["w_gaia", "x_gaia", "y_gaia", "z_gaia"]
@@ -272,7 +322,7 @@ def compare_attitudes(gaia, Solver, my_times):
     solver_attitudes = []
     for i in range(4):
         plt.plot(my_times, gaia_attitudes[i], '--', color=colors[i], label=labels_gaia[i])
-        plt.plot(my_times, Solver.attitude_splines[i](my_times), ':', color=colors[i], label=labels_solver[i])
+        plt.plot(my_times, solver.attitude_splines[i](my_times), ':', color=colors[i], label=labels_solver[i])
     plt.xlabel('time [days]')  # ("my_times [%s]" % len(my_times))
     plt.legend(loc=9, bbox_to_anchor=(1.1, 1))
     plt.title('Attitudes in time intervals')
@@ -281,6 +331,16 @@ def compare_attitudes(gaia, Solver, my_times):
 
 
 def multi_compare_attitudes(gaia, Solver, my_times):
+    """
+    Compares the attitudes in four different plots, one for each attitude
+    component.
+
+    :param gaia: [satellite object]
+    :param solver: [Solver object]
+    :param my_times: [list][days] list of times at which we want to compare the
+     attitudes
+    :return: figure object
+    """
     fig, axs = plt.subplots(1, 4, figsize=(24, 6))
     # axes = [axs[0, 0], axs[0, 1], axs[ 1,0], axs[1,1]]
     colors = ['red', 'cyan', 'blue', 'green']
@@ -306,9 +366,14 @@ def multi_compare_attitudes(gaia, Solver, my_times):
     return fig
 
 
-def multi_compare_attitudes_errors(gaia, Solver, my_times):
+def multi_compare_attitudes_errors(gaia, solver, my_times):
+    """
+    :param gaia: [Satellite object]
+    :param solver: [Solver object]
+    :param my_times: [list][days] times at which we want to compare the attitudes
+    :returns: figure
+    """
     fig, axs = plt.subplots(1, 4, figsize=(24, 6))
-    # axes = [axs[0, 0], axs[0, 1], axs[ 1,0], axs[1,1]]
     colors = ['red', 'cyan', 'blue', 'green']
     titles = ["w-error", "x-error", "y-error", "z-error"]
     labels_gaia = ["w_gaia", "x_gaia", "y_gaia", "z_gaia"]
@@ -318,8 +383,8 @@ def multi_compare_attitudes_errors(gaia, Solver, my_times):
     solver_attitudes = []
     error_component = []
     for i, ax in enumerate(axs):
-        Solver_attitude = Solver.attitude_splines[i](my_times)
-        error_component = np.abs(gaia_attitudes[i] - Solver_attitude)
+        Solver_attitude = solver.attitude_splines[i](my_times)
+        error_component = np.abs(gaia_attitudes[i] - solver_attitude)
         total_error = error_component.mean()
         ax.plot(my_times, error_component, ':', color=colors[i],
                 label='diff |' + labels_gaia[i] + '-' + labels_solver[i] + '|')
@@ -334,6 +399,12 @@ def multi_compare_attitudes_errors(gaia, Solver, my_times):
 
 def get_basis_Bsplines(knots, coeffs, k, obs_times):
     """
+    :param knots: [array] knots intervals for the time discretization of the
+     spline (for one (any) of the four quaternions parameters)
+    :param coeffs: [array] of the coefficients to create a spline  (for one
+     (any) of the four quaternions parameters)
+    :param k: [int] spline degree
+    :param obs_times: [list][days] Times of observation
     :returns: arrays of size (#coeffs, #obs_times)
     """
     basis_Bsplines = []
@@ -347,11 +418,22 @@ def get_basis_Bsplines(knots, coeffs, k, obs_times):
 
 def extract_coeffs_knots_from_splines(attitude_splines, k):
     """
-    :param attitude_splines: list or array of splines of scipy.interpolate.InterpolatedUnivariateSpline
+    Extract spline characteristics (coeffs, knots, splines). The spline being
+    defined as
+
+    .. math:: S(t) = \sum_{n=0}^{N-1} a_n B_n(t)
+
+    where :math:`c_n` are the spline coefficients and :math:`B_n(t)` is the
+    spline basis evaluated at time t. **N** is the number of coefficients. The
+    knots are the time discritization used for the spline.
+
+    :param attitude_splines: list or array of splines of
+     scipy.interpolate.InterpolatedUnivariateSpline
+    :param k: [int] Spline degree
     :returns:
-        [array] coeff
-        [array] knots
-        [array] splines
+        * [array] coeff
+        * [array] knots
+        * [array] splines (Bspline interpolating with degree k )
     """
     att_coeffs, att_splines = ([], [])
     internal_knots = attitude_splines[0].get_knots()  # chose [0] since all the same
@@ -366,16 +448,21 @@ def extract_coeffs_knots_from_splines(attitude_splines, k):
 def get_times_in_knot_interval(time_array, knots, index, M):
     """
     :param time_array: [numpy array]
-    :return: times in knot interval defined by [index, index+M]
+    :return: times in knot interval defined by [index, index+M]. I.e. all the
+     times t such that :math:`\\tau_n < t < \\tau_{n+M}`
+     where **M** is the order of the spline (M=k+1) and :math:`\\tau_n`
+     is the knot number n.
     """
     return time_array[(knots[index] < time_array) & (time_array < knots[index+M])]
 
 
 def get_left_index(knots, t, M):
     """
-    :param M: spline order (k+1)
+    :param knots: knots for the spline
+    :param t: [float][days] time at which
+    :param M: [int] spline order (M=k+1)
     :returns left_index: the left_index corresponding to t i.e. *i* s.t.
-        $t_i < t < t_{i+1}$
+     :math:`t_i < t <= t_{i+1}`
     """
     left_index_array = np.where(knots <= t)
     if not list(left_index_array[0]):
@@ -385,6 +472,15 @@ def get_left_index(knots, t, M):
 
 
 def extend_knots(internal_knots, k):
+    """
+    Extend the knots sequence to add the external knots. This is done because
+    :meth:`extract_coeffs_knots_from_splines` returns only the internal knots.
+    Therefore they should be extended on both sides by **k** knots.
+
+    :param internal_knots: [array] containing the internal knots
+    :param k: [int] spline degree
+    :return: [list] containing the extended knots
+    """
     extended_knots = []
     for i in range(k):
         extended_knots.append(internal_knots[0])
@@ -396,10 +492,11 @@ def extend_knots(internal_knots, k):
 
 def compute_coeff_basis_sum(coeffs, bases, L, M, time_index):
     """
+    Ref. Paper eq. [80]
     Computes the sum:
 
     .. math::
-        \sum_{n=L-M+1}^{L}(a_n \cdot b_n)
+        \sum_{n=L-M+1}^{L}(a_n \cdot B_n(t_L))
 
     :param coeffs: [numpy array] splines coefficients
     :param bases: [numpy array] B-spline bases
@@ -414,25 +511,48 @@ def compute_coeff_basis_sum(coeffs, bases, L, M, time_index):
 
 def compute_attitude_deviation(coeff_basis_sum):
     """
+    Ref. Paper eq. [80]
+    Compute the attitude deviation from unity:
+
+    .. math::
+        D_l = 1 - ||\\sum_{n=L-M+1}^{L} a_n B_n(t_L)||^2
+
     :Action: Compute the attitude deviation from unity
-    :param coeff_basis_sum: the sum(a_n*b_n) with n=L-M+1 : L
-    :returns: attitude deviation from unity D_l"""
+    :param coeff_basis_sum: the sum :math:`\\sum_{n=L-M+1}^{L} a_n B_n(t_L)`
+    :returns: attitude deviation from unity
+    """
     return 1 - np.linalg.norm(coeff_basis_sum)**2
 
 
 def compute_DL_da_i(coeff_basis_sum, bases, time_index, i):
     """
-    Compute derivative of the attitude deviation wrt attitude params
-    :param coeff_basis_sum: the sum(a_n*b_n) with n=L-M+1 : L
+    Ref. Paper eq. [80]
+    Compute derivative of the attitude deviation wrt attitude params.
+    See :meth:`compute_coeff_basis_sum`
+
+    :param coeff_basis_sum: the sum :math:`\\sum_{n=L-M+1}^{L} a_n B_n(t_L)`
+    :param bases: Bspline basis, B_n(t_L) in the equation above.
+    :param time_index: [int] index that will get us to return B_n(t_L).
+     Since we stored only B_n for all the observed times t_L, it is possible to
+     access them only with the index
+    :param i: number of the base that we want (**n in the equations above**)
     """
-    dDL_da = -2 * coeff_basis_sum * bases[i, time_index]
-    return dDL_da.reshape(4, 1)
+    dDL_da_i = -2 * coeff_basis_sum * bases[i, time_index]
+    return dDL_da_i.reshape(4, 1)
 
 
 def compute_DL_da_i_from_attitude(attitude, bases, time_index, i):
     """
     Ref. Paper eq. [83]
-    Compute derivative of the attitude deviation wrt attitude params
+    Compute derivative of the attitude deviation wrt attitude params.
+    See :meth:`compute_coeff_basis_sum`
+
+    :param attitude: [quaternion]
+    :param bases: Bspline basis, B_n(t_L) in the equation above.
+    :param time_index: [int] index that will get us to return B_n(t_L).
+     Since we stored only B_n for all the observed times t_L, it is possible to
+     access them only with the index
+    :param i: number of the base that we want (**n in the equations above**)
     """
     dDL_da = -2 * quaternion.as_float_array(attitude) * bases[i, time_index]
     return dDL_da.reshape(4, 1)
@@ -448,7 +568,7 @@ def compute_dR_dq(calc_source, sat, attitude, t):
       is Along_scan w.r.t. observation number l
     - :math:`\\frac{dR_l^{AC}}{dq_l}=-2 q_l * \{S'm_l, 0\}`
 
-    where * is a quaternion multiplication
+    where ``*`` is a quaternion multiplication
 
     :param calc_source: [calc_source object]
     :param sat: [sat object]
@@ -470,6 +590,8 @@ def compute_dR_dq(calc_source, sat, attitude, t):
 
 def dR_da_i(dR_dq, bases_i):
     """
+    See :meth:`compute_dR_dq`
+
     :param dR_dq: Derivative of the cost funtions w.r.t. the quaternion q
     :param basis_i: B-spline basis of index i
     """
@@ -483,8 +605,11 @@ def observed_field_angles(source, attitude, sat, t, double_telescope=False):
     """
     Ref. Paper eq. [12]-[13]
     Return field angles according to Lindegren eq. 12
-    eta: along-scan field angle (== phi if double_telescope = False)
-    zeta: across-scan field angle
+    See :meth:`compute_field_angles`
+
+    :returns:
+        * eta: along-scan field angle (== phi if double_telescope = False)
+        * zeta: across-scan field angle
     """
     Cu = source.unit_topocentric_function(sat, t)  # u in CoMRS frame
     Su = ft.lmn_to_xyz(attitude, Cu)
@@ -496,7 +621,8 @@ def observed_field_angles(source, attitude, sat, t, double_telescope=False):
 def calculated_field_angles(calc_source, attitude, sat, t, double_telescope=False):
     """
     Ref. Paper eq. [12]-[13]
-    Return field angles according to Lindegren eq. 12
+    Return field angles according to Lindegren eq. 12.
+    See :meth:`compute_field_angles`
     eta: along-scan field angle
     """
     alpha, delta, parallax, mu_alpha, mu_delta = calc_source.s_params[:]

@@ -47,6 +47,7 @@ def eta_angle(t, sat, source, FoV='centered'):
 
 
 def get_etas_from_phis(phi_a, phi_b, FoV):
+
     Gamma_c = const.Gamma_c
     if FoV == 'following':
         eta_a, eta_b = (phi_a - Gamma_c / 2, phi_b - Gamma_c / 2)
@@ -97,7 +98,9 @@ class Scanner:
 
     def reset(self, verbose=False):
         """
-        :action: empty all attribute lists from scanner before beginning new scanning period.
+        :action: empty all attribute lists from scanner before beginning new
+         scanning period.
+        :param verbose: [bool] If true will print messages
         """
         self.obs_times.clear()
         self.obs_times_FFoV.clear()
@@ -113,11 +116,12 @@ class Scanner:
     def scan(self, sat, source, ti, tf):
         """
         Find the exact time in which the source is seen.
+
+        :action: Find the observation time of the sources
         :param sat: [Satellite object]
         :param source: [Source object]
         :param ti & tf: [days] initial and end dates
-        :action: Find the observation time of the sources
-        ideas to optimize: create array with all errors and go pick them as needed
+        :returns: [float] time it took for the scan
         """
         # print('Starting scan with time from {} to {} days'.format(ti, tf))
         self.reset()

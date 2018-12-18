@@ -39,12 +39,31 @@ from scanner import Scanner
 from agis_functions import *
 
 
+# ### For simple visualization (source & satellite) ----------------------------
+def plot_sources_in_sky(sources, projection='hammer'):
+    """
+    :param sources: [list of sources] Sources we want to plot
+    :param projection: [string] kind of projection we want to apply to the plot
+    :action: plots the sources in the sky at time ```t=0```
+    """
+    plt.figure()
+    plt.subplot(111, projection=projection)
+    for i, s in enumerate(sources):
+        plt.plot(ft.zero_to_two_pi_to_minus_pi_pi(np.array([s.alpha])), s.delta, '+', label=s.name)
+    plt.title("Hammer Projection of the Sky")
+    plt.legend(loc=9, bbox_to_anchor=(1.1, 1))
+    plt.grid(True)
+    plt.show()
+
+
 def plot_attitude(sat, ti, tf, n_points=1000, figsize=(9, 5), style='.--'):
     """
-    L.Lindegren, SAG_LL_35, Figure 1.
-    %run: plot_Satellite(sat, 0, 80, 0.01)
-    L.Lindegren, SAG_LL_35, Figure 2.
-    %run: plot_Satellite(sat, 0, 1, 0.01)
+    Recreating the plot of L.Lindegren, SAG_LL_35:
+
+    - Figure 1, run ```plot_Satellite(sat, 0, 80, 0.01)```
+    - Figure 2, run ```plot_Satellite(sat, 0, 1, 0.01) ```
+
+    Each graph plots each component evolution wrt time.
 
     :param sat: gaia satellite, Satellite object
     :param ti: [float][days] initial time
@@ -52,8 +71,6 @@ def plot_attitude(sat, ti, tf, n_points=1000, figsize=(9, 5), style='.--'):
     :param n_points: number of points to be plotted of the function
     :action: Plot of the 4 components of the attitude of the satellite.
              attitude = (t, x, y, z)
-
-    Each graph plots time in days versus each component evolution wrt time.
     """
     times = np.linspace(ti, tf, n_points)
     attitudes = [sat.func_attitude(t) for t in times]
@@ -86,12 +103,17 @@ def plot_attitude(sat, ti, tf, n_points=1000, figsize=(9, 5), style='.--'):
     plt.show()
 
 
-def plot_star(source, satellite, scanner):
+# ### END for simple visualization (source & satellite) ########################
+
+
+# ### For visualizing scan results ---------------------------------------------
+def plot_star(source, satellite, obs_times):
     """
     Plot wrt the ICRS point of view
+
     :param source: source scanned (object)
     :param satellite: Satellite object
-    :param scan: scan object
+    :param obs_times: [list][days] observed times
     :return: plot of position of observations and their error bars.
     """
 
@@ -186,6 +208,85 @@ def plot_star_trajectory_with_scans(sat, source, obs_times, num_ms_for_snapshot=
     return fig
 
 
+def plot_field_angles(source, sat, obs_times=[], ti=0, tf=90, n=1000, limit=False, double_telescope=True):
+    styles = ['b,', 'rs']
+    zeta_limit = np.radians(0.5)
+    eta_limit = np.radians(0.5)
+    y_limit = (-zeta_limit*10, zeta_limit*10)
+    times_total = np.linspace(ti, tf, n)
+    eta_list = []
+    zeta_list = []
+    zeta_sol_list = []
+    eta_sol_list = []
+    for t in times_total:
+        attitude = sat.func_attitude(t)
+        eta_value, zeta_value = observed_field_angles(source, attitude, sat, t, double_telescope)
+        eta_list.append(eta_value)
+        zeta_list.append(zeta_value)
+    for t in obs_times:
+        attitude = sat.func_attitude(t)
+        eta_value, zeta_value = observed_field_angles(source, attitude, sat, t, double_telescope)
+        eta_sol_list.append(eta_value)
+        zeta_sol_list.append(zeta_value)
+
+    zeta_fig = plt.figure(1)
+    plt.plot(times_total, zeta_list, styles[0], label='zeta path', alpha=0.5)
+    plt.plot(obs_times, zeta_sol_list, styles[1], label='solutions')
+    plt.hlines(0, xmin=times_total[0], xmax=times_total[-1], color='g')
+    plt.hlines(zeta_limit, xmin=times_total[0], xmax=times_total[-1], color='g', linestyle='dotted',
+               label='field of view limitation (5°)')
+    plt.hlines(-zeta_limit, xmin=times_total[0], xmax=times_total[-1], color='g', linestyle='dotted')
+    plt.xlim(ti, tf)
+    if limit:
+        plt.ylim(y_limit)
+    plt.xlabel('time [days]')
+    plt.ylabel('zeta [rad]')
+    plt.grid()
+    plt.legend()
+
+    eta_fig = plt.figure(2)
+    plt.plot(times_total, eta_list, styles[0], label='eta path')
+    plt.plot(obs_times, eta_sol_list, styles[1], label='solutions')
+    plt.hlines(0, xmin=times_total[0], xmax=times_total[-1], color='g')
+    plt.hlines(eta_limit, xmin=times_total[0], xmax=times_total[-1], color='g', linestyle='dotted',
+               label='field of view limitation (5°)')
+    plt.hlines(-eta_limit, xmin=times_total[0], xmax=times_total[-1], color='g', linestyle='dotted')
+    plt.xlim(ti, tf)
+    if limit:
+        plt.ylim(y_limit)
+    plt.xlabel('time [days]')
+    plt.ylabel('Eta[rad]')
+    plt.grid()
+    plt.legend()
+
+    return zeta_fig, eta_fig
+
+
+def plot_scanner_position_over_source(source, sat, t_init=0, t_end=365, num_points_of_discretization=10000):
+    fig, ax = plt.subplots(1)
+    ax.set_title('Discretized passages of gaia telescopes')
+    list_ra_PFoV, list_ra_FFoV, list_dec_PFoV, list_dec_FFoV = ([], [], [], [])
+    for t in np.linspace(t_init, t_end, num=num_points_of_discretization):
+        ra_PFoV, dec_PFoV, ra_FFoV, dec_FFoV = np.array(get_angular_FFoV_PFoV(sat, t))
+        ra_PFoV, ra_FFoV = ft.zero_to_two_pi_to_minus_pi_pi(np.array([ra_PFoV, ra_FFoV]))
+        # dec_PFoV, dec_FFoV = ft.transform_twoPi_into_halfPi(np.array([dec_PFoV, dec_FFoV]))
+        list_ra_PFoV.append(ra_PFoV)
+        list_dec_PFoV.append(dec_PFoV)
+        list_ra_FFoV.append(ra_PFoV)
+        list_dec_FFoV.append(dec_FFoV)
+
+    ax.plot(list_ra_PFoV, list_dec_PFoV, 'b,', alpha=0.5)
+    ax.plot(list_ra_FFoV, list_dec_FFoV, 'r,', alpha=0.5)
+    ax.plot(source.alpha, source.delta, 'k+')
+    ax.set_xlabel('right ascension [rads]')
+    ax.set_ylabel('declination [rads]')
+    ax.set_xlim(min(list_ra_PFoV), max(list_ra_PFoV))
+    ax.set_ylim(min(list_dec_PFoV), max(list_dec_PFoV))
+    ax.grid()
+    return fig, ax
+
+
+# ### For sources updating: ----------------------------------------------------
 def plot_errors_VS_iterations_per_source(Solver, save_path=None):
     """
     Plots the error on each astronomic parameter and objective function for each
@@ -251,69 +352,7 @@ def plot_errors_VS_iterations_per_source(Solver, save_path=None):
     return figs_list
 
 
-def plot_sources_in_sky(sources, projection='hammer'):
-    plt.figure()
-    plt.subplot(111, projection=projection)
-    for i, s in enumerate(sources):
-        plt.plot(ft.zero_to_two_pi_to_minus_pi_pi(np.array([s.alpha])), s.delta, '+', label=s.name)
-    plt.title("Hammer Projection of the Sky")
-    plt.legend(loc=9, bbox_to_anchor=(1.1, 1))
-    plt.grid(True)
-    plt.show()
-
-
-def plot_field_angles(source, sat, obs_times=[], ti=0, tf=90, n=1000, limit=False, double_telescope=True):
-    styles = ['b,', 'rs']
-    zeta_limit = np.radians(0.5)
-    eta_limit = np.radians(0.5)
-    y_limit = (-zeta_limit*10, zeta_limit*10)
-    times_total = np.linspace(ti, tf, n)
-    eta_list = []
-    zeta_list = []
-    zeta_sol_list = []
-    eta_sol_list = []
-    for t in times_total:
-        attitude = sat.func_attitude(t)
-        eta_value, zeta_value = observed_field_angles(source, attitude, sat, t, double_telescope)
-        eta_list.append(eta_value)
-        zeta_list.append(zeta_value)
-    for t in obs_times:
-        attitude = sat.func_attitude(t)
-        eta_value, zeta_value = observed_field_angles(source, attitude, sat, t, double_telescope)
-        eta_sol_list.append(eta_value)
-        zeta_sol_list.append(zeta_value)
-
-    zeta_fig = plt.figure(1)
-    plt.plot(times_total, zeta_list, styles[0], label='zeta path', alpha=0.5)
-    plt.plot(obs_times, zeta_sol_list, styles[1], label='solutions')
-    plt.hlines(0, xmin=times_total[0], xmax=times_total[-1], color='g')
-    plt.hlines(zeta_limit, xmin=times_total[0], xmax=times_total[-1], color='g', linestyle='dotted',
-               label='field of view limitation (5°)')
-    plt.hlines(-zeta_limit, xmin=times_total[0], xmax=times_total[-1], color='g', linestyle='dotted')
-    plt.xlim(ti, tf)
-    if limit:
-        plt.ylim(y_limit)
-    plt.xlabel('time [days]')
-    plt.ylabel('zeta [rad]')
-    plt.grid()
-    plt.legend()
-
-    eta_fig = plt.figure(2)
-    plt.plot(times_total, eta_list, styles[0], label='eta path')
-    plt.plot(obs_times, eta_sol_list, styles[1], label='solutions')
-    plt.hlines(0, xmin=times_total[0], xmax=times_total[-1], color='g')
-    plt.hlines(eta_limit, xmin=times_total[0], xmax=times_total[-1], color='g', linestyle='dotted',
-               label='field of view limitation (5°)')
-    plt.hlines(-eta_limit, xmin=times_total[0], xmax=times_total[-1], color='g', linestyle='dotted')
-    plt.xlim(ti, tf)
-    if limit:
-        plt.ylim(y_limit)
-    plt.xlabel('time [days]')
-    plt.ylabel('Eta[rad]')
-    plt.grid()
-    plt.legend()
-
-    return zeta_fig, eta_fig
+# ### End for sources updating #################################################
 
 
 # old
@@ -406,31 +445,6 @@ def plot_eta_over_phi_day(source, sat, ti=0, tf=90, n=1000, day=45):
 
 
 # new
-def plot_scanner_position_over_source(source, sat, t_init=0, t_end=365, num_points_of_discretization=10000):
-    fig, ax = plt.subplots(1)
-    ax.set_title('Discretized passages of gaia telescopes')
-    list_ra_PFoV, list_ra_FFoV, list_dec_PFoV, list_dec_FFoV = ([], [], [], [])
-    for t in np.linspace(t_init, t_end, num=num_points_of_discretization):
-        ra_PFoV, dec_PFoV, ra_FFoV, dec_FFoV = np.array(get_angular_FFoV_PFoV(sat, t))
-        ra_PFoV, ra_FFoV = ft.zero_to_two_pi_to_minus_pi_pi(np.array([ra_PFoV, ra_FFoV]))
-        # dec_PFoV, dec_FFoV = ft.transform_twoPi_into_halfPi(np.array([dec_PFoV, dec_FFoV]))
-        list_ra_PFoV.append(ra_PFoV)
-        list_dec_PFoV.append(dec_PFoV)
-        list_ra_FFoV.append(ra_PFoV)
-        list_dec_FFoV.append(dec_FFoV)
-
-    ax.plot(list_ra_PFoV, list_dec_PFoV, 'b,', alpha=0.5)
-    ax.plot(list_ra_FFoV, list_dec_FFoV, 'r,', alpha=0.5)
-    ax.plot(source.alpha, source.delta, 'k+')
-    ax.set_xlabel('right ascension [rads]')
-    ax.set_ylabel('declination [rads]')
-    ax.set_xlim(min(list_ra_PFoV), max(list_ra_PFoV))
-    ax.set_ylim(min(list_dec_PFoV), max(list_dec_PFoV))
-    ax.grid()
-    return fig, ax
-
-
-# new
 def plot_star_trajectory(source, sat, ti=0, tf=None, obs_times=[], equatorial=True,
                          dt=1, show_scanning_directions=False):
     """
@@ -515,6 +529,7 @@ def plot_star_trajectory(source, sat, ti=0, tf=None, obs_times=[], equatorial=Tr
     return fig
 
 
+# old
 def plot_3D_scanner_pos(sat, axis, ti, tf, n_points=1000, elevation=10, azimuth=10, figsize=(12, 12)):
     """
     %run: plot_3D_scanner_pos(sat, 'X', 0, 365*5, 0.1)
