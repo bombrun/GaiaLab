@@ -122,7 +122,7 @@ class Agis:
         if attitude_splines is not None:  # Set everything for the attitude
             c, t, s = extract_coeffs_knots_from_splines(attitude_splines, self.k)
             self.c = c.copy()
-            self.att_coeffs, self.att_knots, self.attitude_splines = (c, t, s)
+            self.att_coeffs, self.att_knots, self.attitude_splines = (c.copy(), t, s)
             self.att_bases = get_basis_Bsplines(self.att_knots, self.att_coeffs[0], self.k, self.all_obs_times)
             self.N = self.att_coeffs.shape[1]  # number of coeffs per parameter
 
@@ -186,10 +186,13 @@ class Agis:
         return eta_obs, zeta_obs, eta_calc, zeta_calc
 
     def compute_R_L(self, source_index, t):
-        """ Ref. Paper eq. [25]-[26]
-        R = eta_obs + zeta_obs - eta_calc - zeta_calc
-        R_AL = R_eta
-        R_AC = R_zeta
+        """
+        Ref. Paper eq. [25]-[26].
+
+        :math:`R = eta_obs + zeta_obs - eta_calc - zeta_calc`
+
+        :note: R_AL = R_eta, R_AC = R_zeta
+        :returns: [tuple] R_eta, R_zeta
         """
         # WARNING: maybe source is not in the field of vision of sat at time t!
         R_L_eta, R_L_zeta = (0, 0)
