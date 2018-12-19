@@ -13,7 +13,7 @@ Contains implementation of classes Calc_source and Agis
   "The astronometric core solution for the Gaia mission - overview of models,
   algorithms, and software implementation" by L. Lindegren, U. Lammer,
   D. Hobbs, W. O'Mullane, U. Bastian, and J.Hernandez
-  The reference is usually made in the following way; Ref. Paper eq. [1]
+  The reference is usually made in the following way; Ref. Paper [LUDW2011]_ eq. [1]
 - t (float),  time from J2000 [days]
   such that t_ep = 0
 
@@ -139,7 +139,7 @@ class Agis:
 
     def error_function(self):
         """
-        Ref. Paper eq. [24]
+        Ref. Paper [LUDW2011]_ eq. [24]
         Compute the error function Q
         """
         error = 0
@@ -187,7 +187,7 @@ class Agis:
 
     def compute_R_L(self, source_index, t):
         """
-        Ref. Paper eq. [25]-[26].
+        Ref. Paper [LUDW2011]_ eq. [25]-[26].
 
         :math:`R = eta_obs + zeta_obs - eta_calc - zeta_calc`
 
@@ -244,7 +244,7 @@ class Agis:
 
     def update_block_S_i(self, source_index):
         """
-        Ref. Paper eq. [57]
+        Ref. Paper [LUDW2011]_ eq. [57]
         :param source_index: [int] Index of the source that will be updated
         :action: update source number *source_index*
         """
@@ -263,7 +263,7 @@ class Agis:
 
     def compute_h(self, source_index):
         """
-        Ref. Paper eq. [59]
+        Ref. Paper [LUDW2011]_ eq. [59]
         Source update Right hand side
         :param source_index: [int] Index of the source that will be updated
         """
@@ -278,7 +278,7 @@ class Agis:
 
     def block_S_error_rate_matrix(self, source_index):
         """
-        Ref. Paper eq. [58]
+        Ref. Paper [LUDW2011]_ eq. [58]
         error matrix for the block update S
         :param source_index: [int] Index of the source that will be updated
         """
@@ -323,7 +323,7 @@ class Agis:
 
     def compute_du_ds(self, source_index):
         """
-        Ref. Paper eq. [73]
+        Ref. Paper [LUDW2011]_ eq. [73]
         Compute dũ_ds for a given source
         :param source_index: [int] Index of the source that will be updated
         :returns:
@@ -363,7 +363,7 @@ class Agis:
         return du_ds
 
     def CoMRS_to_SRS_for_source_derivatives(self, CoMRS_derivatives, calc_source, t_L, source_index):
-        """ Ref. Paper eq. [72]
+        """ Ref. Paper [LUDW2011]_ eq. [72]
         rotate the frame from CoRMS (lmn) to SRS (xyz) for the given derivatives
         """
         SRS_derivatives = []
@@ -658,7 +658,7 @@ if __name__ == '__main__':
 
 # ### Deprecated function (here just as backup) ################################
 def C_du_ds_to_S_du_ds(self, source_index, C_du_ds):
-    """ Ref. Paper eq. [72]
+    """ Ref. Paper [LUDW2011]_ eq. [72]
     rotate the frame from CoRMS (lmn) to SRS (xyz) for du_ds
     """
     calc_source = self.calc_sources[source_index]
@@ -678,7 +678,7 @@ def C_du_ds_to_S_du_ds(self, source_index, C_du_ds):
 
 
 def du_ds(self, source_index, du_tilde_ds):
-    """ [not yet complete] Ref. Paper eq. [75]
+    """ [not yet complete] Ref. Paper [LUDW2011]_ eq. [75]
     returns the derivative of the proper direction w.r.t. the astronomic
     parameters.
     take into account aberrationn of light

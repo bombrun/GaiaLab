@@ -5,12 +5,12 @@ Welcome to GaiaLab's documentation!
 .. toctree::
    :maxdepth: 3
    :caption: Contents:
+   :glob:
 
    README
    installation
-   Code_documentation/core_code
-   Code_documentation/auxiliary_code
-   Code_documentation/known_issues
+   Code_documentation/*
+   notations
 
 
 
@@ -21,29 +21,7 @@ Indices and tables
 * :ref:`modindex`
 * :ref:`search`
 
-Test table
-==========
-
-.. table::
-    :align: center
-
-    +-----------------------+---------+---------------------------------+-------------------------------------+
-    | test                  | Values  | Examples                        |Description                          |
-    +=======================+=========+=================================+=====================================+
-    | `SCI_EXTENSION`       | integer | 1 |  2 | 1,2                    | Index of science extens             |
-    |                       |         |                                 |                                     |
-    +-----------------------+---------+---------------------------------+-------------------------------------+
-
-Other option
-Simple table
-
-=====  =====  ======
-   Inputs     Output
-------------  ------
-  A      B    A or B
-=====  =====  ======
-False  False  False
-True   False  True
-False  True   True
-True   True   True
-=====  =====  ======
+.. [LUDW2011] The astrometric core solution for the Gaia mission
+              *Overview of models, algorithms, and software implementation*
+              L. Lindegren, U.Lammers, D. Hobbs, W. O'Mullane, U. Bastian and
+              J. Hernandez

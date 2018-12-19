@@ -3,8 +3,8 @@
 :File: constants.py
 
 :Purpose: File containing the constants that will be used in the other files. This will
-allow to avoid "magic numbers" in the code and also to easily change these
-constants if we later need them more or less precises
+ allow to avoid "magic numbers" in the code and also to easily change these
+ constants if we later need them more or less precises
 
 :Author: Luca Zampieri 2018
 
