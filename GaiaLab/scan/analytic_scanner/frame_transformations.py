@@ -63,8 +63,10 @@ def vector_to_alpha_delta(vector, two_pi=False):
     Ref. Paper [LUDW2011]_ eq. [96]
     Convert carthesian coordinates of a vector into its corresponding polar
     coordinates (0 - 2*pi)
-    :param vector: [whatever] X,Y,Z coordinates in CoMRS frame (non-rotating)
-    :return: [rad][rad] alpha, delta --> between 0 and 2*pi (in ICRS coordinates)
+
+    :param vector: [array] X,Y,Z coordinates in CoMRS frame (non-rotating)
+    :param two_pi: [bool] if True return delta in [0,2pi] instead of [-pi/2,pi/2]
+    :return: [rad][rad] alpha, delta
     """
     radius = np.sqrt(vector[0] ** 2 + vector[1] ** 2 + vector[2] ** 2)
     delta = np.arcsin(vector[2]/radius)  # gives delta in [-pi/2, pi/2]
@@ -78,6 +80,7 @@ def vector_to_alpha_delta(vector, two_pi=False):
 def polar_to_direction(alpha, delta):
     """
     Convert polar angles to unit direction vector
+
     :param alpha: [rad]
     :param delta: [rad]
     :returns: 3D np.array unit vector
@@ -92,18 +95,17 @@ def adp_to_cartesian(alpha, delta, parallax):
     """
     Convert coordinates from (alpha, delta, parallax) format into the (x, y, z)
     format.
+
     :param azimuth: [rad]
     :param altitude: [rad]
     :param parallax: [mas]
     :return: [parsec](x, y, z) array in parsecs.
     """
-    parallax = 1  # parallax/1000  # from mas to arcsec
-    # parallax = parallax/const.rad_per_arcsec
-    # WARNING: but why parallax??
+
+    parallax = parallax / const.rad_per_arcsec  # from rad to arcsec
     x = (1/parallax)*np.cos(delta)*np.cos(alpha)
     y = (1/parallax)*np.cos(delta)*np.sin(alpha)
     z = (1/parallax)*np.sin(delta)
-
     return np.array([x, y, z])
 
 
@@ -182,7 +184,7 @@ def vector_to_quat(vector):
 def xyz_to_lmn(attitude, vector):
     """
     Ref. Paper [LUDW2011]_ eq. [9]
-    Go from the rotating (xyz) frame to the non-rotating (lmn) frame
+    Go from the rotating (xyz) SRS frame to the non-rotating (lmn) CoMRS frame
 
     .. note:: The attitude Quaternion q(t) gives the rotation from (lmn) to (xyz)
         (lmn) being the CoMRS (C), and (xyz) the SRS (S). The relation between the
@@ -200,9 +202,9 @@ def xyz_to_lmn(attitude, vector):
 def lmn_to_xyz(attitude, vector):
     """
     Ref. Paper [LUDW2011]_ eq. [9]
-    Goes from the non-rotating (lmn) frame to the rotating (xyz) frame
+    Goes from the non-rotating (lmn) CoMRS frame to the rotating (xyz) SRS frame
 
-    Info: The attitude Quaternion q(t) gives the rotation from (lmn) to (xyz)
+    .. note:: The attitude Quaternion q(t) gives the rotation from (lmn) to (xyz)
         (lmn) being the CoMRS (C), and (xyz) the SRS (S). The relation between
         the two frames is given by: {S'v,0} = q^-1 {C'v,0} q for an any vector v
 
@@ -213,5 +215,3 @@ def lmn_to_xyz(attitude, vector):
     q_vector_lmn = vector_to_quat(vector)
     q_vector_xyz = attitude.inverse() * q_vector_lmn * attitude
     return quat_to_vector(q_vector_xyz)
-
-# ################ obsolete Functions
