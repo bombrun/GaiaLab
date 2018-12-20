@@ -3,7 +3,7 @@
 File frame_transformations.py
 Contains functions that for frame transformations and rotations
 
-:Authors: mdelvallevaro, LucaZampieri (2018) modified
+:Authors: mdelvallevaro, LucaZampieri (2018)
 
 .. note:: In this file, when there is a reference, unless explicitly stated otherwise,
     it refers to Lindegren main article:
@@ -111,7 +111,7 @@ def adp_to_cartesian(alpha, delta, parallax):
 
 def compute_ljk(epsilon):
     """
-    | Ref. (Lindegren, SAG-LL-35, Eq.1)
+    | Ref. [Lind2001]_ (Lindegren, SAG-LL-35, Eq.1)
     | Calculates ecliptic triad vectors with respect to BCRS-frame.
 
     :param epsilon: obliquity of the equator.
