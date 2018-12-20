@@ -109,22 +109,6 @@ def adp_to_cartesian(alpha, delta, parallax):
     return np.array([x, y, z])
 
 
-def vector_to_adp(vector, tolerance=1e-6):
-    """
-    :return: alpha, delta in radians
-    """
-    x, y, z = vector[:]
-    delta = np.arcsin(z)
-    alpha_1 = np.arccos(x/np.cos(delta))
-    alpha_2 = np.arccos(x/np.cos(delta))
-    diff_a1_a2 = alpha_1 - alpha_2
-    mean_alpha = (alpha_1 + alpha_2) / 2
-    relative_error = diff_a1_a2/mean_alpha
-    if relative_error > tolerance:
-        raise ValueError('relative difference in alpha of {} is too big'.format(relative_error))
-    return mean_alpha, delta
-
-
 def compute_ljk(epsilon):
     """
     | Ref. (Lindegren, SAG-LL-35, Eq.1)
@@ -172,12 +156,22 @@ def rotate_by_quaternion(quaternion, vector):
     return quat_to_vector(q_rotated_vector)
 
 
-# ### For mobble quaternion
 def quat_to_vector(quat):
+    """
+    :param quat: [quaternion] Quaternion to transform into vector
+    :return: 3D array made with x,y,z components of the quaternion
+    """
     return quaternion.as_float_array(quat)[1:]
 
 
 def vector_to_quat(vector):
+    """
+    Transform vector to quaternion by setting x,y,z components of the quaternion
+    with x,y,z components of the vector.
+
+    :param vector: vector to transform to quaternion
+    :return: quaternion created from vector
+    """
     return np.quaternion(0, vector[0], vector[1], vector[2])
 
 
