@@ -1,2 +1,14 @@
+# Notebook folder
+
 This Folder contains notebooks to illustrate some functionality of GaiaLab.  
-Note tha tthese notebooks may require additional modules to be run. We try to put all the requirements into the file requirements.txt
+
+shell file script.sh can be used to execute notebooks as python scripts.
+
+use as: 
+
+    source script.sh 04-Demo.ipynb
+    
+and it will:
+    1) convert notebook into file.py
+    2) run python file.py
+    3) delete file.py

@@ -385,7 +385,7 @@ def multi_compare_attitudes_errors(gaia, solver, my_times):
     solver_attitudes = []
     error_component = []
     for i, ax in enumerate(axs):
-        Solver_attitude = solver.attitude_splines[i](my_times)
+        solver_attitude = solver.attitude_splines[i](my_times)
         error_component = np.abs(gaia_attitudes[i] - solver_attitude)
         total_error = error_component.mean()
         ax.plot(my_times, error_component, ':', color=colors[i],

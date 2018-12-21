@@ -130,7 +130,7 @@ def plot_star(source, satellite, obs_times):
 
     fig = plt.figure()
 
-    for i, t in enumerate(scanner.obs_times):
+    for i, t in enumerate(obs_times):
         source.set_time(t)
         star_alphas.append(source.alpha / const.rad_per_mas)
         star_deltas.append(source.delta / const.rad_per_mas)
