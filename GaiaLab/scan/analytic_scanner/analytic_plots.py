@@ -61,7 +61,7 @@ def plot_attitude(sat, ti, tf, n_points=1000, figsize=(9, 5), style='.--'):
     Recreating the plot of L.Lindegren, SAG_LL_35:
 
     - Figure 1, run ``plot_Satellite(sat, 0, 80, 0.01)``
-    - Figure 2, run ``plot_Satellite(sat, 0, 1, 0.01) ``
+    - Figure 2, run ``plot_Satellite(sat, 0, 1, 0.01)``
 
     Each graph plots each component evolution wrt time.
 
@@ -579,11 +579,10 @@ def plot_3D_scanner_pos(sat, axis, ti, tf, n_points=1000, elevation=10, azimuth=
 # this function should not be used
 def plot_ICRS_coordinates_versus_time(source, sat, obs_times=[]):
     """
-    :param source: source object
-    :param sat: Satellite object
-    :param t_total: total time for which the trajectory is desired [days] from
-     J2000.
-    :return: plot of the star trajectory in the lmn-frame.
+    :param source: [Source]
+    :param sat: [Satellite]
+    :param obs_times: [list] observed times
+    :return: plot of the righ ascension and declination in CoMRS
     """
     time_total = sat.storage[-1][0]
 

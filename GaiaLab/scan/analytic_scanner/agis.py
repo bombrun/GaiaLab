@@ -1,21 +1,22 @@
 # -*- coding: utf-8 -*-
 """
-file agis.py
-Contains implementation of classes Calc_source and Agis
+:File: agis.py
 
-:Authors:
-    LucaZampieri
+:purpose: Contains implementation of classes Calc_source and Agis
 
-:Notes:
+:Authors: LucaZampieri
 
-- In this file, when there is a reference, unless explicitly stated otherwise,
-  it refers to Lindegren main article:
-  "The astronometric core solution for the Gaia mission - overview of models,
-  algorithms, and software implementation" by L. Lindegren, U. Lammer,
-  D. Hobbs, W. O'Mullane, U. Bastian, and J.Hernandez
-  The reference is usually made in the following way; Ref. Paper [LUDW2011]_ eq. [1]
-- t (float),  time from J2000 [days]
-  such that t_ep = 0
+.. note:
+    - In this file, when there is a reference, unless explicitly stated otherwise,
+    it refers to Lindegren main article:
+    "The astronometric core solution for the Gaia mission - overview of models,
+    algorithms, and software implementation" by L. Lindegren, U. Lammer,
+    D. Hobbs, W. O'Mullane, U. Bastian, and J.Hernandez
+    The reference is usually made in the following way; Ref. Paper [LUDW2011]_ eq. [1]
+    - t (float),  time from J2000 [days]
+    such that t_ep = 0
+
+Description of what we are trying to achieve in this file:
 
 """
 # # Imports
@@ -40,8 +41,25 @@ class Calc_source:
     def __init__(self, name=None, obs_times=[], source_params=None, mu_radial=None, mean_color=0,
                  source=None):
         """
-        Initial guess of the parameters
-        :source_params: alpha, delta, parallax, mu_alpha, mu_delta
+        Data structure containing our computed parameters for the source in
+        question.
+
+        :param name: [string] the name of the source
+        :param obs_times: [list or array] of the observed times for this source
+        :param source_params: [list or array] alpha, delta, parallax, mu_alpha, mu_delta
+        :param mu_radial: [float] radial velocity of the source (appart since we
+         do not solve for radial velocity)
+        :param mean_color: [float] mean color of the source if we want to use
+         explore chromatic aberration
+        :param source: [source] instead of most of the above parameters we can
+         provide a source object instead and take the data from it.
+         Manually providing the parameters will override the source parameter
+
+        see :class:`source.Source`
+
+        >>> calc_source = Calc_source('calc_sirio', [1, 2.45, 12], [1, 2, 3, 4, 5], 6)
+        >>> calc_source = Calc_source(obs_times=[1, 2, 3], source=sirio)  # where sirio is a source object
+
         """
         if source is not None:
             name = 'Calc_' + source.name
@@ -68,16 +86,19 @@ class Agis:
                  verbose=False, spline_degree=3, attitude_regularisation_factor=0,
                  updating='attitude', degree_error=0, double_telescope=False):
         """
-        Also contains:
-        **Temporary variables**
-        self.astro_param : the astronometric parameters for the source we're examining
-        self.obs_times : the observation times for a given source
-        **Variables**
-        # The four parameter vector
-        # self.s_param  # source parameters (for each calc_source)
-        # self.att_coeffs  # attitude parameters
-        Attributes:
-            :calc_sources: list of estimated sources
+        :param sat: [Satellite]
+        :param calc_sources: [list of Calc_sources]
+        :param real_sources: [liste of Sources]
+        :param attitude_splines: list of splines, only if we update attitude
+        :param verbose: [bool] if True prints intermediate results
+        :param spline_degree: degree of the splines
+        :param attitude_regularization_factor: [float] lambda in the paper.
+         Describes how much we take into account the regularization into our
+         minimization problem
+        :param updating: [string] defines what we are currently updating
+         can be: `'source', 'scanned source' or 'attitude'`
+        :param degree_error:
+        :param double_telescope: [bool] if True uses two telescopes (gaia-like)
         """
         # Raise an error if invalid initialization
         if len(real_sources) != len(calc_sources):
@@ -111,11 +132,13 @@ class Agis:
 
         # Setting observation times
         all_obs_times = []
+        #: [dict] containig the observed times assiciated with their source index
         self.time_dict = {}
         for source_index, calc_source in enumerate(self.calc_sources):
             all_obs_times += list(calc_source.obs_times)
             for t in calc_source.obs_times:
                 self.time_dict[t] = source_index
+        #: [array] containing the combined observation time of all the sources
         self.all_obs_times = np.sort(all_obs_times)
 
         # Set attitude
@@ -131,6 +154,9 @@ class Agis:
 
     # ### Generic functions for all kind of updating -----------------------------------
     def reset_iterations(self):
+        """
+        Resetting the iteration counter
+        """
         print('Not resetting everything! Call again the solver instead')
         self.iter_counter = 0
         for calc_source in self.calc_sources:
@@ -139,8 +165,12 @@ class Agis:
 
     def error_function(self):
         """
-        Ref. Paper [LUDW2011]_ eq. [24]
-        Compute the error function Q
+        | Ref. Paper [LUDW2011]_ eq. [24]
+        | Compute the error function Q
+
+        .. math:: Q = \sum_{l \\in AL} (R^{AL})^2
+            + \sum_{l \\in AC}  (R^{AC})^2
+
         """
         error = 0
         for source_index, s in enumerate(self.calc_sources):
@@ -152,7 +182,15 @@ class Agis:
         return error / self.all_obs_times.shape[0]  # /const.rad_per_mas
 
     def get_field_angles(self, source_index, t):
-        """ :returns: [eta_obs, zeta_obs, eta_calc, zeta_calc]"""
+        """
+        Uses functions :meth:`get_attitude_for_source`, :meth:`get_attitude`,
+        :meth:`observed_field_angles`, :meth:`calculated_field_angles`,
+        :meth:`satellite.Satellite.func_attitude`
+
+        :param source_index: [int] index of the source
+        :param t: [float] [days] time at which
+        :returns: eta_obs, zeta_obs, eta_calc, zeta_calc
+        """
         # Set attitude, it depends if we wanna update only sources or also attitude params
         if self.updating == 'source':
             attitude = self.get_attitude_for_source(source_index, t)
@@ -175,7 +213,13 @@ class Agis:
         return eta_obs, zeta_obs, eta_calc, zeta_calc
 
     def deviate_field_angles_color_aberration(self, source_index, t, angles):
-        """ apply color aberration deviation to field angles (eta, zeta)"""
+        """
+        | apply color aberration deviation to field angles (eta, zeta)
+
+        .. note:: If we the color aberration is not given in the sources,
+            nothing happens and the same angles are returned.
+
+        """
         # # WARNING: check also deviation in the source update
         eta_obs, zeta_obs, eta_calc, zeta_calc = angles
         # if self.degree_error != 0:
@@ -187,9 +231,8 @@ class Agis:
 
     def compute_R_L(self, source_index, t):
         """
-        Ref. Paper [LUDW2011]_ eq. [25]-[26].
-
-        :math:`R = eta_obs + zeta_obs - eta_calc - zeta_calc`
+        | Ref. Paper [LUDW2011]_ eq. [25]-[26].
+        | :math:`R = eta_{obs} + zeta_{obs} - eta_{calc} - zeta_{calc}`
 
         :note: R_AL = R_eta, R_AC = R_zeta
         :returns: [tuple] R_eta, R_zeta
@@ -244,7 +287,9 @@ class Agis:
 
     def update_block_S_i(self, source_index):
         """
-        Ref. Paper [LUDW2011]_ eq. [57]
+        | Ref. Paper [LUDW2011]_ eq. [57]
+        | Uses function :meth:`block_S_error_rate_matrix`
+
         :param source_index: [int] Index of the source that will be updated
         :action: update source number *source_index*
         """
@@ -263,8 +308,14 @@ class Agis:
 
     def compute_h(self, source_index):
         """
-        Ref. Paper [LUDW2011]_ eq. [59]
-        Source update Right hand side
+        | Ref. Paper [LUDW2011]_ eq. [59]
+        | Source update Right hand side
+        | Uses functions :meth:`compute_R_L`
+
+        .. warning:: here we sum along-scan and across-scan observations. It
+            should be good for this update, but be carefull in future
+            implementations
+
         :param source_index: [int] Index of the source that will be updated
         """
         calc_source = self.calc_sources[source_index]
@@ -272,14 +323,15 @@ class Agis:
         for i, t_L in enumerate(calc_source.obs_times):
             R_L_AL, R_L_AC = self.compute_R_L(source_index, t_L)
             h[i, 0] = (R_L_AL + R_L_AC)
-        if self.verbose:
-            print('h: {}'.format(h))
         return h
 
     def block_S_error_rate_matrix(self, source_index):
         """
-        Ref. Paper [LUDW2011]_ eq. [58]
-        error matrix for the block update S
+        | Ref. Paper [LUDW2011]_ eq. [58]
+        | error matrix for the block update S
+
+        uses :meth:`compute_du_ds` and :meth:`dR_ds`
+
         :param source_index: [int] Index of the source that will be updated
         """
         du_ds = self.compute_du_ds(source_index)
@@ -323,16 +375,22 @@ class Agis:
 
     def compute_du_ds(self, source_index):
         """
-        Ref. Paper [LUDW2011]_ eq. [73]
-        Compute dũ_ds for a given source
-        :param source_index: [int] Index of the source that will be updated
-        :returns:
-        Note:
+        | Ref. Paper [LUDW2011]_ eq. [73]
+        | Compute dũ_ds for a given source
+
+        .. note::
             - b_G(t) barycentric position of Gaia at the time of observation, also
               called barycentric ephemeris of the Gaia Satellite
             - t_B barycentric time (takes into account the Römer delay)
+            - t_ep in the paper is not used since we assume t_ep=0 and start
+              counting the time from J2000
 
-        Notes: t_ep in the paper is not used since we assume t_ep=0 and start counting the time from J2000
+        Uses :meth:`CoMRS_to_SRS_for_source_derivatives`,
+        :meth:`satellite.Satellite.ephemeris_bcrs` and
+        :meth:`agis_functions.compute_du_dparallax`
+
+        :param source_index: [int] Index of the source that will be updated
+        :returns: du_ds - source derivatives (wrt astrometric parameters) in SRS
         """
         # In this function consider all u as being ũ! (for notation we call them here u)
         # Values needed to compute the derivatives
@@ -358,13 +416,18 @@ class Agis:
             SRS_derivatives = self.CoMRS_to_SRS_for_source_derivatives(CoMRS_derivatives, calc_source,
                                                                        t_l, source_index)
             du_ds[:, :, j] = SRS_derivatives
-        if self.verbose:
-            print('du_ds.shape: {}'.format(du_ds.shape))
         return du_ds
 
     def CoMRS_to_SRS_for_source_derivatives(self, CoMRS_derivatives, calc_source, t_L, source_index):
-        """ Ref. Paper [LUDW2011]_ eq. [72]
-        rotate the frame from CoRMS (lmn) to SRS (xyz) for the given derivatives
+        """
+        | Ref. Paper [LUDW2011]_ eq. [72]
+        | rotate the frame from CoRMS (lmn) to SRS (xyz) for the given derivatives
+
+        :param CoMRS_derivatives: [list] of deriatives [du_dalpha, du_ddelta,
+         du_dparallax, du_dmualpha, du_dmudelta]
+        :param calc_source: [Calc_source]
+        :param t_L: [float] time of observation
+        :param source_index: [int]
         """
         SRS_derivatives = []
         if self.updating == 'source':
@@ -379,9 +442,11 @@ class Agis:
         return SRS_derivatives
 
     def get_attitude_for_source(self, source_index, t):
-        """ For only source updating with color aberration.
+        """ For only source updating with **color aberration**.
         Change if condition to decide which sources are affected by that aberration
+
         :param source_index: [int] Index of the source that will be updated
+        :param t: [float] [days] time at which we want the attitude
         """
         if source_index < 0:
             deviation = self.degree_error * const.rad_per_deg  # number in degrees and converted in radians
@@ -418,7 +483,10 @@ class Agis:
             self.attitude_splines[i] = BSpline(self.att_knots, self.att_coeffs[i], k=self.k)
 
     def update_A_block(self, use_sparse=False):  # one
-        """ solve for the attitude"""
+        """
+        | Ref. Paper [LUDW2011]_ Section 5.2
+        | Solve for the attitude
+        """
         if use_sparse is True:
             der_band, reg_band = self.compute_attitude_banded_derivative_and_regularisation_matrices()
             self.compute_sparses_matrices(der_band, reg_band)
@@ -447,8 +515,11 @@ class Agis:
         self.att_coeffs[:, :] += c_update[:, :].copy()
         self.actualise_splines()  # Create the new splines
 
-    def update_A_block_bis(self):  # bis
-        """ updates the four components separately (wrong but not by much)"""
+    def update_A_block_bis(self):
+        """
+        | updates the four components separately (wrong but not by much)
+        | It should work if we update just some of the blocks (like one or two)
+        """
         LHS = self.compute_attitude_LHS()
         RHS = self.compute_attitude_RHS()
         for i in range(4):
@@ -458,6 +529,9 @@ class Agis:
         self.actualise_splines()  # Create the new splines
 
     def compute_attitude_LHS(self):
+        """
+        Ref. Paper [LUDW2011]_ eq. [82]
+        """
         N_aa_dim = self.att_coeffs.shape[1]  # *4
         N_aa = np.zeros((N_aa_dim*4, N_aa_dim*4))
         for n in range(0, N_aa_dim):  # # TODO:  take advantage of the symmetry
@@ -468,6 +542,9 @@ class Agis:
         return N_aa
 
     def compute_attitude_RHS(self):
+        """
+        Ref. Paper [LUDW2011]_ eq. [82]
+        """
         N_aa_dim = self.att_coeffs.shape[1]
         RHS = np.zeros((N_aa_dim*4, 1))
         for n in range(0, N_aa_dim):
@@ -476,13 +553,25 @@ class Agis:
         return RHS
 
     def get_source_index(self, t):
-        """ get the index of the source corresponding to observation t"""
+        """
+        get the index of the source corresponding to observation time t
+
+        :param t: [float] observation time
+        :return: [int] source index
+        """
         if t in self.time_dict:
             return self.time_dict[t]
         else:
             raise ValueError('time not in time_dict')
 
     def compute_attitude_RHS_n(self, n_index):
+        """
+        Ref. Paper [LUDW2011]_ eq. [82]
+
+        :param n_index:
+        :return: entry **n** of the Right Hand Side column vector for the
+         attitude update
+        """
         rhs = np.zeros((4, 1))
         time_support_spline_n = get_times_in_knot_interval(self.all_obs_times, self.att_knots, n_index, self.M)
 
@@ -514,7 +603,14 @@ class Agis:
         return -rhs
 
     def compute_Naa_mn(self, m_index, n_index):
-        """compute dR/da (i.e. wrt coeffs)"""
+        """
+        | Ref. Paper [LUDW2011]_ eq. [82]
+        | compute dR/da (i.e. wrt coeffs)
+
+        :param m_index:
+        :param n_index:
+        :return: entry [n, m] of the attitude normal matrix N_a
+        """
         Naa_mn = np.zeros((4, 4))
 
         # Get times in the support of both spline_m and spline_n
@@ -550,33 +646,49 @@ class Agis:
 
             Naa_mn += regularisation_part + dR_da_n_AL @ dR_da_m_AL.T + dR_da_n_AC @ dR_da_m_AC.T
 
-            if self.verbose:
-                if m_index >= 0:
-                    if i >= 0:
-                        print('**** m:', m_index, '**** n:', n_index, '**** i:', i)
-                        print('dR_dq: ', dR_dq)
-                        print('dR_da_m', dR_da_m)
-                        print('dR_da_n', dR_da_n)
-                        print('Naa_mn', Naa_mn)
         return Naa_mn
 
     # ### Sparse implementation of attitude update-----
     def compute_attitude_banded_derivative_and_regularisation_matrices(self):
-        dR_da_band = np.zeros((self.N*4, 16))
-        dD_da_band = np.zeros((self.N*4, 16))
+        """
+        | Ref. Paper [LUDW2011]_ eq. [82]
+        | Computes the bands of the banded matrices of the derivatives for the
+          normal matrix and the band for the regularization of the normal matrix.
+
+        :return: (der_band, reg_band)
+        """
+        der_band = np.zeros((self.N*4, 16))
+        reg_band = np.zeros((self.N*4, 16))
         for n in range(0, self.N):
             for i, m in enumerate(range(n, min(n+4, self.N))):
-                dR_da_band[n*4:n*4+4, i*4:i*4+4] = self.compute_matrix_dR_da_mn(m, n)
-                dD_da_band[n*4:n*4+4, i*4:i*4+4] = self.compute_matrix_dD_da_mn(m, n)
-        return dR_da_band, dD_da_band  # der_band, reg_band
+                der_band[n*4:n*4+4, i*4:i*4+4] = self.compute_matrix_der_mn(m, n)
+                reg_band[n*4:n*4+4, i*4:i*4+4] = self.compute_matrix_reg_mn(m, n)
+        return der_band, reg_band
 
     def compute_sparses_matrices(self, der_band, reg_band):
+        """
+        :action: Creates sparse banded matrices from bands and stores them in
+         class properties
+        :param der_band: band for the derivatives part of the normal attitude
+         matrix
+        :param reg_band: band for the regularization part of the normal attitude
+         matrix
+        """
         self.attitude_der_matrix = helpers.get_sparse_diagonal_matrix_from_half_band(der_band)
         self.attitude_reg_matrix = helpers.get_sparse_diagonal_matrix_from_half_band(reg_band)
 
-    def compute_matrix_dD_da_mn(self, m_index, n_index):
-        """compute $lambda^2 dD/da_m * dD/da_n^T$ (i.e. wrt coeffs)"""
-        dD_da_mn = np.zeros((4, 4))
+    def compute_matrix_reg_mn(self, m_index, n_index):
+        """
+        | Ref. Paper [LUDW2011]_ eq. [82]
+        | compute :math:`\lambda^2*\\frac{dD_l}{da_m} * \\frac{dD_l}/{da_n^T}`
+          (i.e. wrt coeffs)
+
+        :param m_index: [int]
+        :param n_index: [int]
+        :return: reg_mn [n, m] entry of the regularisation part of the attitude
+         normal matrix
+        """
+        reg_mn = np.zeros((4, 4))
         time_support_spline_m = get_times_in_knot_interval(self.all_obs_times, self.att_knots, m_index, self.M)
         time_support_spline_n = get_times_in_knot_interval(self.all_obs_times, self.att_knots, n_index, self.M)
         time_support_spline_mn = np.sort(helpers.get_lists_intersection(time_support_spline_m, time_support_spline_n))
@@ -589,13 +701,23 @@ class Agis:
                                                       left_index, self.M, obs_time_index)
             dDL_da_n = compute_DL_da_i(coeff_basis_sum, self.att_bases, obs_time_index, n_index)
             dDL_da_m = compute_DL_da_i(coeff_basis_sum, self.att_bases, obs_time_index, m_index)
-            dD_da_mn += self.attitude_regularisation_factor**2 * dDL_da_n @ dDL_da_m.T
+            reg_mn += self.attitude_regularisation_factor**2 * dDL_da_n @ dDL_da_m.T
 
-        return dD_da_mn
+        return reg_mn
 
-    def compute_matrix_dR_da_mn(self, m_index, n_index):
-        """compute dR/da (i.e. wrt coeffs)"""
-        dR_da_mn = np.zeros((4, 4))
+    def compute_matrix_der_mn(self, m_index, n_index):
+        """
+        | Ref. Paper [LUDW2011]_ eq. [82]
+        | Compute :math:`\\frac{dR_l}{da_n} \\frac{dR_l}{da_m^T}`
+          (i.e. wrt coeffs)
+
+        :param m_index: [int]
+        :param n_index: [int]
+        :return: der_mn, entry [n ,m] of the derivative parts of the attitude
+         normal matrix
+        """
+
+        der_mn = np.zeros((4, 4))
         time_support_spline_m = get_times_in_knot_interval(self.all_obs_times, self.att_knots, m_index, self.M)
         time_support_spline_n = get_times_in_knot_interval(self.all_obs_times, self.att_knots, n_index, self.M)
         time_support_spline_mn = np.sort(helpers.get_lists_intersection(time_support_spline_m, time_support_spline_n))
@@ -612,11 +734,14 @@ class Agis:
             dR_da_m_AC = dR_da_i(dR_dq_AC, self.att_bases[m_index, obs_time_index])
             dR_da_n_AL = dR_da_i(dR_dq_AL, self.att_bases[n_index, obs_time_index])
             dR_da_n_AC = dR_da_i(dR_dq_AC, self.att_bases[n_index, obs_time_index])
-            dR_da_mn += dR_da_n_AL @ dR_da_m_AL.T + dR_da_n_AC @ dR_da_m_AC.T
+            der_mn += dR_da_n_AL @ dR_da_m_AL.T + dR_da_n_AC @ dR_da_m_AC.T
 
-        return dR_da_mn
+        return der_mn
 
     # ### Implementation with moble's quaternion
+    # This functions are not yet ready, but are here to be for a future
+    # implementation of numpy-compatible implementation
+
     def compute_attitude_splines(self):
         s_w = self.attitude_splines[0]
         s_x = self.attitude_splines[1]
@@ -627,74 +752,18 @@ class Agis:
         return self.discretized_attitude
 
     def get_attitude_from_attitude_array(self, t):
+        raise ValueError('This function is not complete')
         pass
 
     def compute_stuff_for_source(self, s):
+        raise ValueError('This function is not complete')
         alpha, delta, parallax, mu_alpha, mu_delta = calc_source.s_params[:]
         params = np.array([alpha, delta, parallax, mu_alpha, mu_delta, calc_source.mu_radial])
         Cu = compute_topocentric_direction(params, sat, t)  # u in CoMRS frame
         Su = ft.lmn_to_xyz(attitude, Cu)  # u in SRS frame
         phi, zeta = compute_field_angles(Su, double_telescope=False)
-
         pass
-
-    # ### Implementation with iterating on sources-----
-    """def compute_attitude_banded_matrices_per_sources(self):
-        dR_da_band = np.zeros((self.N*4, 16))
-        dD_da_band = np.zeros((self.N*4, 16))
-        for s in self.calc_sources:
-            for t in calc_source.obs_times:
-
-        for n in range(0, self.N):
-            for i, m in enumerate(range(n, min(n+4, self.N))):
-                dR_da_band[n*4:n*4+4, i*4:i*4+4] = self.compute_matrix_dR_da_mn(m, n)
-                dD_da_band[n*4:n*4+4, i*4:i*4+4] = self.compute_matrix_dD_da_mn(m, n)
-        return dR_da_band, dD_da_band  # der_band, reg_band"""
 
 
 if __name__ == '__main__':
     print('Executing agis.py as main file')
-
-
-# ### Deprecated function (here just as backup) ################################
-def C_du_ds_to_S_du_ds(self, source_index, C_du_ds):
-    """ Ref. Paper [LUDW2011]_ eq. [72]
-    rotate the frame from CoRMS (lmn) to SRS (xyz) for du_ds
-    """
-    calc_source = self.calc_sources[source_index]
-    S_du_ds = np.zeros(C_du_ds.shape)
-
-    for j in range(C_du_ds.shape[-1]):  # TODO: remove these ugly for loop
-        t_L = calc_source.obs_times[j]
-        if self.updating == 'source':
-            attitude = self.get_attitude_for_source(source_index, t_L)
-        elif self.updating == 'scanned source':
-            attitude = self.sat.func_attitude(t_L)
-        else:  # attitude = self.get_attitude(t_L)
-            raise ValueError('Not yet implemented for this case')
-        for i in range(C_du_ds.shape[0]):  # TODO: remove these ugly for loop
-            S_du_ds[i, :, j] = ft.lmn_to_xyz(attitude, C_du_ds[i, :, j])
-    return S_du_ds
-
-
-def du_ds(self, source_index, du_tilde_ds):
-    """ [not yet complete] Ref. Paper [LUDW2011]_ eq. [75]
-    returns the derivative of the proper direction w.r.t. the astronomic
-    parameters.
-    take into account aberrationn of light
-    :param du_ds_tilde: in the CoRMS frame (lmn)
-    :returns du_ds: in the SRS frame (xyz)
-    """
-    # TODO: implement stellar aberation
-    if self.consider_stellar_aberation:
-        raise ValueError('Stellar aberation not yet implemented')
-    # u = compute_coordinate_direction()
-    # coeff = (1-u.transpose()*v_g/const.c)I - u*v_G.transpose()/const.c
-    coeff = 1
-
-    calc_source = self.calc_sources[source_index]
-    C_du_ds = coeff * du_tilde_ds
-    S_du_ds = self.C_du_ds_to_S_du_ds(source_index, C_du_ds)
-    if self.verbose:
-        print('S_du_ds shape: {}'.format(S_du_ds.shape))
-    return S_du_ds

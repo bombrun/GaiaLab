@@ -18,46 +18,66 @@ import frame_transformations as ft
 import quaternion
 
 
+def gaia_orbit(t, epsilon):
+    """
+    :param t: time at which we want the position
+    :param epsilon: obiquity of equator
+    :returns: the gaia position at time **t**, assuming it is a circle around
+     the sun tilted by epsilon:
+    """
+    orbital_radius = 1  # [AU]
+    orbital_period = const.days_per_year
+    revolving_angle = 2*np.pi/orbital_period*t
+
+    b_x_bcrs = orbital_radius*np.cos(revolving_angle)*np.cos(epsilon)
+    b_y_bcrs = orbital_radius*np.sin(revolving_angle)*np.cos(epsilon)
+    b_z_bcrs = orbital_radius*np.sin(revolving_angle)*np.sin(epsilon)
+    return np.array([b_x_bcrs, b_y_bcrs, b_z_bcrs])
+
+
 class Satellite:
     """
-    Class Object, that represents a satellite, e.g. Gaia.
-    Creates spline from attitude data for 5 years by default.
+    | Class Object, that represents a satellite, e.g. Gaia.
+    | Creates spline from attitude data for 5 years by default.
 
     .. note:: (see e.g. Lindegren, SAG-LL-35)
 
     The Nominal Scanning Law (NSL) for gaia is descibed by two constant
     angles:
+
     - Epsilon: obliquity of equator
     - Xi (greek letter): revolving angles
+
     and 3 angles that increase continuously but non-uniformly:
+
     - _lambda(t): nominal longitude of the sun
     - nu(t): revolving phase
     - omega(t): spin phase
+
     With also initial values nu(0), omega(0) at time t_0 the NSL is completely
     specified.
-
-    :param ti: initial time, float [day]
-    :param tf: final time, float [day]
-    :param dt: time step for creation of discrete data fed to spline, float [day].
-
-    :param S: change in the z-axis of satellite wrt solar longitudinal angle.
-     [float]
-    :param epsilon: ecliptical angle [rad]
-    :param xi: revolving angle [rad]
-    :param wz: z component of inertial spin vector [arcsec/s]
-    :action: Sets satellite to initialization status.
     """
     def __init__(self, ti=0, tf=5*const.days_per_year, dt=1/24, k=3, *args):
         """
-        :orbital_period: [days]
-        :orbital_radius: [AU]
+        :param ti: initial time, float [day]
+        :param tf: final time, float [day]
+        :param dt: time step for creation of discrete data fed to spline, float [day].
+        :param S: change in the z-axis of satellite wrt solar longitudinal angle.
+         [float]
+        :param epsilon: ecliptical angle [rad]
+        :param xi: revolving angle [rad]
+        :param wz: z component of inertial spin vector [arcsec/s]
+        :action: Sets satellite to initialization status.
         """
+
         self.init_parameters(*args)
+
+        #: orbital_period [days]
         self.orbital_period = const.days_per_year
+        #: orbital_radius
         self.orbital_radius = 1.0
-        # Splines for each coordinates i, i_list at each time in t_list of degree k (order = k+1)
-        self.spline_degree = k
-        # self.spline_order = self.spline_degree + 1
+        #: degree of the interpolating polynomial. spline_degree = spline_order - 1
+        self.spline_degree = k  #
 
         self.storage = []
         self.__init_state()
@@ -67,6 +87,9 @@ class Satellite:
 
     def init_parameters(self, S=const.S, epsilon=np.radians(const.epsilon),
                         xi=np.radians(const.xi), wz=const.w_z):
+        """
+        Init parameters with values in file contants.py
+        """
         self.S = S
 
         # obliquity of equator. This is a constant chosen to be 23º 26' 21.448''
@@ -90,14 +113,9 @@ class Satellite:
         Equivalently written b_G(t)
 
         :param t: float [days]
-        :return: 3D np.array [AU]!
+        :return: [np.array] 3D [AU] BCRS position-vector of the satellite
         """
-        # Assuming it is a circle tilted by epsilon:
-        b_x_bcrs = self.orbital_radius*np.cos(2*np.pi/self.orbital_period*t)*np.cos(self.epsilon)
-        b_y_bcrs = self.orbital_radius*np.sin(2*np.pi/self.orbital_period*t)*np.cos(self.epsilon)
-        b_z_bcrs = self.orbital_radius*np.sin(2*np.pi/self.orbital_period*t)*np.sin(self.epsilon)
-
-        bcrs_ephemeris_satellite = np.array([b_x_bcrs, b_y_bcrs, b_z_bcrs])
+        bcrs_ephemeris_satellite = gaia_orbit(t, self.epsilon)
         return bcrs_ephemeris_satellite
 
     def __init_state(self):

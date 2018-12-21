@@ -9,25 +9,36 @@ satellite.py
 ============
 .. automodule:: satellite
 
+.. autofunction:: gaia_orbit
+
 .. autoclass:: Satellite
    :members:
-
-
+   :special-members: __init__
+   :member-order: bysource
 
 source.py
 =========
 .. automodule:: source
 
+.. autofunction:: compute_topocentric_direction
+
 .. autoclass:: Source
    :members:
    :private-members:
-   :special-members:
+   :special-members: __init__
+   :member-order: bysource
 
 
 scanner.py
 ==========
 .. automodule:: scanner
-    :members:
+  :members:
+
+.. autoclass:: Scanner
+  :members:
+  :private-members:
+  :special-members: __init__
+  :member-order: bysource
 
 
 
@@ -36,15 +47,19 @@ agis.py
 
 .. automodule:: agis
 
-.. autoclass:: Agis
-    :members:
-    :private-members:
-    :special-members:
-
 .. autoclass:: Calc_source
     :members:
     :private-members:
-    :special-members:
+    :special-members: __init__
+    :member-order: bysource
+
+.. autoclass:: Agis
+    :members:
+    :private-members:
+    :special-members: __init__
+    :member-order: bysource
+
+
 
 
 agis_functions.py
