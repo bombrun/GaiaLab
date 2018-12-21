@@ -24,7 +24,13 @@ def compute_topocentric_direction(astro_parameters, sat, t):
     system, is a celestial coordinate system that uses the observer's local
     horizon as the fundamental plane. Coordinates of an object in the sky are
     expressed in terms of altitude (or elevation) angle and azimuth.
+
+    :param astro_parameters: [alpha, delta, parallax, mu_alpha_dx, mu_delta, mu_radial]
+     [rads] the astrometric parameters
+    :param sat: [Satellite]
+    :param t: [float][days] time at which we want the topocentric function
     :return: [array] (x,y,z) direction-vector of the star from the satellite's lmn frame.
+     (CoMRS)
     """
     alpha, delta, parallax, mu_alpha_dx, mu_delta, mu_radial = astro_parameters[:]
     p, q, r = ft.compute_pqr(alpha, delta)
@@ -38,8 +44,9 @@ def compute_topocentric_direction(astro_parameters, sat, t):
 
 class Source:
     """
-    Source class implemented to represent a source object in the sky
-    examples:
+    | Source class implemented to represent a source object in the sky
+    | Examples:
+
         >>> vega = Source("vega", 279.2333, 38.78, 128.91, 201.03, 286.23, -13.9)
         >>> proxima = Source("proxima",217.42, -62, 768.7, 3775.40, 769.33, 21.7)
         >>> sirio = Source("sirio", 101.28, -16.7161, 379.21, -546.05, -1223.14, -7.6)
@@ -48,23 +55,22 @@ class Source:
     def __init__(self, name, alpha0, delta0, parallax, mu_alpha, mu_delta, radial_velocity,
                  func_color=(lambda t: 0), mean_color=0):
         """
-        :param alpha0: deg
-        :param delta0: deg
-        :param parallax: mas
-        :param mu_alpha: mas/yr
-        :param mu_delta: mas/yr
-        :param radial_velocity: km/s
+        :param alpha0: [deg]
+        :param delta0: [deg]
+        :param parallax: [mas]
+        :param mu_alpha: [mas/yr]
+        :param mu_delta: [mas/yr]
+        :param radial_velocity: [km/s]
         :param func_color: function representing the color of the source in nanometers
         :param mean_color: mean color observed by satellite
 
-        Transforms in rads/day or rads
-        Attributes:
-            [alpha] = rads
-            [delta] = rads
-            [parallax] = rads
-            [mu_alpha_dx] = rads/days
-            [mu_delta] = rads/days
-            [mu_radial] = rads/days?
+        Transforms in rads/day or rads, i.e. we got:
+            * [alpha] = rads
+            * [delta] = rads
+            * [parallax] = rads
+            * [mu_alpha_dx] = rads/days
+            * [mu_delta] = rads/days
+            * [mu_radial] = rads/days
         """
         self.name = name
         self.__alpha0 = np.radians(alpha0)
@@ -81,6 +87,9 @@ class Source:
         self.mean_color = mean_color
 
     def get_parameters(self, t=0):
+        """
+        :returns: astrometric parameters at time t (t=0 by default)
+        """
         self.set_time(t)
         return np.array([self.alpha, self.delta, self.parallax, self.mu_alpha_dx, self.mu_delta, self.mu_radial])
 
@@ -94,6 +103,7 @@ class Source:
     def set_time(self, t):
         """
         Sets star at position wrt bcrs at time t.
+
         :param t: [float][days] time
         """
         if t < 0:
@@ -108,6 +118,7 @@ class Source:
     def barycentric_direction(self, t):
         """
         Direction unit vector to star from bcrs.
+
         :param t: [float][days]
         :return: ndarray 3D vector of [floats]
         """
@@ -118,6 +129,7 @@ class Source:
     def barycentric_coor(self, t):
         """
         Vector to star wrt bcrs-frame.
+
         alpha: [float][rad]
         delta: [float][rad]
         parallax: [float][rad]
@@ -131,10 +143,7 @@ class Source:
     def unit_topocentric_function(self, satellite, t):
         """
         Compute the topocentric_function direction
-        The horizontal coordinate system, also known as topocentric coordinate
-        system, is a celestial coordinate system that uses the observer's local
-        horizon as the fundamental plane. Coordinates of an object in the sky are
-        expressed in terms of altitude (or elevation) angle and azimuth.
+
         :param satellite: satellite [class object]
         :return: [array] (x,y,z) direction-vector of the star from the satellite's lmn frame.
         """
@@ -145,6 +154,7 @@ class Source:
     def topocentric_angles(self, satellite, t):
         """
         Calculates the angles of movement of the star from bcrs.
+
         :param satellite: satellite object
         :param t: [days]
         :return: alpha, delta, delta alpha, delta delta [mas]

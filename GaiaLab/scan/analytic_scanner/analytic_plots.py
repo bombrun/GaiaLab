@@ -60,8 +60,8 @@ def plot_attitude(sat, ti, tf, n_points=1000, figsize=(9, 5), style='.--'):
     """
     Recreating the plot of L.Lindegren, SAG_LL_35:
 
-    - Figure 1, run ```plot_Satellite(sat, 0, 80, 0.01)```
-    - Figure 2, run ```plot_Satellite(sat, 0, 1, 0.01) ```
+    - Figure 1, run ``plot_Satellite(sat, 0, 80, 0.01)``
+    - Figure 2, run ``plot_Satellite(sat, 0, 1, 0.01)``
 
     Each graph plots each component evolution wrt time.
 
@@ -293,7 +293,7 @@ def plot_errors_VS_iterations_per_source(Solver, save_path=None):
     source.
 
     :param Solver: [Solver object]
-    :param save_path:
+    :param save_path: [string] path to the saving folder
     :return: list of figures wih the plots for each source
     """
     figs_list = []
@@ -579,11 +579,10 @@ def plot_3D_scanner_pos(sat, axis, ti, tf, n_points=1000, elevation=10, azimuth=
 # this function should not be used
 def plot_ICRS_coordinates_versus_time(source, sat, obs_times=[]):
     """
-    :param source: source object
-    :param sat: Satellite object
-    :param t_total: total time for which the trajectory is desired [days] from
-     J2000.
-    :return: plot of the star trajectory in the lmn-frame.
+    :param source: [Source]
+    :param sat: [Satellite]
+    :param obs_times: [list] observed times
+    :return: plot of the righ ascension and declination in CoMRS
     """
     time_total = sat.storage[-1][0]
 
@@ -611,63 +610,19 @@ def plot_ICRS_coordinates_versus_time(source, sat, obs_times=[]):
     sol_style = 'rs'
 
     fig = plt.figure(figsize=(16, 9))
-    ax = fig.add_subplot(121)
 
-    print(source.parallax, source.mu_alpha_dx)
-    fig.suptitle(r'$\varpi={%f}$, $\mu_{{\alpha*}}={%f}$, $\mu_\delta={%f}$ x1e-6'
-                 % (source.parallax*1e6, source.mu_alpha_dx*1e6, source.mu_delta*1e6),
-                 fontsize=20)
-    # cmaps: 'jet', 'winter', 'viridis'
-    ax.scatter(alphas, deltas, c=times, marker='.', s=(72./fig.dpi)**2, cmap='jet',
-               alpha=0.5, label=r'%s path' % (source.name), lw=2)
-
-    # ax.plot(alphas, deltas, path_style, label=r'%s path' % (source.name), lw=2)
-
-    ax.plot(alphas[0], deltas[0], origin_style, label='origin')
-    ax.plot(alphas_sol, deltas_sol, sol_style, label='solutions')
-
-    scaling_factor = 1 / 4
-    scale_alpha = (np.max(alphas) - np.min(alphas)) * scaling_factor
-    scale_delta = (np.max(deltas) - np.min(deltas)) * scaling_factor
-    length = np.array([scale_alpha, scale_delta])
-    if equatorial is True:
-        for i, (t, a, d) in enumerate(zip(obs_times, alphas_sol, deltas_sol)):
-            point = np.array([a, d])
-            vector = scanning_y_coordinate(source, sat, t)
-            adp = ft.vector_to_adp(vector)
-            dir_alpha, dir_delta = ft.vector_to_alpha_delta(vector)
-            directions = [dir_alpha, dir_delta]
-            # directions = helpers.rescaled_direction((dir_alpha, dir_delta), length)
-            to_plot_x = [point[0], point[0]+dir_alpha]
-            to_plot_y = [point[1], point[1]+dir_delta]
-            ax.plot(to_plot_x, to_plot_y, 'k-', alpha=0.1)
-            ax.quiver(point[0], point[1], directions[0], directions[1], color=['r'])
-
-    if equatorial is True:
-        # ax.axhline(y=0, c='gray', lw=1)
-        # ax.axvline(x=0, c='gray', lw=1)
-        ax.set_xlabel(r'$\Delta\alpha*$ [mas]')
-        ax.set_ylabel(r'$\Delta\delta$ [mas]')
-    else:
-        ax.set_xlim(np.min(alphas), np.max(alphas))
-        ax.set_ylim(np.min(deltas), np.max(deltas))
-        ax.set_xlabel(r'$\alpha*$ [rad]')
-        ax.set_ylabel(r'$\delta$ [rad]')
-    ax.legend(fontsize=12, facecolor='#000000', framealpha=0.1)
-    # Top right subplot
-    ax1dra = fig.add_subplot(222)
+    # Top subplot
+    ax1dra = fig.add_subplot(211)
     ax1dra.plot(times, alphas, path_style)
     ax1dra.plot(times[0], alphas[0], origin_style, label='origin')
     ax1dra.plot(times_sol, alphas_sol, sol_style, label='solutions')
-    if equatorial is False:
-        ax1dra.axhline(y=0, c='gray', lw=1)
+    ax1dra.axhline(y=0, c='gray', lw=1)
     # ax1dra.set_xlabel(r'Time [yr]')
     ax1dra.set_ylabel(r'$\Delta\alpha*$ [mas]')
 
     # Top left subplot
-    ax1ddec = fig.add_subplot(224, sharex=ax1dra)
-    if equatorial is True:
-        ax1ddec.axhline(y=0, c='gray', lw=1)
+    ax1ddec = fig.add_subplot(212, sharex=ax1dra)
+    ax1ddec.axhline(y=0, c='gray', lw=1)
     ax1ddec.plot(times, deltas, path_style)
     ax1ddec.plot(times[0], deltas[0], origin_style, label='origin')
     ax1ddec.plot(times_sol, deltas_sol, sol_style, label='solutions')

@@ -24,8 +24,10 @@ from agis_functions import *
 # fonctions used in the loop
 def eta_angle(t, sat, source, FoV='centered'):
     """
-    Function to minimize in the scanner.
-    See :func:agis_functions.observed_field_angles()
+    | Function to minimize in the scanner.
+    | See :meth:`agis_functions.observed_field_angles`
+
+    :param FoV: [string] specify which Field of View to use
     """
     Gamma_c = const.Gamma_c
 
@@ -47,6 +49,14 @@ def eta_angle(t, sat, source, FoV='centered'):
 
 
 def get_etas_from_phis(phi_a, phi_b, FoV):
+    """
+    Tranform phis into etas using the field of view parameter
+
+    :param phi_a: phi at the beginning of the interval
+    :param phi_b: phi at the end of the interval
+    :param FoV: [string] specify which Field of View we are using
+    :returns: eta at the beginning and end of the inteval
+    """
 
     Gamma_c = const.Gamma_c
     if FoV == 'following':
@@ -61,6 +71,9 @@ def get_etas_from_phis(phi_a, phi_b, FoV):
 
 
 def violated_contraints(eta_a, zeta_a, eta_b, zeta_b, zeta_limit):
+    """
+    :returns: True if the contraints are violated and False otherwise
+    """
     if eta_a*eta_b >= 0:  # check if f changes sign in [a,b]
         return True
     if np.abs(zeta_a + zeta_b)/2 > zeta_limit:   # ~ |zeta|<= 0.5°
@@ -75,12 +88,9 @@ class Scanner:
 
     def __init__(self,  zeta_limit=np.radians(0.5), double_telescope=True):
         """
-        :param zeta_limit: condition for the line_height of the scanner (z-axis height in lmn)
-        Attributes
-        -----------
-        :obs_times: [days] the times where the star precisely crosses the line
-                    of view (time for which the error in eta is minimal)
-        :root_messages:
+        :param zeta_limit: [rads] limitation of the Field of View in the across scan direction
+        :param double_telescope: [bool] if true implements the scanner version with two
+         telescopes (gaia-like)
         """
         # Parameters
         self.zeta_limit = zeta_limit
@@ -166,7 +176,9 @@ class Scanner:
         return time.time()-t0  # Total measured time
 
     def compute_angles_eta_zeta(self, sat, source):
-        """ Compute angles and remove 'illegal' observations (|zeta| > zeta_lim)"""
+        """
+        Compute angles and remove 'illegal' observations (:math:`|zeta| > zeta_lim`)
+        """
         for t in self.obs_times:
             eta, zeta = observed_field_angles(source, sat.func_attitude(t), sat, t, self.double_telescope)
             if np.abs(zeta) >= self.zeta_limit:
@@ -175,6 +187,9 @@ class Scanner:
             self.zeta_scanned.append(zeta)
 
     def scanner_error(self):
+        """
+        :return: mean error in the Along-scan direction
+        """
         if not self.eta_scanned:
             raise ValueError('No scanned angles in the scanner! Please scan' +
                              ' and call compute_angles_eta_zeta(sat, source)')

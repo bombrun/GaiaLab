@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 
 """
-:File: agis_helpers.py
+:File: agis_functions.py
 
 :purpose: Functions that uses the classes source, satellite but don't belong
  to a given file yet
 
 :used by: (at least) agis.py & scanner.py
 :author: LucaZampieri
+
+The file is divided in sections, one for each purpose they serve.
 
 When cleaning this file search for ???, LUCa, warning , error, debug, print?
 
@@ -17,7 +19,7 @@ When cleaning this file search for ???, LUCa, warning , error, debug, print?
     "The astronometric core solution for the Gaia mission - overview of models,
     algorithms, and software implementation" by L. Lindegren, U. Lammer, D. Hobbs,
     W. O'Mullane, U. Bastian, and J.Hernandez
-    The reference is usually made in the following way: Ref. Paper eq. [1]
+    The reference is usually made in the following way: Ref. Paper [LUDW2011]_ eq. [1]
 
 TODO:
     - [DONE] Rotate the attitude
@@ -492,7 +494,7 @@ def extend_knots(internal_knots, k):
 
 def compute_coeff_basis_sum(coeffs, bases, L, M, time_index):
     """
-    | Ref. Paper eq. [80]
+    | Ref. Paper [LUDW2011]_ eq. [80]
     | Computes the sum:
 
     .. math::
@@ -511,7 +513,7 @@ def compute_coeff_basis_sum(coeffs, bases, L, M, time_index):
 
 def compute_attitude_deviation(coeff_basis_sum):
     """
-    | Ref. Paper eq. [80]
+    | Ref. Paper [LUDW2011]_ eq. [80]
     | Compute the attitude deviation from unity:
 
     .. math::
@@ -526,7 +528,7 @@ def compute_attitude_deviation(coeff_basis_sum):
 
 def compute_DL_da_i(coeff_basis_sum, bases, time_index, i):
     """
-    | Ref. Paper eq. [80]
+    | Ref. Paper [LUDW2011]_ eq. [80]
     | Compute derivative of the attitude deviation wrt attitude params.
       See :meth:`compute_coeff_basis_sum`
 
@@ -543,7 +545,7 @@ def compute_DL_da_i(coeff_basis_sum, bases, time_index, i):
 
 def compute_DL_da_i_from_attitude(attitude, bases, time_index, i):
     """
-    | Ref. Paper eq. [83]
+    | Ref. Paper [LUDW2011]_ eq. [83]
     | Compute derivative of the attitude deviation wrt attitude params.
       See :meth:`compute_coeff_basis_sum`
 
@@ -560,7 +562,7 @@ def compute_DL_da_i_from_attitude(attitude, bases, time_index, i):
 
 def compute_dR_dq(calc_source, sat, attitude, t):
     """
-    | Ref. Paper eq. [79].
+    | Ref. Paper [LUDW2011]_ eq. [79].
     | Computes the derivative of the cost-function w.r.t. quaternion q i.e. the
       tuple of equations:
 
@@ -603,7 +605,7 @@ def dR_da_i(dR_dq, bases_i):
 # ### Beginning field angles and associated functions --------------------------
 def observed_field_angles(source, attitude, sat, t, double_telescope=False):
     """
-    | Ref. Paper eq. [12]-[13]
+    | Ref. Paper [LUDW2011]_ eq. [12]-[13]
     | Return field angles according to Lindegren eq. 12. See :meth:`compute_field_angles`
 
     :param source: [Source]
@@ -624,7 +626,7 @@ def observed_field_angles(source, attitude, sat, t, double_telescope=False):
 
 def calculated_field_angles(calc_source, attitude, sat, t, double_telescope=False):
     """
-    | Ref. Paper eq. [12]-[13]
+    | Ref. Paper [LUDW2011]_ eq. [12]-[13]
     | Return field angles according to Lindegren eq. 12. See :meth:`compute_field_angles`
 
     :param source: [Calc_source]
@@ -648,7 +650,7 @@ def calculated_field_angles(calc_source, attitude, sat, t, double_telescope=Fals
 
 def compute_field_angles(Su, double_telescope=False):
     """
-    | Ref. Paper eq. [12]-[13]
+    | Ref. Paper [LUDW2011]_ eq. [12]-[13]
     | Return field angles according to eq. [12]
 
     :param Su: array with the proper direction in the SRS reference system
@@ -679,7 +681,7 @@ def compute_field_angles(Su, double_telescope=False):
 
 def compute_mnu(phi, zeta):
     """
-    | Ref. Paper eq. [69]
+    | Ref. Paper [LUDW2011]_ eq. [69]
     | :math:`S'm_l=[-sin(\phi_l), cos(\phi_l), 0]^T`
     | :math:`S'n_l=[-sin(\zeta_l)cos(\phi_l), -sin(\zeta_l)\cos(\phi_l), cos(\zeta_l)]^T`
     | :math:`S'u_l=[cos(\zeta_l)cos(\phi_l), cos(\zeta_l)sin(\phi_l), sin(\zeta_l)]^T`
@@ -698,7 +700,7 @@ def compute_mnu(phi, zeta):
 # ### For source updating: -----------------------------------------------------
 def compute_du_dparallax(r, b_G):
     """
-    | Ref. Paper eq. [73]
+    | Ref. Paper [LUDW2011]_ eq. [73]
     | Computes :math:`\\frac{du}{d\omega}`
 
     :param r: barycentric coordinate direction of the source at time t.
@@ -727,7 +729,14 @@ def compute_du_dparallax(r, b_G):
 def compute_deviated_angles_color_aberration(eta, zeta, color, error):
     """
     Implementation of chromatic aberration
-    :returns: eta, zeta deviated by the aberration
+
+    :param eta:
+    :param zeta:
+    :param color:
+    :param error:
+    :returns:
+        * eta deviated by the aberration
+        * zeta deviated by the aberration
     """
     parameter = 1/10
     if error != 0:
