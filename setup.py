@@ -4,8 +4,8 @@ with open('README.md', 'r') as d:
     long_description = d.read()
 
 setuptools.setup(name='GaiaLab',
-                 version='0.1.0',
-                 author='Alex Bombrun, Maria del Valle Varo, Toby James',
+                 version='0.2.0',
+                 author='Alex Bombrun, Maria del Valle Varo, Toby James, Luca Zampieri',
                  author_email='abombrun@sciops.esa.int',
                  description='Toy model for the Gaia scanning law and '
                              'micrometeoroid detection and simulation '

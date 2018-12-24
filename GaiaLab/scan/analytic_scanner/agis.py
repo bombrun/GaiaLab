@@ -16,7 +16,59 @@
     - t (float),  time from J2000 [days]
     such that t_ep = 0
 
-Description of what we are trying to achieve in this file:
+Description of what we are trying to achieve in this file
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+It is a simplification of what is in [LUDW2011]_ .
+**If in doubt, check with the paper.**
+
+The goal would be to minimize:
+
+.. math::
+    min_{s,a} Q = \sum_{l \\in AL} (R^{AL}_l)^2
+        + \sum_{l \\in AC}  (R^{AC_l})^2
+
+In the following we might forget about :math:`R^{AL}, R^{AC}` and just use
+:math:`R_l` (for simplicity)
+
+The necessary condition for optimality would be that the derivative is null. So
+given that we want to optimize with respect to variable **x** we would have:
+
+.. math::
+    \\frac{dQ}{dx} = \sum_l 2 R_l \\frac{dR_l}{dx} = 0
+
+Later we will see that x will correspond to the source parameters and the
+coefficient describing the attitude. (i.e. :math:`x \in \{s, a\}`, **s** being
+the the set of 5 source parameter and a being the coeffeicients of the splines
+for each of the four quaternions parameters describing the attitude of the
+satellite at each time)
+
+This condition being sufficient if Q is convex.
+
+Q being non-linear we are gonna linearize it. Assuming our initial guess is good
+enough we can write the optimal set of parameters
+:math:`x^* = x^{ref} + x`
+
+We would get:
+
+.. math::
+    R_l(x^*) = R_l(x^{ref}) + \\frac{dR_l(x^{ref})}{dx}(x^*-x^{ref})
+    = R_l(x^{ref}) + \\frac{dR(x^{ref})}{dx}  x
+
+    Q(x)=[R_l(x^{ref})^2 + 2 R_l(x^{ref}) \\frac{dR(x^{ref})}{dx}x
+          + (\\frac{dR_l(x^{ref}) }{dx}x)^2]
+
+Thus at optimality we should have (:math:`\\frac{dQ}{dx}=0`):
+
+.. math::
+    [\\frac{dR_l(x^{ref})}{dx}]^T [\\frac{dR_l(x^{ref})}{dx}] x
+    = - \\frac{dR_l(x^{ref})}{dx} R_l(x^{ref})
+
+.. note::
+    Maily for next contributors:
+
+    - Chowleski factorization (:math:`LL^T`) is about twice as efficient as LU
+      factorization (default used by numpy.linalg.solve/scipy) if the matrix is
+      hermitian which is the case for us (we have a symmetric matrix)
 
 """
 # # Imports
