@@ -13,12 +13,12 @@ import time
 from scipy import optimize
 import quaternion
 # Local imports
-import constants as const
-import frame_transformations as ft
-from satellite import Satellite
-from source import Source
-import helpers
-from agis_functions import *
+import gaialab.scanner.constants as const
+import gaialab.scanner.frame_transformations as ft
+from gaialab.scanner.satellite import Satellite
+from gaialab.scanner.source import Source
+import gaialab.scanner.helpers
+from gaialab.scanner.agis_functions import *
 
 
 # fonctions used in the loop

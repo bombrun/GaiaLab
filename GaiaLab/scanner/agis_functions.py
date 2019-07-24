@@ -48,12 +48,12 @@ from scipy.interpolate import splev
 import matplotlib.pyplot as plt
 import quaternion
 # Local imports
-import constants as const
-import helpers as helpers
-import frame_transformations as ft
-from source import Source
-from satellite import Satellite
-from source import compute_topocentric_direction
+import gaialab.scanner.constants as const
+import gaialab.scanner.helpers as helpers
+import gaialab.scanner.frame_transformations as ft
+from gaialab.scanner.source import Source
+from gaialab.scanner.satellite import Satellite
+from gaialab.scanner.source import compute_topocentric_direction
 
 
 def generate_observation_wrt_attitude(attitude):

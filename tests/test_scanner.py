@@ -6,68 +6,29 @@ File contains some test for GaiaLab main functions
 
 :Author: Luca Zampieri 2018
 """
+import os
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from source import Source
-from satellite import Satellite
-from scanner import Scanner
-import helpers as helpers
-from agis import Calc_source
-from agis import Agis
-import frame_transformations as ft
-import agis_functions as af
 
-from quaternion_implementation import Quaternion
-import quaternion
+from gaialab.scanner.source import Source
+from gaialab.scanner.satellite import Satellite
+from gaialab.scanner.scanner import Scanner
+import gaialab.scanner.helpers as helpers
+from gaialab.scanner.agis import Calc_source
+from gaialab.scanner.agis import Agis
+import gaialab.scanner.frame_transformations as ft
+import gaialab.scanner.agis_functions as af
+
 
 
 import numpy as np
+import quaternion
+
 from scipy import interpolate
 from scipy.interpolate import BSpline
 from scipy.interpolate import splev
 import unittest
-
-
-class test_Quaternion(unittest.TestCase):
-
-    def setUp(self):
-        w, x, y, z = np.random.rand(4)
-        self.quat = Quaternion(w, x, y, z)
-
-    def test_conjugate_1(self):
-        q2 = self.quat.conjugate().conjugate()
-        q1_params = [self.quat.w, self.quat.x, self.quat.y, self.quat.z]
-        q2_params = [q2.w, q2.x, q2.y, q2.z]
-        for a, b in zip(q1_params, q2_params):
-            self.assertEqual(a, b)
-
-    def test_conjugate_2(self):
-        self.assertAlmostEqual(self.quat.magnitude,
-                               self.quat.conjugate().magnitude)
-
-    def test_unit(self):
-        self.assertAlmostEqual(1, self.quat.unit().magnitude)
-
-    def test_inverse(self):
-        q = self.quat*self.quat.inverse()
-        self.assertAlmostEqual(1, q.w)
-        self.assertAlmostEqual(0, q.x)
-        self.assertAlmostEqual(0, q.y)
-        self.assertAlmostEqual(0, q.z)
-
-    def test_operations(self):
-        pass
-
-    def test_rotation_axis_and_angle(self):
-        # WARNING: this would fail if a symmetric matrix is generated (unlikely)
-        # In that case you should just run again the test
-        v1 = np.random.rand(3)
-        v2 = np.random.rand(3)
-        vector, angle = helpers.get_rotation_vector_and_angle(v1, v2)
-        quat = Quaternion(vector=vector, angle=angle)
-        vector_bis, angle_bis = quat.rotation_axis_and_angle()
-        self.assertAlmostEqual(angle, angle_bis)
-        np.testing.assert_array_almost_equal(vector_bis, vector)
-
 
 class test_source(unittest.TestCase):
 
@@ -367,23 +328,6 @@ class test_frame_transformations(unittest.TestCase):
         v2_bis = ft.rotate_by_quaternion(quat, v1)
         for i in range(vector.shape[0]):
             self.assertAlmostEqual(v2[i], v2_bis[i])
-
-    def test_rotation_against_quat(self):
-        """ Test that rotating with quaternion or matrix is equivalent"""
-        v1 = np.random.rand(3)
-        v2 = np.random.rand(3)
-        v1 = v1/np.linalg.norm(v1)
-        v2 = v2/np.linalg.norm(v2)
-
-        rot = helpers.get_rotation_matrix(v1, v2)
-        vector, angle = helpers.get_rotation_vector_and_angle(v1, v2)
-        quat = Quaternion(vector=vector, angle=angle).unit()
-        rot_quat = quat.basis()
-        for x_row, y_row in zip(rot, rot_quat):
-            for a, b in zip(x_row, y_row):
-                self.assertAlmostEqual(a, b)
-        # v2_bis = rot@v1.T
-        # v2_tris = rot_quat@v1.T
 
 
 if __name__ == '__main__':

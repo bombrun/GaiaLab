@@ -73,11 +73,11 @@ Thus at optimality we should have (:math:`\\frac{dQ}{dx}=0`):
 """
 # # Imports
 # Local modules
-import frame_transformations as ft
-import constants as const
-from satellite import Satellite
-from source import Source
-from agis_functions import *
+import gaialab.scanner.frame_transformations as ft
+import gaialab.scanner.constants as const
+from gaialab.scanner.satellite import Satellite
+from gaialab.scanner.source import Source
+from gaialab.scanner.agis_functions import *
 
 # global modules
 import numpy as np

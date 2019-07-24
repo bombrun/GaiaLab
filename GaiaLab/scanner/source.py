@@ -10,11 +10,12 @@ Source class implementation in Python
 # # Imports
 # Global imports
 import numpy as np
-# Local imports
-import constants as const
-import frame_transformations as ft
-from satellite import Satellite
 import quaternion
+
+# Local imports
+import gaialab.scanner.constants as const
+import gaialab.scanner.frame_transformations as ft
+from gaialab.scanner.satellite import Satellite
 
 
 def compute_topocentric_direction(astro_parameters, sat, t):
