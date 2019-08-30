@@ -48,12 +48,12 @@ from scipy.interpolate import splev
 import matplotlib.pyplot as plt
 import quaternion
 # Local imports
-import gaialab.scanner.constants as const
-import gaialab.scanner.helpers as helpers
-import gaialab.scanner.frame_transformations as ft
-from gaialab.scanner.source import Source
-from gaialab.scanner.satellite import Satellite
-from gaialab.scanner.source import compute_topocentric_direction
+import constants as const
+import helpers as helpers
+import frame_transformations as ft
+from satellite import Satellite
+from source import Source
+
 
 
 def generate_observation_wrt_attitude(attitude):
@@ -79,7 +79,7 @@ def error_between_func_attitudes(my_times, func_att1, func_att2):
 
     :param my_times: times at which the difference will be computed
     :param func_att1: [function] that returns an attitude quaternion to compare
-    :param func_att2: [function] that returns an attitude quaternion to compare
+    :param func_att2: [function] that returns an attitude quaternion to compare#
 
     :returns: [float] The error in attitude (only qualitative) just for visualization
     """
@@ -104,7 +104,7 @@ def attitude_from_alpha_delta(source, sat, t, vertical_angle_dev=0):
     :param t: [float] time
     :param vertical_angle_dev: how much we deviate from zeta
     """
-    Cu = source.unit_topocentric_function(sat, t)
+    Cu = source.compute_u(sat, t)
     Su = np.array([1, 0, 0])
     if vertical_angle_dev == 0:
         vector, angle = helpers.get_rotation_vector_and_angle(Cu, Su)
@@ -139,7 +139,7 @@ def add_noise_to_calc_source(s, noise=1e-12):
 
 def spin_axis_from_alpha_delta(source, sat, t):
     raise ValueError('This function is obsolete')
-    Cu = source.unit_topocentric_function(sat, t)
+    Cu =source.compute_u(sat,  t)
     Su = np.array([1, 0, 0])
     vector, angle = helpers.get_rotation_vector_and_angle(Cu, Su)
     return vector
@@ -617,7 +617,8 @@ def observed_field_angles(source, attitude, sat, t, double_telescope=False):
         * eta: along-scan field angle (== phi if double_telescope = False)
         * zeta: across-scan field angle
     """
-    Cu = source.unit_topocentric_function(sat, t)  # u in CoMRS frame
+
+    Cu = source.compute_u(sat, t)  # u in CoMRS frame
     Su = ft.lmn_to_xyz(attitude, Cu)
     # if double_telescope is False, it will return (phi, zeta)
     eta, zeta = compute_field_angles(Su, double_telescope)
@@ -638,10 +639,7 @@ def calculated_field_angles(calc_source, attitude, sat, t, double_telescope=Fals
         * eta: along-scan field angle (== phi if double_telescope = False)
         * zeta: across-scan field angle
     """
-    alpha, delta, parallax, mu_alpha, mu_delta = calc_source.s_params[:]
-    params = np.array([alpha, delta, parallax, mu_alpha, mu_delta, calc_source.mu_radial])
-
-    Cu = compute_topocentric_direction(params, sat, t)  # u in CoMRS frame
+    Cu = calc_source.compute_u(sat, t)  # u in CoMRS frame
     Su = ft.lmn_to_xyz(attitude, Cu)  # u in SRS frame
 
     eta, zeta = compute_field_angles(Su, double_telescope)

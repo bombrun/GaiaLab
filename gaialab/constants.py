@@ -42,10 +42,3 @@ t_ep = 0
 
 # temporary
 sat_angle = np.radians(45)  # when simulating the attitude, the rotated angle
-
-
-def useless_function():
-    """
-    This function does nothing. Here only for testing purpose.
-    """
-    pass

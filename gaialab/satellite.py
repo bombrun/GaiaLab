@@ -15,8 +15,8 @@ from scipy.interpolate import splrep
 import quaternion
 
 # Local imports
-import gaialab.scanner.constants as const
-import gaialab.scanner.frame_transformations as ft
+import constants as const
+import frame_transformations as ft
 
 
 def gaia_orbit(t, epsilon):

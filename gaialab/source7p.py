@@ -6,6 +6,10 @@ Source class implementation in Python
 :Authors: mdelvallevaro
           LucaZampier (modifications)
 """
+##If no module found error apear, just uncomment this:
+#import os
+#import sys
+#sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..\\..')))
 
 # # Imports
 # Global imports
@@ -13,34 +17,11 @@ import numpy as np
 import quaternion
 
 # Local imports
-import gaialab.scanner.constants as const
-import gaialab.scanner.frame_transformations as ft
-from gaialab.scanner.satellite import Satellite
+import gaialab.constants as const
+import gaialab.frame_transformations as ft
+import gaialab.agis_functions as af
+from gaialab.satellite import Satellite
 
-
-def compute_topocentric_direction(astro_parameters, sat, t):
-    """
-    Compute the topocentric_function direction i.e. ũ
-    The horizontal coordinate system, also known as topocentric coordinate
-    system, is a celestial coordinate system that uses the observer's local
-    horizon as the fundamental plane. Coordinates of an object in the sky are
-    expressed in terms of altitude (or elevation) angle and azimuth.
-
-    :param astro_parameters: [alpha, delta, parallax, mu_alpha_dx, mu_delta, mu_radial]
-     [rads] the astrometric parameters
-    :param sat: [Satellite]
-    :param t: [float][days] time at which we want the topocentric function
-    :return: [array] (x,y,z) direction-vector of the star from the satellite's lmn frame.
-     (CoMRS)
-    """
-    alpha, delta, parallax, mu_alpha_dx, mu_delta, mu_radial = astro_parameters[:]
-    p, q, r = ft.compute_pqr(alpha, delta)
-    t_B = t  # + r.transpose() @ b_G / const.c  # # TODO: replace t_B with its real value
-    b_G = sat.ephemeris_bcrs(t)  # [Au]
-    topocentric = r + t * (p * mu_alpha_dx + q * mu_delta + r * mu_radial) - b_G * const.Au_per_Au * parallax
-    norm_topocentric = np.linalg.norm(topocentric)
-
-    return topocentric / norm_topocentric
 
 
 class Source:
@@ -141,16 +122,51 @@ class Source:
         u_bcrs = ft.adp_to_cartesian(self.alpha, self.delta, self.parallax)
         return u_bcrs
 
-    def unit_topocentric_function(self, satellite, t):
-        """
-        Compute the topocentric_function direction
 
-        :param satellite: satellite [class object]
-        :return: [array] (x,y,z) direction-vector of the star from the satellite's lmn frame.
+    def compute_u(self, satellite, t):
         """
-        # self.set_time(0)  # (float(t))
-        param = np.array([self.__alpha0, self.__delta0, self.parallax, self.mu_alpha_dx, self.mu_delta, self.mu_radial])
-        return compute_topocentric_direction(param, satellite, t)
+        Compute the topocentric_function direction i.e. ũ
+        The horizontal coordinate system, also known as topocentric coordinate
+        system, is a celestial coordinate system that uses the observer's local
+        horizon as the fundamental plane. Coordinates of an object in the sky are
+        expressed in terms of altitude (or elevation) angle and azimuth.
+
+        :param parameters: [alpha, delta, parallax, mu_alpha_dx, mu_delta, mu_radial]
+         [rads] the astrometric parameters
+        :param sat: [Satellite]
+        :param t: [float][days] time at which we want the topocentric function
+        :return: [array] (x,y,z) direction-vector of the star from the satellite's lmn frame.
+         (CoMRS)
+        """
+        parameters = np.array([self.__alpha0, self.__delta0, self.parallax, self.mu_alpha_dx, self.mu_delta, self.mu_radial])
+        p, q, r = ft.compute_pqr(self.__alpha0, self.__delta0)
+        t_B = t  # + r.transpose() @ b_G / const.c  # # TODO: replace t_B with its real value
+        b_G = sat.ephemeris_bcrs(t)  # [Au]
+        #Eq. [4]:
+        u = r + t * (p * self.mu_alpha_dx + q * self.mu_delta + r *self.mu_radial) - b_G * const.Au_per_Au * parallax
+        norm_u = np.linalg.norm(u)
+
+        return u / norm_u
+
+    def compute_du_ds(p,q,r,q_l,t_l):
+        """
+        params p,q,r : the vectors defining the frame associated to a source position at reference epoch
+        params q_l,t_l : the attitude at time t_l
+        returns : du_ds_SRS
+        """
+        # Equation 73
+        #r.shape = (3, 1)  # reshapes r
+        b_G = satellite.ephemeris_bcrs(t_l)  #Changed from gaia to satellite
+        tau = t_l - const.t_ep  # + np.dot(r, b_G) / const.c
+        # Compute derivatives
+        du_ds_CoMRS = [p, q, af.compute_du_dparallax(r, b_G), p*tau, q*tau, p*(tau**2)/2, q*(tau**2)/2]
+        # Equation 72
+        # should be changed to a pythonic map
+        du_ds_SRS = []
+        for derivative in du_ds_CoMRS:
+            du_ds_SRS.append(ft.lmn_to_xyz(q_l, derivative))
+        return np.array(du_ds_SRS)
+
 
     def topocentric_angles(self, satellite, t):
         """

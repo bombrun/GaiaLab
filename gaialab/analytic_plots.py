@@ -31,14 +31,14 @@ import matplotlib.pyplot as plt
 import mpl_toolkits.mplot3d.axes3d
 
 # Local imports
-import gaialab.scanner.constants as const
-import gaialab.scanner.helpers as helpers
-import gaialab.scanner.frame_transformations as ft
+import constants as const
+import helpers as helpers
+import frame_transformations as ft
 
-from gaialab.scanner.source import Source
-from gaialab.scanner.satellite import Satellite
-from gaialab.scanner.scanner import Scanner
-from gaialab.scanner.agis_functions import *
+from source import Source
+from satellite import Satellite
+from scanner import Scanner
+from agis_functions import *
 
 
 # ### For simple visualization (source & satellite) ----------------------------

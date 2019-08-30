@@ -73,11 +73,11 @@ Thus at optimality we should have (:math:`\\frac{dQ}{dx}=0`):
 """
 # # Imports
 # Local modules
-import gaialab.scanner.frame_transformations as ft
-import gaialab.scanner.constants as const
-from gaialab.scanner.satellite import Satellite
-from gaialab.scanner.source import Source
-from gaialab.scanner.agis_functions import *
+import frame_transformations as ft
+import constants as const
+from satellite import Satellite
+from source import Source
+from agis_functions import *
 
 # global modules
 import numpy as np
@@ -90,8 +90,7 @@ class Calc_source:
     """
     Contains the calculated parameters per source
     """
-    def __init__(self, name=None, obs_times=[], source_params=None, mu_radial=None, mean_color=0,
-                 source=None):
+    def __init__(self,source, name=None, obs_times=[]):
         """
         Data structure containing our computed parameters for the source in
         question.
@@ -113,24 +112,19 @@ class Calc_source:
         >>> calc_source = Calc_source(obs_times=[1, 2, 3], source=sirio)  # where sirio is a source object
 
         """
-        if source is not None:
-            name = 'Calc_' + source.name
-            params = source.get_parameters()
-            source_params = params[0:-1]
-            mu_radial = params[-1]
-            mean_color = source.mean_color
-        self.name = name
+        self.source=source
         self.obs_times = obs_times  # times at which it has been observed
-        self.s_params = source_params  # position at which it has been observed
-        self.mu_radial = mu_radial  # not considered an unknown of the problem
-        self.s_old = [self.s_params]
+        self.s_old = self.source.get_parameters()
         self.errors = []
-        self.mean_color = mean_color
+
 
     def set_params(self, params):
-        self.s_params = params
-        self.s_old = [self.s_params]
+        self.s_old = self.source.get_parameters()
+        self.source.set_params(params)
 
+
+    def compute_u(self,sat,t):
+        return self.source.compute_u(sat,t)
 
 class Agis:
 
@@ -274,11 +268,6 @@ class Agis:
         """
         # # WARNING: check also deviation in the source update
         eta_obs, zeta_obs, eta_calc, zeta_calc = angles
-        # if self.degree_error != 0:
-        f_color = self.real_sources[source_index].func_color(t)  # # TODO: separate eta zeta
-        m_color = self.real_sources[source_index].mean_color
-        eta_obs, zeta_obs = compute_deviated_angles_color_aberration(eta_obs, zeta_obs, f_color, self.degree_error)
-        eta_calc, zeta_calc = compute_deviated_angles_color_aberration(eta_calc, zeta_calc, m_color, self.degree_error)
         return eta_obs, zeta_obs, eta_calc, zeta_calc
 
     def compute_R_L(self, source_index, t):
@@ -418,7 +407,8 @@ class Agis:
                 raise ValueError('not yet implemented for this kind of updating')
             # Set double_telescope to False to get phi
             phi, zeta = calculated_field_angles(calc_source, attitude, self.sat, i, double_telescope=False)
-            phi, zeta = compute_deviated_angles_color_aberration(phi, zeta, calc_source.mean_color, self.degree_error)
+            #color not working
+            # phi, zeta = compute_deviated_angles_color_aberration(phi, zeta, calc_source.mean_color, self.degree_error)
             m, n, u = compute_mnu(phi, zeta)
             dR_ds_AL[i, :] = -m @ du_ds[:, :, i].transpose() * helpers.sec(zeta)
             dR_ds_AC[i, :] = -n @ du_ds[:, :, i].transpose()
@@ -811,7 +801,7 @@ class Agis:
         raise ValueError('This function is not complete')
         alpha, delta, parallax, mu_alpha, mu_delta = calc_source.s_params[:]
         params = np.array([alpha, delta, parallax, mu_alpha, mu_delta, calc_source.mu_radial])
-        Cu = compute_topocentric_direction(params, sat, t)  # u in CoMRS frame
+        Cu = compute_u(sat, t)  # u in CoMRS frame
         Su = ft.lmn_to_xyz(attitude, Cu)  # u in SRS frame
         phi, zeta = compute_field_angles(Su, double_telescope=False)
         pass

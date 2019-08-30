@@ -23,4 +23,3 @@ implimentation of the global astrometric solution and nominal scanning
 law for Gaia. hits is a micrometeroid impact detection and simulation
 package.
 """
-from . import scanner,solver

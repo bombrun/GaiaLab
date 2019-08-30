@@ -13,12 +13,12 @@ import time
 from scipy import optimize
 import quaternion
 # Local imports
-import gaialab.scanner.constants as const
-import gaialab.scanner.frame_transformations as ft
-from gaialab.scanner.satellite import Satellite
-from gaialab.scanner.source import Source
-import gaialab.scanner.helpers
-from gaialab.scanner.agis_functions import *
+import constants as const
+import frame_transformations as ft
+from satellite import Satellite
+from source import Source
+import helpers
+from agis_functions import *
 
 
 # fonctions used in the loop
@@ -31,7 +31,7 @@ def eta_angle(t, sat, source, FoV='centered'):
     """
     Gamma_c = const.Gamma_c
 
-    Cu_unit = source.unit_topocentric_function(sat, t)
+    Cu_unit = source.compute_u(sat, t)
     Su = ft.lmn_to_xyz(sat.func_attitude(t), Cu_unit)
 
     Su_x, Su_y, Su_z = Su[:]
