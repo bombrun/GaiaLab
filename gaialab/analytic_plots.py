@@ -25,16 +25,13 @@ Created on Mon Jun 18 14:59:19 2018
 import matplotlib as mpl
 from matplotlib import collections as mc
 import numpy as np
-import quaternion
-
 import matplotlib.pyplot as plt
 import mpl_toolkits.mplot3d.axes3d
 
 # Local imports
 import constants as const
-import helpers as helpers
 import frame_transformations as ft
-
+import quaternion
 from source import Source
 from satellite import Satellite
 from scanner import Scanner

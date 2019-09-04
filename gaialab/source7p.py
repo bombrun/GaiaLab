@@ -6,23 +6,15 @@ Source class implementation in Python
 :Authors: mdelvallevaro
           LucaZampier (modifications)
 """
-##If no module found error apear, just uncomment this:
-#import os
-#import sys
-#sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..\\..')))
 
 # # Imports
 # Global imports
 import numpy as np
-import quaternion
-
 # Local imports
-import gaialab.constants as const
-import gaialab.frame_transformations as ft
-import gaialab.agis_functions as af
-from gaialab.satellite import Satellite
-
-
+import constants as const
+import frame_transformations as ft
+from satellite import Satellite
+import quaternion
 
 class Source:
     """
@@ -34,7 +26,7 @@ class Source:
         >>> sirio = Source("sirio", 101.28, -16.7161, 379.21, -546.05, -1223.14, -7.6)
     """
 
-    def __init__(self, name, alpha0, delta0, parallax, mu_alpha, mu_delta, radial_velocity,
+    def __init__(self, name, alpha0, delta0, parallax, mu_alpha, mu_delta, g_alpha, g_delta,
                  func_color=(lambda t: 0), mean_color=0):
         """
         :param alpha0: [deg]
@@ -122,44 +114,37 @@ class Source:
         u_bcrs = ft.adp_to_cartesian(self.alpha, self.delta, self.parallax)
         return u_bcrs
 
-
-    def compute_u(self, satellite, t):
+    def compute_u(self, sat, t):
         """
-        Compute the topocentric_function direction i.e. ũ
-        The horizontal coordinate system, also known as topocentric coordinate
-        system, is a celestial coordinate system that uses the observer's local
-        horizon as the fundamental plane. Coordinates of an object in the sky are
-        expressed in terms of altitude (or elevation) angle and azimuth.
+        Compute the topocentric_function direction
 
-        :param parameters: [alpha, delta, parallax, mu_alpha_dx, mu_delta, mu_radial]
-         [rads] the astrometric parameters
-        :param sat: [Satellite]
-        :param t: [float][days] time at which we want the topocentric function
+        :param satellite: satellite [class object]
         :return: [array] (x,y,z) direction-vector of the star from the satellite's lmn frame.
-         (CoMRS)
         """
-        parameters = np.array([self.__alpha0, self.__delta0, self.parallax, self.mu_alpha_dx, self.mu_delta, self.mu_radial])
-        p, q, r = ft.compute_pqr(self.__alpha0, self.__delta0)
+        # self.set_time(0)  # (float(t))
+        param = np.array([self.alpha, self.delta, self.parallax, self.mu_alpha_dx, self.mu_delta, self.g_alpha, self.g_delta])
+        p, q, r = ft.compute_pqr(self.alpha, self.delta)
         t_B = t  # + r.transpose() @ b_G / const.c  # # TODO: replace t_B with its real value
+        tau=t_B-const.t_ep
         b_G = sat.ephemeris_bcrs(t)  # [Au]
-        #Eq. [4]:
-        u = r + t * (p * self.mu_alpha_dx + q * self.mu_delta + r *self.mu_radial) - b_G * const.Au_per_Au * parallax
-        norm_u = np.linalg.norm(u)
+        topocentric = r + tau**2/2 * (p * self.g_alpha + q * self.g_delta) #- b_G * const.Au_per_Au * self.parallax
+        norm_topocentric = np.linalg.norm(topocentric)
 
-        return u / norm_u
+        return topocentric / norm_topocentric
 
-    def compute_du_ds(p,q,r,q_l,t_l):
+
+    def compute_du_ds(self, satellite,p,q,r,q_l,t_l):
         """
         params p,q,r : the vectors defining the frame associated to a source position at reference epoch
         params q_l,t_l : the attitude at time t_l
         returns : du_ds_SRS
         """
         # Equation 73
-        #r.shape = (3, 1)  # reshapes r
-        b_G = satellite.ephemeris_bcrs(t_l)  #Changed from gaia to satellite
+        r.shape = (3, 1)  # reshapes r
+        b_G = satellite.ephemeris_bcrs(t_l)
         tau = t_l - const.t_ep  # + np.dot(r, b_G) / const.c
         # Compute derivatives
-        du_ds_CoMRS = [p, q, af.compute_du_dparallax(r, b_G), p*tau, q*tau, p*(tau**2)/2, q*(tau**2)/2]
+        du_ds_CoMRS = [p, q, self.compute_du_dparallax(r, b_G), p*tau, q*tau, p*(tau**2)/2, p*(tau**2)/2]
         # Equation 72
         # should be changed to a pythonic map
         du_ds_SRS = []
@@ -167,6 +152,30 @@ class Source:
             du_ds_SRS.append(ft.lmn_to_xyz(q_l, derivative))
         return np.array(du_ds_SRS)
 
+    def compute_du_dparallax(self,r, b_G):
+        """
+        | Ref. Paper [LUDW2011]_ eq. [73]
+        | Computes :math:`\\frac{du}{d\omega}`
+
+        :param r: barycentric coordinate direction of the source at time t.
+         Equivalently it is the third column vector of the "normal triad" of the
+         source with respect to the ICRS.
+        :param b_G: Spatial coordinates in the BCRS.
+        :returns: [array] the derivative du_dw
+        """
+        if not isinstance(b_G, np.ndarray):
+            raise TypeError('b_G has to be a numpy array, instead is {}'.format(type(b_G)))
+        if r.shape != (3, 1):
+            raise ValueError('r.shape should be (1, 3), instead it is {}'.format(r.shape))
+        if len(b_G.flatten()) != 3:
+            raise ValueError('b_G should have 3 elements, instead has {}'.format(len(b_G.flatten())))
+        if len((r @ r.T).flatten()) != 9:
+            raise Error("rr' should have 9 elements! instead has {} elements".format(len((r @ r.T).flatten())))
+        b_G.shape = (3, 1)
+        # r.shape = (1, 3)
+        du_dw = -(np.eye(3) - r @ r.T) @ b_G / const.Au_per_Au
+        du_dw.shape = (3)  # This way it returns an error if it has to copy data
+        return du_dw  # np.ones(3)  #
 
     def topocentric_angles(self, satellite, t):
         """

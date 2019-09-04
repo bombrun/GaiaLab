@@ -51,8 +51,8 @@ import quaternion
 import constants as const
 import helpers as helpers
 import frame_transformations as ft
-from satellite import Satellite
 from source import Source
+from satellite import Satellite
 
 
 
@@ -79,7 +79,7 @@ def error_between_func_attitudes(my_times, func_att1, func_att2):
 
     :param my_times: times at which the difference will be computed
     :param func_att1: [function] that returns an attitude quaternion to compare
-    :param func_att2: [function] that returns an attitude quaternion to compare#
+    :param func_att2: [function] that returns an attitude quaternion to compare
 
     :returns: [float] The error in attitude (only qualitative) just for visualization
     """
@@ -139,7 +139,7 @@ def add_noise_to_calc_source(s, noise=1e-12):
 
 def spin_axis_from_alpha_delta(source, sat, t):
     raise ValueError('This function is obsolete')
-    Cu =source.compute_u(sat,  t)
+    Cu = source.compute_u(sat, t)
     Su = np.array([1, 0, 0])
     vector, angle = helpers.get_rotation_vector_and_angle(Cu, Su)
     return vector
@@ -617,7 +617,6 @@ def observed_field_angles(source, attitude, sat, t, double_telescope=False):
         * eta: along-scan field angle (== phi if double_telescope = False)
         * zeta: across-scan field angle
     """
-
     Cu = source.compute_u(sat, t)  # u in CoMRS frame
     Su = ft.lmn_to_xyz(attitude, Cu)
     # if double_telescope is False, it will return (phi, zeta)
@@ -639,6 +638,9 @@ def calculated_field_angles(calc_source, attitude, sat, t, double_telescope=Fals
         * eta: along-scan field angle (== phi if double_telescope = False)
         * zeta: across-scan field angle
     """
+    alpha, delta, parallax, mu_alpha, mu_delta, mu_radial = calc_source.source.get_parameters()
+    params = np.array([alpha, delta, parallax, mu_alpha, mu_delta, mu_radial])
+
     Cu = calc_source.compute_u(sat, t)  # u in CoMRS frame
     Su = ft.lmn_to_xyz(attitude, Cu)  # u in SRS frame
 

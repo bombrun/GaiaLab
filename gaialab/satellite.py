@@ -12,11 +12,10 @@ TODO:
 import numpy as np
 from scipy import interpolate
 from scipy.interpolate import splrep
-import quaternion
-
 # Local imports
 import constants as const
 import frame_transformations as ft
+import quaternion
 
 
 def gaia_orbit(t, epsilon):
