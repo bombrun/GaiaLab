@@ -3,24 +3,24 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 
-from gaialab.source import Source
-from gaialab.satellite import Satellite
-from gaialab.scanner import Scanner
-import gaialab.helpers as helpers
-from gaialab.agis import Calc_source
-from gaialab.agis import Agis
-import gaialab.frame_transformations as ft
-import gaialab.agis_functions as af
-import gaialab.constants as const
+from source import Source
+from satellite import Satellite
+from scanner import Scanner
+import helpers as helpers
+from source import Calc_source
+from agis import Agis
+import frame_transformations as ft
+import agis_functions as af
+import constants as const
 
 import numpy as np
 import quaternion
 
 
 import unittest
-from gaialab.source import compute_u
-from gaialab.source import Source
-from gaialab.source5p import compute_du_ds
+from source import compute_u
+from source import Source
+
 
 #p=np.array([[0],
 #            [0],
@@ -40,12 +40,13 @@ from gaialab.source5p import compute_du_ds
 #du_ds_CoMRS = [p, q, af.compute_du_dparallax(r, b_G), p*tau, q*tau]
 #A=compute_du_ds(p,q,r,q_l,t_l)
 
-param=[101.28, -16.7161, 379.21, -546.05, -1223.14, -7.6]
+param=[101.28, -16.7161, 379.21, -546.05, -1223.14, 0]
 t_init = 0
 t_end =  365*5
 my_dt = 1/24 # [days]
 gaia = Satellite(ti=t_init, tf=t_end, dt= my_dt)
-B=compute_u(param, gaia, t_init)
+sirio = Source("sirio", 101.28, -16.7161, 379.21, -546.05, -1223.14, 0 )
+B=sirio.compute_u(param, gaia, t_init)
 print ("B=", B)
 
 def unit_topocentric_function( satellite, t):

@@ -21,51 +21,48 @@ class Source:
     | Source class implemented to represent a source object in the sky
     | Examples:
 
-        >>> vega = Source("vega", 279.2333, 38.78, 128.91, 201.03, 286.23, -13.9)
-        >>> proxima = Source("proxima",217.42, -62, 768.7, 3775.40, 769.33, 21.7)
-        >>> sirio = Source("sirio", 101.28, -16.7161, 379.21, -546.05, -1223.14, -7.6)
+        >>> Bernard = Source("bernard", 269.45, 4.6933 , 547.4506, -802.803, 10362.54, -0.55, 5.9)
+
     """
 
-    def __init__(self, name, alpha0, delta0, parallax, mu_alpha, mu_delta, g_alpha, g_delta,
-                 func_color=(lambda t: 0), mean_color=0):
-        """
-        :param alpha0: [deg]
-        :param delta0: [deg]
-        :param parallax: [mas]
-        :param mu_alpha: [mas/yr]
-        :param mu_delta: [mas/yr]
-        :param radial_velocity: [km/s]
-        :param func_color: function representing the color of the source in nanometers
-        :param mean_color: mean color observed by satellite
+    def __init__(self, name, alpha0, delta0, parallax, mu_alpha, mu_delta, g_alpha, g_delta, mu_radial=0):
 
-        Transforms in rads/day or rads, i.e. we got:
-            * [alpha] = rads
-            * [delta] = rads
-            * [parallax] = rads
-            * [mu_alpha_dx] = rads/days
-            * [mu_delta] = rads/days
-            * [mu_radial] = rads/days
+        """
+        The initial parameters of the source are given with this units of mesurement:
+        :param alpha0: [deg] -Right ascension
+        :param delta0: [deg] -Declination
+        :param parallax: [mas] -Parallax
+        :param mu_alpha: [mas/yr] -Proper motion in right ascension
+        :param mu_delta: [mas/yr] -Proper motion in declination
+        :param g_alpha: [mas/yr^2] -Acceleration of proper motion in right ascension
+        :param g_delta: [mas/yr^2] -Acceleration of proper motion in declination
+
+        For the model implementation is easier to work with the following transformations:
+            * [alpha] = rad
+            * [delta] = rad
+            * [parallax] = rad
+            * [mu_alpha_dx] = rad/days
+            * [mu_delta] = rad/days
+
         """
         self.name = name
         self.__alpha0 = np.radians(alpha0)
         self.__delta0 = np.radians(delta0)
+        self.alpha = self.__alpha0
+        self.delta = self.__delta0
         self.parallax = parallax * const.rad_per_mas
         self.mu_alpha_dx = mu_alpha * const.rad_per_mas / const.days_per_year * np.cos(self.__delta0)
         self.mu_delta = mu_delta * const.rad_per_mas / const.days_per_year     # from mas/yr to rad/day
-        self.mu_radial = radial_velocity * self.parallax * const.Au_per_km * const.sec_per_day
-        self.alpha = self.__alpha0
-        self.delta = self.__delta0
-
-        # For the source color
-        self.func_color = func_color
-        self.mean_color = mean_color
+        self.mu_radial = mu_radial * self.parallax * const.Au_per_km * const.sec_per_day
+        self.g_alpha = g_alpha * const.rad_per_mas / (const.days_per_year)**2
+        self.g_delta = g_delta * const.rad_per_mas / (const.days_per_year)**2
 
     def get_parameters(self, t=0):
         """
         :returns: astrometric parameters at time t (t=0 by default)
         """
         self.set_time(t)
-        return np.array([self.alpha, self.delta, self.parallax, self.mu_alpha_dx, self.mu_delta, self.mu_radial])
+        return np.array([self.alpha, self.delta, self.parallax, self.mu_alpha_dx, self.mu_delta, self.g_alpha, self.g_delta, self.mu_radial])
 
     def reset(self):
         """
@@ -196,3 +193,75 @@ class Source:
         delta_delta_mas = (delta_obs - self.__delta0) / const.rad_per_mas
 
         return alpha_obs, delta_obs, delta_alpha_dx_mas, delta_delta_mas  # mas
+
+class Calc_source:
+    """
+    Contains the calculated parameters per source
+    """
+    def __init__(self,name=None, source=None , obs_times=[]):
+        """
+        Data structure containing our computed parameters for the source in
+        question.
+
+        :param name: [string] the name of the source
+        :param obs_times: [list or array] of the observed times for this source
+        :param source_params: [list or array] alpha, delta, parallax, mu_alpha, mu_delta
+        :param mu_radial: [float] radial velocity of the source (appart since we
+         do not solve for radial velocity)
+        :param source: [source] instead of most of the above parameters we can
+         provide a source object instead and take the data from it.
+         Manually providing the parameters will override the source parameter
+
+        see :class:`source.Source`
+
+        >>> calc_source = Calc_source('calc_sirio', [1, 2.45, 12], [1, 2, 3, 4, 5], 6)
+        >>> calc_source = Calc_source(obs_times=[1, 2, 3], source=sirio)  # where sirio is a source object
+
+        """
+
+        if source is not None:
+            name = 'Calc_' + source.name
+            params = source.get_parameters()
+            source_params = params[0:]
+        self.name = name
+        self.source=source
+        self.obs_times = obs_times  # times at which it has been observed
+        self.s_old = self.source.get_parameters()
+        self.errors = []
+
+
+    def set_params(self, params):
+        self.s_old = self.source.get_parameters()
+        self.source.set_params(params)
+
+
+    def compute_u(self,sat,t):
+        return self.source.compute_u(sat,t)
+
+    def set_params(self, params):
+        self.s_params = params
+        self.s_old = [self.s_params]
+
+
+def calculated_field_angles(calc_source, attitude, sat, t, double_telescope=False):
+    """
+    | Ref. Paper [LUDW2011]_ eq. [12]-[13]
+    | Return field angles according to Lindegren eq. 12. See :meth:`compute_field_angles`
+
+    :param source: [Calc_source]
+    :param attitude: [quaternion] attitude at time t
+    :param sat: [Satellite]
+    :param t: [float] time at which we want the angles
+    :param double_telescope: [bool] If true, uses the model with two telescopes
+    :returns:
+        * eta: along-scan field angle (== phi if double_telescope = False)
+        * zeta: across-scan field angle
+    """
+    alpha, delta, parallax, mu_alpha, mu_delta, g_alpha, g_delta= calc_source.source.get_parameters()
+    params = np.array([alpha, delta, parallax, mu_alpha, mu_delta, g_alpha, g_delta ])
+
+    Cu = calc_source.compute_u(sat, t)  # u in CoMRS frame
+    Su = ft.lmn_to_xyz(attitude, Cu)  # u in SRS frame
+
+    eta, zeta = compute_field_angles(Su, double_telescope)
+    return eta, zeta

@@ -8,8 +8,8 @@ import agis_functions as af
 import frame_transformations as ft
 from satellite import Satellite
 import helpers as helpers
-from source import Calc_source
-from source import Source
+from source7p import Calc_source
+from source7p import Source
 
 def solve_AL(true_source,calc_source,observation_times):
     """
@@ -27,6 +27,58 @@ def solve_AL(true_source,calc_source,observation_times):
     calc_source.s_params[0] = calc_source.s_params[0] + updates[0] * np.cos(calc_source.s_params[1])
     calc_source.s_params[1:] = calc_source.s_params[1:] + updates[1:]
 
+def compute_field_angles(Su, double_telescope=False):
+    """
+    | Ref. Paper [LUDW2011]_ eq. [12]-[13]
+    | Return field angles according to eq. [12]
+
+    :param Su: array with the proper direction in the SRS reference system
+    :param double_telescope: [bool] If true, uses the model with two telescopes
+    :returns:
+        * eta: along-scan field angle (== phi if double_telescope = False)
+        * zeta: across-scan field angle
+    """
+    if not isinstance(Su, np.ndarray):
+        raise TypeError('Su has to be a numpy array, instead is {}'.format(type(Su)))
+    if Su.shape != (3,):
+        raise ValueError('Shape of Su should be (3), instead it is {}'.format(Su.shape))
+    if double_telescope:
+        Gamma_c = const.Gamma_c  # angle between the two scanners # TODO: implement gamma_c
+    else:
+        Gamma_c = 0
+    Su_x, Su_y, Su_z = Su[:]
+
+    phi = np.arctan2(Su_y, Su_x)
+    if phi >= np.pi or phi < -np.pi:
+        raise ValueError('phi should be -pi <= phi < pi, instead it is: {}'.format(phi))
+    zeta = np.arctan2(Su_z, np.sqrt(Su_x**2+Su_y**2))
+
+    field_index = np.sign(phi)
+    eta = phi - field_index * Gamma_c / 2
+    return eta, zeta
+
+def calculated_field_angles(calc_source, attitude, sat, t, double_telescope=False):
+    """
+    | Ref. Paper [LUDW2011]_ eq. [12]-[13]
+    | Return field angles according to Lindegren eq. 12. See :meth:`compute_field_angles`
+
+    :param source: [Calc_source]
+    :param attitude: [quaternion] attitude at time t
+    :param sat: [Satellite]
+    :param t: [float] time at which we want the angles
+    :param double_telescope: [bool] If true, uses the model with two telescopes
+    :returns:
+        * eta: along-scan field angle (== phi if double_telescope = False)
+        * zeta: across-scan field angle
+    """
+    alpha, delta, parallax, mu_alpha, mu_delta, g_alpha, g_delta, mu_radial= calc_source.source.get_parameters()
+    params = np.array([alpha, delta, parallax, mu_alpha, mu_delta, g_alpha, g_delta, mu_radial ])
+
+    Cu = calc_source.compute_u(sat, t)  # u in CoMRS frame
+    Su = ft.lmn_to_xyz(attitude, Cu)  # u in SRS frame
+
+    eta, zeta = compute_field_angles(Su, double_telescope)
+    return eta, zeta
 
 def compute_design_equation(true_source,calc_source,gaia,observation_times):
     """
@@ -44,15 +96,15 @@ def compute_design_equation(true_source,calc_source,gaia,observation_times):
     n_obs = len(observation_times)
     R_AL = np.zeros(n_obs)
     R_AC = np.zeros(n_obs)
-    dR_ds_AL = np.zeros((n_obs, 5))
-    dR_ds_AC = np.zeros((n_obs, 5))
+    dR_ds_AL = np.zeros((n_obs, 7))
+    dR_ds_AC = np.zeros((n_obs, 7))
     FA = []
     for j, t_l in enumerate(observation_times):
         # fake attitude using the position of the true sources at the given time
         # i.e. not based on the nominal scanning law
         q_l = af.attitude_from_alpha_delta(true_source,gaia,t_l,0)
         phi_obs, zeta_obs = af.observed_field_angles(true_source, q_l,  gaia, t_l, False)
-        phi_calc, zeta_calc = af.calculated_field_angles(calc_source, q_l, gaia, t_l, False)
+        phi_calc, zeta_calc = calculated_field_angles(calc_source, q_l, gaia, t_l, False)
 
         FA.append([phi_obs, zeta_obs,phi_calc, zeta_calc])
 

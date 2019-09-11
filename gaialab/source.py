@@ -14,6 +14,7 @@ import numpy as np
 import constants as const
 import frame_transformations as ft
 from satellite import Satellite
+import helpers
 import quaternion
 
 class Source:
@@ -26,8 +27,7 @@ class Source:
         >>> sirio = Source("sirio", 101.28, -16.7161, 379.21, -546.05, -1223.14, -7.6)
     """
 
-    def __init__(self, name, alpha0, delta0, parallax, mu_alpha, mu_delta, radial_velocity,
-                 func_color=(lambda t: 0), mean_color=0):
+    def __init__(self, name, alpha0, delta0, parallax, mu_alpha, mu_delta, radial_velocity):
         """
         :param alpha0: [deg]
         :param delta0: [deg]
@@ -35,8 +35,7 @@ class Source:
         :param mu_alpha: [mas/yr]
         :param mu_delta: [mas/yr]
         :param radial_velocity: [km/s]
-        :param func_color: function representing the color of the source in nanometers
-        :param mean_color: mean color observed by satellite
+
 
         Transforms in rads/day or rads, i.e. we got:
             * [alpha] = rads
@@ -56,9 +55,6 @@ class Source:
         self.alpha = self.__alpha0
         self.delta = self.__delta0
 
-        # For the source color
-        self.func_color = func_color
-        self.mean_color = mean_color
 
     def get_parameters(self, t=0):
         """
@@ -177,6 +173,7 @@ class Source:
         return du_dw  # np.ones(3)  #
 
     def topocentric_angles(self, satellite, t):
+
         """
         Calculates the angles of movement of the star from bcrs.
 
@@ -195,3 +192,53 @@ class Source:
         delta_delta_mas = (delta_obs - self.__delta0) / const.rad_per_mas
 
         return alpha_obs, delta_obs, delta_alpha_dx_mas, delta_delta_mas  # mas
+
+
+
+class Calc_source:
+    """
+    Contains the calculated parameters per source
+    """
+    def __init__(self,name=None, source=None ,mu_radial=0, obs_times=[]):
+        """
+        Data structure containing our computed parameters for the source in
+        question.
+
+        :param name: [string] the name of the source
+        :param obs_times: [list or array] of the observed times for this source
+        :param source_params: [list or array] alpha, delta, parallax, mu_alpha, mu_delta
+        :param mu_radial: [float] radial velocity of the source (appart since we
+         do not solve for radial velocity)
+        :param source: [source] instead of most of the above parameters we can
+         provide a source object instead and take the data from it.
+         Manually providing the parameters will override the source parameter
+
+        see :class:`source.Source`
+
+        >>> calc_source = Calc_source('calc_sirio', [1, 2.45, 12], [1, 2, 3, 4, 5], 6)
+        >>> calc_source = Calc_source(obs_times=[1, 2, 3], source=sirio)  # where sirio is a source object
+
+        """
+        if source is not None:
+            name = 'Calc_' + source.name
+            params = source.get_parameters()
+            source_params = params[0:-1]
+            mu_radial = params[-1]
+        self.name = name
+        self.source=source
+        self.obs_times = obs_times  # times at which it has been observed
+        self.s_old = self.source.get_parameters()
+        self.errors = []
+
+
+    def set_params(self, params):
+        self.s_old = self.source.get_parameters()
+        self.source.set_params(params)
+
+
+    def compute_u(self,sat,t):
+        return self.source.compute_u(sat,t)
+
+    def set_params(self, params):
+        self.s_params = params
+        self.s_old = [self.s_params]

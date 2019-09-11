@@ -73,17 +73,63 @@ Thus at optimality we should have (:math:`\\frac{dQ}{dx}=0`):
 """
 # # Imports
 # Local modules
-import frame_transformations as ft
-import constants as const
-from satellite import Satellite
-from source import Source
-from agis_functions import *
+import gaialab.scanner.frame_transformations as ft
+import gaialab.scanner.constants as const
+from gaialab.scanner.satellite import Satellite
+from gaialab.scanner.source import Source
+from gaialab.scanner.agis_functions import *
 
 # global modules
 import numpy as np
 from scipy.interpolate import BSpline
 from scipy import sparse as sps
 import quaternion  # moble's quaternion (numpy compatible quaternions)
+
+
+class Calc_source:
+    """
+    Contains the calculated parameters per source
+    """
+    def __init__(self, name=None, obs_times=[], source_params=None, mu_radial=None, mean_color=0,
+                 source=None):
+        """
+        Data structure containing our computed parameters for the source in
+        question.
+
+        :param name: [string] the name of the source
+        :param obs_times: [list or array] of the observed times for this source
+        :param source_params: [list or array] alpha, delta, parallax, mu_alpha, mu_delta
+        :param mu_radial: [float] radial velocity of the source (appart since we
+         do not solve for radial velocity)
+        :param mean_color: [float] mean color of the source if we want to use
+         explore chromatic aberration
+        :param source: [source] instead of most of the above parameters we can
+         provide a source object instead and take the data from it.
+         Manually providing the parameters will override the source parameter
+
+        see :class:`source.Source`
+
+        >>> calc_source = Calc_source('calc_sirio', [1, 2.45, 12], [1, 2, 3, 4, 5], 6)
+        >>> calc_source = Calc_source(obs_times=[1, 2, 3], source=sirio)  # where sirio is a source object
+
+        """
+        if source is not None:
+            name = 'Calc_' + source.name
+            params = source.get_parameters()
+            source_params = params[0:-1]
+            mu_radial = params[-1]
+            mean_color = source.mean_color
+        self.name = name
+        self.obs_times = obs_times  # times at which it has been observed
+        self.s_params = source_params  # position at which it has been observed
+        self.mu_radial = mu_radial  # not considered an unknown of the problem
+        self.s_old = [self.s_params]
+        self.errors = []
+        self.mean_color = mean_color
+
+    def set_params(self, params):
+        self.s_params = params
+        self.s_old = [self.s_params]
 
 
 class Agis:
@@ -218,6 +264,22 @@ class Agis:
                                                       self.sat, t, self.double_telescope)
         return eta_obs, zeta_obs, eta_calc, zeta_calc
 
+    def deviate_field_angles_color_aberration(self, source_index, t, angles):
+        """
+        | apply color aberration deviation to field angles (eta, zeta)
+
+        .. note:: If we the color aberration is not given in the sources,
+            nothing happens and the same angles are returned.
+
+        """
+        # # WARNING: check also deviation in the source update
+        eta_obs, zeta_obs, eta_calc, zeta_calc = angles
+        # if self.degree_error != 0:
+        f_color = self.real_sources[source_index].func_color(t)  # # TODO: separate eta zeta
+        m_color = self.real_sources[source_index].mean_color
+        eta_obs, zeta_obs = compute_deviated_angles_color_aberration(eta_obs, zeta_obs, f_color, self.degree_error)
+        eta_calc, zeta_calc = compute_deviated_angles_color_aberration(eta_calc, zeta_calc, m_color, self.degree_error)
+        return eta_obs, zeta_obs, eta_calc, zeta_calc
 
     def compute_R_L(self, source_index, t):
         """
@@ -230,7 +292,9 @@ class Agis:
         # WARNING: maybe source is not in the field of vision of sat at time t!
         R_L_eta, R_L_zeta = (0, 0)
 
-        eta_obs, zeta_obs, eta_calc, zeta_calc = self.get_field_angles(source_index, t)
+        angles = self.get_field_angles(source_index, t)
+
+        eta_obs, zeta_obs, eta_calc, zeta_calc = self.deviate_field_angles_color_aberration(source_index, t, angles)
 
         R_L_eta = eta_obs - eta_calc  # AL
         R_L_zeta = zeta_obs - zeta_calc  # AC
@@ -354,6 +418,7 @@ class Agis:
                 raise ValueError('not yet implemented for this kind of updating')
             # Set double_telescope to False to get phi
             phi, zeta = calculated_field_angles(calc_source, attitude, self.sat, i, double_telescope=False)
+            phi, zeta = compute_deviated_angles_color_aberration(phi, zeta, calc_source.mean_color, self.degree_error)
             m, n, u = compute_mnu(phi, zeta)
             dR_ds_AL[i, :] = -m @ du_ds[:, :, i].transpose() * helpers.sec(zeta)
             dR_ds_AC[i, :] = -n @ du_ds[:, :, i].transpose()
@@ -399,7 +464,9 @@ class Agis:
             du_dparallax = compute_du_dparallax(r, b_G)
             du_dmualpha = p*tau
             du_dmudelta = q*tau
-            CoMRS_derivatives = [du_dalpha, du_ddelta, du_dparallax, du_dmualpha, du_dmudelta]
+            du_dgalpha = p*(tau**2)/2
+            du_dgdelta = q*(tau**2)/2
+            CoMRS_derivatives = [du_dalpha, du_ddelta, du_dparallax, du_dmualpha, du_dmudelta, du_dgalpha, du_dgdelta]
             SRS_derivatives = self.CoMRS_to_SRS_for_source_derivatives(CoMRS_derivatives, calc_source,
                                                                        t_l, source_index)
             du_ds[:, :, j] = SRS_derivatives
@@ -678,8 +745,7 @@ class Agis:
         reg_mn = np.zeros((4, 4))
         time_support_spline_m = get_times_in_knot_interval(self.all_obs_times, self.att_knots, m_index, self.M)
         time_support_spline_n = get_times_in_knot_interval(self.all_obs_times, self.att_knots, n_index, self.M)
-        time_support_spline_mn = np.sort(
-        get_lists_intersection(time_support_spline_m, time_support_spline_n))
+        time_support_spline_mn = np.sort(helpers.get_lists_intersection(time_support_spline_m, time_support_spline_n))
 
         for i, t_L in enumerate(time_support_spline_mn):
             left_index = get_left_index(self.att_knots, t=t_L, M=self.M)

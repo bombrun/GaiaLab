@@ -198,7 +198,3 @@ def plot_sparsity_pattern(A, tick_frequency):
     plt.yticks(np.arange(0, A.shape[0], tick_frequency))
     plt.grid()
     plt.show()
-
-
-def ephemeris_bcrs(t):
-    pass

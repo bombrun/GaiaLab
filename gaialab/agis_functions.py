@@ -638,7 +638,7 @@ def calculated_field_angles(calc_source, attitude, sat, t, double_telescope=Fals
         * eta: along-scan field angle (== phi if double_telescope = False)
         * zeta: across-scan field angle
     """
-    alpha, delta, parallax, mu_alpha, mu_delta, mu_radial = calc_source.source.get_parameters()
+    alpha, delta, parallax, mu_alpha, mu_delta, mu_radial= calc_source.source.get_parameters()
     params = np.array([alpha, delta, parallax, mu_alpha, mu_delta, mu_radial])
 
     Cu = calc_source.compute_u(sat, t)  # u in CoMRS frame
@@ -694,56 +694,7 @@ def compute_mnu(phi, zeta):
     n_l = np.array([-np.sin(zeta)*np.cos(phi), np.sin(zeta)*np.sin(phi), np.cos(zeta)])
     u_l = np.array([np.cos(zeta)*np.cos(phi), np.cos(zeta)*np.sin(phi), np.sin(zeta)])
     return np.array([m_l, n_l, u_l])
-# ### End field angles and associated functions ################################
 
-
-# ### For source updating: -----------------------------------------------------
-def compute_du_dparallax(r, b_G):
-    """
-    | Ref. Paper [LUDW2011]_ eq. [73]
-    | Computes :math:`\\frac{du}{d\omega}`
-
-    :param r: barycentric coordinate direction of the source at time t.
-     Equivalently it is the third column vector of the "normal triad" of the
-     source with respect to the ICRS.
-    :param b_G: Spatial coordinates in the BCRS.
-    :returns: [array] the derivative du_dw
-    """
-    if not isinstance(b_G, np.ndarray):
-        raise TypeError('b_G has to be a numpy array, instead is {}'.format(type(b_G)))
-    if r.shape != (3, 1):
-        raise ValueError('r.shape should be (1, 3), instead it is {}'.format(r.shape))
-    if len(b_G.flatten()) != 3:
-        raise ValueError('b_G should have 3 elements, instead has {}'.format(len(b_G.flatten())))
-    if len((r @ r.T).flatten()) != 9:
-        raise Error("rr' should have 9 elements! instead has {} elements".format(len((r @ r.T).flatten())))
-    b_G.shape = (3, 1)
-    # r.shape = (1, 3)
-    du_dw = -(np.eye(3) - r @ r.T) @ b_G / const.Au_per_Au
-    du_dw.shape = (3)  # This way it returns an error if it has to copy data
-    return du_dw  # np.ones(3)  #
-# ###End source updating #######################################################
-
-
-# ### Beginning Color aberration -----------------------------------------------
-def compute_deviated_angles_color_aberration(eta, zeta, color, error):
-    """
-    Implementation of chromatic aberration
-
-    :param eta:
-    :param zeta:
-    :param color:
-    :param error:
-    :returns:
-        * eta deviated by the aberration
-        * zeta deviated by the aberration
-    """
-    parameter = 1/10
-    if error != 0:
-        eta = eta + parameter * color
-        zeta = zeta + parameter * color
-    return eta, zeta
-# ### End Color aberration #####################################################
 
 
 # End of file
