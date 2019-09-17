@@ -9,7 +9,7 @@ import frame_transformations as ft
 from satellite import Satellite
 import helpers as helpers
 from source7p import Calc_source
-from source7p import Source7p
+from source7p import Source
 
 def solve_AL(true_source,calc_source,observation_times):
     """
@@ -37,8 +37,8 @@ def compute_design_equation(true_source,calc_source,gaia,observation_times):
     returns : dR_ds_AL, dR_ds_AC, R_AL, R_AC, FA(phi_obs, zeta_obs,phi_calc, zeta_calc)
     """
     gaia=Satellite(0,365*5,1/24)
-    alpha0 = calc_source.source7p.get_parameters()[0]
-    delta0 = calc_source.source7p.get_parameters()[1]
+    alpha0 = calc_source.source.get_parameters()[0]
+    delta0 = calc_source.source.get_parameters()[1]
     p, q, r = ft.compute_pqr(alpha0, delta0)
     n_obs = len(observation_times)
     R_AL = np.zeros(n_obs)
