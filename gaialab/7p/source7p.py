@@ -11,6 +11,7 @@ Source class implementation in Python
 # Global imports
 import numpy as np
 # Local imports
+#from source import Source
 import constants as const
 import frame_transformations as ft
 from satellite import Satellite
@@ -170,7 +171,7 @@ class Source:
             raise Error("rr' should have 9 elements! instead has {} elements".format(len((r @ r.T).flatten())))
         b_G.shape = (3, 1)
         # r.shape = (1, 3)
-        du_dw = -(np.eye(3) - r @ r.T) @ b_G / const.Au_per_Au
+        du_dw = -(np.eye(3) - r @ r.T) @ b_G / const.Au
         du_dw.shape = (3)  # This way it returns an error if it has to copy data
         return du_dw  # np.ones(3)  #
 

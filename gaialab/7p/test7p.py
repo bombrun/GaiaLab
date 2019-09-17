@@ -14,7 +14,6 @@ import solver7p
 
 import constants as const
 import quaternion
-import agis_functions as af
 import helpers as helpers
 import numpy as np
 
@@ -22,11 +21,11 @@ import astropy.units as units
 import matplotlib.pyplot as plt
 
 sirio = Source("sirio", 101.28, -16.7161, 379.21, -546.05, -1223.14, 0, 0, 0)
-my_observations = np.arange(0,365*3,15)
+my_observations = [0,365]
 calc_s =  Calc_source(obs_times=my_observations, source=sirio)
 gaia = Satellite(0, 365*5, 1/24)
 dR_ds_AL, dR_ds_AC, R_AL, R_AC, FA = compute_design_equation(sirio,calc_s,gaia,my_observations)
 
+print("dR_ds_AL=",dR_ds_AL)
 plt.scatter(FA[:,0]*units.rad.to(units.mas),FA[:,1]*units.rad.to(units.mas),c=my_observations)
 plt.show()
-print("ok")

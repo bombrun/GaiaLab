@@ -14,19 +14,17 @@
 import numpy as np
 
 #: General
-#: How many days per year
-days_per_year = 365  # [days/years]
-#: How many radians per micro arcsec
-rad_per_mas = 2*np.pi/(1000*360*3600)  # [radiants/mas] radiants per milli-arcsec
-rad_per_arcsec = 2*np.pi/(360*3600)  # [radiants/arcsec] radiants per arcsec
-rad_per_deg = (2*np.pi)/360  # [radiants/degrees]
+days_per_year = 365  # [days/year]
+rad_per_mas = 2*np.pi/(1000*360*3600)  # [rad/mas] radians per milli-arcsec
+rad_per_arcsec = 2*np.pi/(360*3600)  # [rad/arcsec] radians per arcsec
+rad_per_deg = (2*np.pi)/360  # [radians/degrees]
 pc_per_km = 3.24078e-14  # [km/pc] kilometers per parsec
 sec_per_day = 3600*24  # [sec/day] seconds per day
-km_per_Au = 149598000  # number of kilometers in one Au
-AU_per_pc = 4.8481705933824e-6  # [au/pc] austronomical unit per parsec
-Au_per_km = 1/km_per_Au
+km_per_Au = 149598000  # [km/au] kilometers to Astronomical units conversion
+AU_per_pc = 4.8481705933824e-6  # [au/pc] Astronomical unit to parsec conversion
+Au_per_km = 1/km_per_Au #[au/km] Astronomical unit to kilometers conversion
 c = 299.792458e6  # [m/s]
-Au_per_Au = 1  # useless, just to make computations explicit?
+Au=1 #Astronomical unit
 
 
 # # Proper to Gaia

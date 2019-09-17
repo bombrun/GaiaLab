@@ -17,7 +17,6 @@ import constants as const
 import frame_transformations as ft
 from satellite import Satellite
 from source import Source
-from agis_functions import *
 
 
 # fonctions used in the loop
@@ -30,7 +29,7 @@ def eta_angle(t, sat, source, FoV='centered'):
     """
     Gamma_c = const.Gamma_c
 
-    Cu_unit = source.unit_topocentric_function(sat, t)
+    Cu_unit = source.compute_u(sat, t)
     Su = ft.lmn_to_xyz(sat.func_attitude(t), Cu_unit)
 
     Su_x, Su_y, Su_z = Su[:]
@@ -194,3 +193,4 @@ class Scanner:
                              ' and call compute_angles_eta_zeta(sat, source)')
         return np.mean(self.eta_scanned)
 # End of file
+print ("ok")

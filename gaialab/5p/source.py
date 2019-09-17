@@ -122,7 +122,7 @@ class Source:
         p, q, r = ft.compute_pqr(self.alpha, self.delta)
         t_B = t  # + r.transpose() @ b_G / const.c  # # TODO: replace t_B with its real value
         b_G = sat.ephemeris_bcrs(t)  # [Au]
-        topocentric = r + t * (p * self.mu_alpha_dx + q * self.mu_delta + r *self. mu_radial) - b_G * const.Au_per_Au * self.parallax
+        topocentric = r + t * (p * self.mu_alpha_dx + q * self.mu_delta + r *self. mu_radial) - b_G * self.parallax /const.Au
         norm_topocentric = np.linalg.norm(topocentric)
 
         return topocentric / norm_topocentric
@@ -168,7 +168,7 @@ class Source:
             raise Error("rr' should have 9 elements! instead has {} elements".format(len((r @ r.T).flatten())))
         b_G.shape = (3, 1)
         # r.shape = (1, 3)
-        du_dw = -(np.eye(3) - r @ r.T) @ b_G / const.Au_per_Au
+        du_dw = -(np.eye(3) - r @ r.T) @ b_G /const.Au
         du_dw.shape = (3)  # This way it returns an error if it has to copy data
         return du_dw  # np.ones(3)  #
 
@@ -182,7 +182,7 @@ class Source:
         :return: alpha, delta, delta alpha, delta delta [mas]
         """
 
-        u_lmn_unit = self.unit_topocentric_function(satellite, t)
+        u_lmn_unit = self.compute_u(satellite, t)
         alpha_obs, delta_obs = ft.vector_to_alpha_delta(u_lmn_unit)
 
         if alpha_obs < 0:
@@ -195,7 +195,7 @@ class Source:
 
 
 
-class Calc_source:
+class Calc_source(Source):
     """
     Contains the calculated parameters per source
     """

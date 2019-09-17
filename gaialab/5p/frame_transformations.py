@@ -24,7 +24,6 @@ def zero_to_two_pi_to_minus_pi_pi(angle, unit='radians'):
     to any angle greater than pi.
 
     Info: Can be used with numpy arrays
-
     :param angle: [rad] angle or array of angles in [0-2*pi] format
     :param unit: [str] specify if the input data is in radians or degrees
     :returns: angle in the [-pi, pi] format
