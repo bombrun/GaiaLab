@@ -1,4 +1,4 @@
-#This is the test for the 7 parameters Source model
+#This is the test for the 5 parameters Source model
 
 import sys
  #append to path the folder that contains the analytic scanner
@@ -7,9 +7,9 @@ sys.path.append('../ESA/GaiaLab/gaialab')
 import frame_transformations as ft
 from scanner import Scanner
 from satellite import Satellite
-from source7p import Source
-from source7p import Calc_source
-import solver7p as solver
+from source import Source
+from source import Calc_source
+import solver as solver
 
 import constants as const
 import quaternion
@@ -19,7 +19,7 @@ import numpy as np
 import astropy.units as units
 import matplotlib.pyplot as plt
 
-sirio = Source("sirio", 101.28, -16.7161, 379.21, -546.05, -1223.14, 0, 0, 0)
+sirio = Source("sirio", 101.28, -16.7161, 379.21, -546.05, -1223.14, 0)
 my_observations = [365,2*365]
 calc_s =  Calc_source(obs_times=my_observations, source=sirio)
 gaia = Satellite(0, 365*5, 1/24)
@@ -30,12 +30,11 @@ alpha0 = calc_s.source.get_parameters()[0]
 delta0 = calc_s.source.get_parameters()[1]
 p, q, r = ft.compute_pqr(alpha0, delta0)
 n_obs = len(my_observations)
-dR_ds_AL = np.zeros((n_obs, 7))
+dR_ds_AL = np.zeros((n_obs,5))
 for j, t_l in enumerate(my_observations):
     q_l = solver.attitude_from_alpha_delta(sirio,gaia,t_l,0)
     print("q_l=",q_l)
     phi_obs, zeta_obs = solver.observed_field_angles(sirio, q_l,  gaia, t_l, False)
-    print("phi_obs=",phi_obs)
     phi_calc, zeta_calc = solver.calculated_field_angles(calc_s, q_l, gaia, t_l, False)
     m,n,u= solver.compute_mnu (phi_calc,zeta_calc)
     du_ds = sirio.compute_du_ds(gaia,p,q,r,q_l,t_l)

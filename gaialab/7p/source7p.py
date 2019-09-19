@@ -123,9 +123,9 @@ class Source:
         param = np.array([self.alpha, self.delta, self.parallax, self.mu_alpha_dx, self.mu_delta, self.g_alpha, self.g_delta])
         p, q, r = ft.compute_pqr(self.alpha, self.delta)
         t_B = t  # + r.transpose() @ b_G / const.c  # # TODO: replace t_B with its real value
-        tau=t_B-const.t_ep
+        #tau=t_B-const.t_ep
         b_G = sat.ephemeris_bcrs(t)  # [Au]
-        topocentric = r + tau**2/2 * (p * self.g_alpha + q * self.g_delta) #- b_G * const.Au_per_Au * self.parallax
+        topocentric = r + t * (p * self.mu_alpha_dx + q * self.mu_delta) + t**2/2 * (p * self.g_alpha + q * self.g_delta) #- b_G * const.Au_per_Au * self.parallax
         norm_topocentric = np.linalg.norm(topocentric)
 
         return topocentric / norm_topocentric

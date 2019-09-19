@@ -1,16 +1,22 @@
 # GaiaLab
-Software used to generate reports, taking data from a running SonarQube instance, for the ESAC PA/QA group
 
+The current model of the GaiaLab project aims to be able to solve both single sources and binary sources. To represent the astrometric measurements for single stars, 5 astronomical parameters are sufficient:the parallax, the two equatorial coordinates and the the two coresponding proper motions. Thus, about 15% of the entries in The Hipparchos Catalogue are actually binaries or multiple stars and require special solutions due to their various manifestations of multiplicity.
+The implemented solution is to take into account 7 astronomical parameters, adding the acceleration of the proper motion in the two directions.
 ## Project layout
-The project has different files and directories
+The project has the following files and directories
 ```
     setup.py        # The configuration file
     README.md       #
     gaialab/
-        constants.py
-        frame_transformations
+        constants.py              #
+        frame_transformations.py
         helpers.py
-        source.py    # The documentation homepage
+        sattelite.py
+        scanner.py
+        solver.py
+        source.py
+
+            # The documentation homepage
             # Brief introduction to the package
         metrics.md  # Module metrics.py and its functions
         tables.md   # Module tables.py and its functions
