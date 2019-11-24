@@ -8,8 +8,8 @@ import constants as const
 import frame_transformations as ft
 from satellite import Satellite
 import helpers as helpers
-from source7p import Calc_source
-from source7p import Source
+from source import Calc_source
+from source import Source
 
 def solve_AL(true_source,calc_source,observation_times):
     """
@@ -155,8 +155,8 @@ def calculated_field_angles(calc_source, attitude, sat, t, double_telescope=Fals
         * eta: along-scan field angle (== phi if double_telescope = False)
         * zeta: across-scan field angle
     """
-    alpha, delta, parallax, mu_alpha, mu_delta, g_alpha, g_delta, mu_radial= calc_source.source.get_parameters()
-    params = np.array([alpha, delta, parallax, mu_alpha, mu_delta, g_alpha, g_delta, mu_radial ])
+    #alpha, delta, parallax, mu_alpha, mu_delta, g_alpha, g_delta, mu_radial= calc_source.source.get_parameters()
+    #params = np.array([alpha, delta, parallax, mu_alpha, mu_delta, g_alpha, g_delta, mu_radial ])
 
     Cu = calc_source.compute_u(sat, t)  # u in CoMRS frame
     Su = ft.lmn_to_xyz(attitude, Cu)  # u in SRS frame

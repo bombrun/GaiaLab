@@ -193,4 +193,3 @@ class Scanner:
                              ' and call compute_angles_eta_zeta(sat, source)')
         return np.mean(self.eta_scanned)
 # End of file
-print ("ok")

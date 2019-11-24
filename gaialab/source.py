@@ -27,7 +27,7 @@ class Source:
     """
 
     def __init__(self, name, alpha0, delta0, parallax, mu_alpha, mu_delta, g_alpha, g_delta, mu_radial=0):
-
+        parameters = [alpha0, delta0, parallax, mu_alpha, mu_delta, g_alpha, g_delta, mu_radial=0]
         """
         The initial parameters of the source are given with this units of mesurement:
         :param alpha0: [deg] -Right ascension
@@ -125,7 +125,7 @@ class Source:
         t_B = t  # + r.transpose() @ b_G / const.c  # # TODO: replace t_B with its real value
         #tau=t_B-const.t_ep
         b_G = sat.ephemeris_bcrs(t)  # [Au]
-        topocentric = r + t * (p * self.mu_alpha_dx + q * self.mu_delta) + t**2/2 * (p * self.g_alpha + q * self.g_delta) #- b_G * const.Au_per_Au * self.parallax
+        topocentric = r + t * (p * self.mu_alpha_dx + q * self.mu_delta) + (t**2)/2 * (p * self.g_alpha + q * self.g_delta) - b_G * self.parallax /const.Au
         norm_topocentric = np.linalg.norm(topocentric)
 
         return topocentric / norm_topocentric

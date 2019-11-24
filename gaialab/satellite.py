@@ -18,23 +18,6 @@ import frame_transformations as ft
 import quaternion
 
 
-def gaia_orbit(t, epsilon):
-    """
-    :param t: time at which we want the position
-    :param epsilon: obiquity of equator
-    :returns: the gaia position at time **t**, assuming it is a circle around
-     the sun tilted by epsilon:
-    """
-    orbital_radius = 1  # [AU]
-    orbital_period = const.days_per_year
-    revolving_angle = 2*np.pi/orbital_period*t
-
-    b_x_bcrs = orbital_radius*np.cos(revolving_angle)*np.cos(epsilon)
-    b_y_bcrs = orbital_radius*np.sin(revolving_angle)*np.cos(epsilon)
-    b_z_bcrs = orbital_radius*np.sin(revolving_angle)*np.sin(epsilon)
-    return np.array([b_x_bcrs, b_y_bcrs, b_z_bcrs])
-
-
 class Satellite:
     """
     | Class Object, that represents a satellite, e.g. Gaia.
@@ -115,7 +98,15 @@ class Satellite:
         :param t: float [days]
         :return: [np.array] 3D [AU] BCRS position-vector of the satellite
         """
-        bcrs_ephemeris_satellite = gaia_orbit(t, self.epsilon)
+        orbital_radius = 1  # [AU]
+        orbital_period = const.days_per_year
+        revolving_angle = 2*np.pi/orbital_period*t
+
+        b_x_bcrs = orbital_radius*np.cos(revolving_angle)*np.cos(self.epsilon)
+        b_y_bcrs = orbital_radius*np.sin(revolving_angle)*np.cos(self.epsilon)
+        b_z_bcrs = orbital_radius*np.sin(revolving_angle)*np.sin(self.epsilon)
+        bcrs_ephemeris_satellite = np.array([b_x_bcrs, b_y_bcrs, b_z_bcrs])
+
         return bcrs_ephemeris_satellite
 
     def __init_state(self):
