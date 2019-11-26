@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Scanner class implementation in Python
 

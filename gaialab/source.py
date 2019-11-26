@@ -5,6 +5,7 @@ Source class implementation in Python
 
 :Authors: mdelvallevaro
           LucaZampier (modifications)
+          MaraBucur(modifications)
 """
 
 # # Imports
@@ -17,6 +18,7 @@ import frame_transformations as ft
 from satellite import Satellite
 import quaternion
 
+
 class Source:
     """
     | Source class implemented to represent a source object in the sky
@@ -27,7 +29,7 @@ class Source:
     """
 
     def __init__(self, name, alpha0, delta0, parallax, mu_alpha, mu_delta, g_alpha, g_delta, mu_radial=0):
-        parameters = [alpha0, delta0, parallax, mu_alpha, mu_delta, g_alpha, g_delta, mu_radial=0]
+        #parameters = [alpha0, delta0, parallax, mu_alpha, mu_delta, g_alpha, g_delta, mu_radial=0]
         """
         The initial parameters of the source are given with this units of mesurement:
         :param alpha0: [deg] -Right ascension
