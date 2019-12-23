@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Source class implementation in Python
 
@@ -116,7 +115,7 @@ class Source:
 
     def compute_u(self, sat, t):
         """
-        Compute the topocentric_function direction
+        Compute the topocentric direction
 
         :param satellite: satellite [class object]
         :return: [array] (x,y,z) direction-vector of the star from the satellite's lmn frame.
@@ -244,27 +243,3 @@ class Calc_source:
     def set_params(self, params):
         self.s_params = params
         self.s_old = [self.s_params]
-
-
-def calculated_field_angles(calc_source, attitude, sat, t, double_telescope=False):
-    """
-    | Ref. Paper [LUDW2011]_ eq. [12]-[13]
-    | Return field angles according to Lindegren eq. 12. See :meth:`compute_field_angles`
-
-    :param source: [Calc_source]
-    :param attitude: [quaternion] attitude at time t
-    :param sat: [Satellite]
-    :param t: [float] time at which we want the angles
-    :param double_telescope: [bool] If true, uses the model with two telescopes
-    :returns:
-        * eta: along-scan field angle (== phi if double_telescope = False)
-        * zeta: across-scan field angle
-    """
-    alpha, delta, parallax, mu_alpha, mu_delta, g_alpha, g_delta= calc_source.source.get_parameters()
-    params = np.array([alpha, delta, parallax, mu_alpha, mu_delta, g_alpha, g_delta ])
-
-    Cu = calc_source.compute_u(sat, t)  # u in CoMRS frame
-    Su = ft.lmn_to_xyz(attitude, Cu)  # u in SRS frame
-
-    eta, zeta = compute_field_angles(Su, double_telescope)
-    return eta, zeta

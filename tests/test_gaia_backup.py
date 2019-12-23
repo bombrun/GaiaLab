@@ -1,12 +1,7 @@
-import os
-import sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-
-from gaialab.source import Source
-from gaialab.satellite import Satellite
-from gaialab.scanner import Scanner
-import gaialab.helpers as helpers
+from source import Source
+from satellite import Satellite
+from scanner import Scanner
+importhelpers as helpers
 from gaialab.agis import Calc_source
 from gaialab.agis import Agis
 import gaialab.frame_transformations as ft

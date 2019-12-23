@@ -150,8 +150,8 @@ class Scanner:
                 # print(t)
                 phi_a, zeta_a = (phi_b, zeta_b)
             else:
-                phi_a, zeta_a = observed_field_angles(source, sat.func_attitude(t), sat, t, double_telescope=False)
-            phi_b, zeta_b = observed_field_angles(source, sat.func_attitude(t+time_step), sat, t+time_step,
+                phi_a, zeta_a = field_angles(source, sat.func_attitude(t), sat, t, double_telescope=False)
+            phi_b, zeta_b = field_angles(source, sat.func_attitude(t+time_step), sat, t+time_step,
                                                   double_telescope=False)
 
             for FoV in self.FoVs:
@@ -177,7 +177,7 @@ class Scanner:
         Compute angles and remove 'illegal' observations (:math:`|zeta| > zeta_lim`)
         """
         for t in self.obs_times:
-            eta, zeta = observed_field_angles(source, sat.func_attitude(t), sat, t, self.double_telescope)
+            eta, zeta = field_angles(source, sat.func_attitude(t), sat, t, self.double_telescope)
             if np.abs(zeta) >= self.zeta_limit:
                 continue
             self.eta_scanned.append(eta)

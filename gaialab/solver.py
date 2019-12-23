@@ -51,8 +51,8 @@ def compute_design_equation(true_source,calc_source,gaia,observation_times):
         # fake attitude using the position of the true sources at the given time
         # i.e. not based on the nominal scanning law
         q_l = attitude_from_alpha_delta(true_source,gaia,t_l,0)
-        phi_obs, zeta_obs = observed_field_angles(true_source, q_l,  gaia, t_l, False)
-        phi_calc, zeta_calc = calculated_field_angles(calc_source, q_l, gaia, t_l, False)
+        phi_obs, zeta_obs = field_angles(true_source, q_l,  gaia, t_l, False)
+        phi_calc, zeta_calc =field_angles(calc_source, q_l, gaia, t_l, False)
 
         FA.append([phi_obs, zeta_obs,phi_calc, zeta_calc])
 
@@ -142,7 +142,7 @@ def compute_mnu(phi, zeta):
     return np.array([m_l, n_l, u_l])
 
 
-def calculated_field_angles(calc_source, attitude, sat, t, double_telescope=False):
+def field_angles(calc_source, attitude, sat, t, double_telescope=False):
     """
     | Ref. Paper [LUDW2011]_ eq. [12]-[13]
     | Return field angles according to Lindegren eq. 12. See :meth:`compute_field_angles`
@@ -162,25 +162,5 @@ def calculated_field_angles(calc_source, attitude, sat, t, double_telescope=Fals
     Cu = calc_source.compute_u(sat, t)  # u in CoMRS frame
     Su = ft.lmn_to_xyz(attitude, Cu)  # u in SRS frame
 
-    eta, zeta = compute_field_angles(Su, double_telescope)
-    return eta, zeta
-
-def observed_field_angles(source, attitude, sat, t, double_telescope=False):
-    """
-    | Ref. Paper [LUDW2011]_ eq. [12]-[13]
-    | Return field angles according to Lindegren eq. 12. See :meth:`compute_field_angles`
-
-    :param source: [Source]
-    :param attitude: [quaternion] attitude at time t
-    :param sat: [Satellite]
-    :param t: [float] time at which we want the angles
-    :param double_telescope: [bool] If true, uses the model with two telescopes
-    :returns:
-        * eta: along-scan field angle (== phi if double_telescope = False)
-        * zeta: across-scan field angle
-    """
-    Cu = source.compute_u(sat, t)  # u in CoMRS frame
-    Su = ft.lmn_to_xyz(attitude, Cu)
-    # if double_telescope is False, it will return (phi, zeta)
     eta, zeta = compute_field_angles(Su, double_telescope)
     return eta, zeta
